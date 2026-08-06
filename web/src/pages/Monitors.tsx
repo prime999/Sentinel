@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Monitor } from '../api'
+import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import MetricCard from '../components/MetricCard'
 import StatusBadge from '../components/StatusBadge'
@@ -12,14 +13,14 @@ export default function Monitors() {
   const { isAdmin, isPlatformAdmin } = useAuth()
   const [monitors, setMonitors] = useState<Monitor[]>([])
   const [tagFilter, setTagFilter] = useState('')
-  const [customerFilter, setCustomerFilter] = useState('')
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
 
   async function load() {
     try {
-      setMonitors(await api.monitors({ tag: tagFilter || undefined, customer: customerFilter || undefined }))
+      setMonitors(await api.monitors({ tag: tagFilter || undefined }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load')
     }
@@ -34,12 +35,13 @@ export default function Monitors() {
     load()
     const id = setInterval(load, 30000)
     return () => clearInterval(id)
-  }, [tagFilter, customerFilter])
+  }, [tagFilter])
 
   const allTags = [...new Set(monitors.flatMap(m => m.tags || []))].sort()
+  const customerScoped = monitors.filter(m => matchesCustomerFilter(m.tenant_id, selectedCustomers))
   const q = search.trim().toLowerCase()
   const filtered = q
-    ? monitors.filter(m => {
+    ? customerScoped.filter(m => {
         const hay = [
           m.name,
           m.url,
@@ -49,7 +51,7 @@ export default function Monitors() {
         ].join(' ').toLowerCase()
         return hay.includes(q)
       })
-    : monitors
+    : customerScoped
 
   const up = filtered.filter(m => m.last_status === 'up').length
   const down = filtered.filter(m => m.last_status === 'down').length
@@ -66,7 +68,16 @@ export default function Monitors() {
               : `${filtered.length} of ${monitors.length} monitors`}
           </p>
         </div>
-        {isAdmin && <Link to="/monitors/new" className="btn btn-primary">+ Add Monitor</Link>}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {isPlatformAdmin && customers.length > 0 && (
+            <CustomerFilter
+              customers={customers}
+              selectedIds={selectedCustomers}
+              onChange={setSelectedCustomers}
+            />
+          )}
+          {isAdmin && <Link to="/monitors/new" className="btn btn-primary">+ Add Monitor</Link>}
+        </div>
       </div>
 
       {(monitors.length > 0 || search) && (
@@ -78,18 +89,6 @@ export default function Monitors() {
             placeholder="Search by name, URL, type, or tag…"
             style={styles.searchInput}
           />
-        </div>
-      )}
-
-      {isPlatformAdmin && customers.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: colors.textMuted, fontWeight: 600 }}>Customer:</span>
-          <button type="button" className="btn" style={{ fontSize: 13, ...(customerFilter === '' ? { background: colors.bgElevated } : {}) }}
-            onClick={() => setCustomerFilter('')}>All</button>
-          {customers.map(c => (
-            <button key={c.id} type="button" className="btn" style={{ fontSize: 13, ...(customerFilter === c.id ? { background: colors.bgElevated } : {}) }}
-              onClick={() => setCustomerFilter(c.id)}>{c.name}</button>
-          ))}
         </div>
       )}
 
@@ -125,7 +124,11 @@ export default function Monitors() {
       ) : filtered.length === 0 ? (
         <div style={styles.empty}>
           <div style={{ fontWeight: 600, marginBottom: 8 }}>No matches</div>
-          <div style={{ color: colors.textMuted }}>No monitors match “{search.trim()}”.</div>
+          <div style={{ color: colors.textMuted }}>
+            {search.trim()
+              ? `No monitors match “${search.trim()}”.`
+              : 'No monitors for the selected customers.'}
+          </div>
         </div>
       ) : (
         <div style={styles.grid}>
