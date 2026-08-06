@@ -1,0 +1,214 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"github.com/sentinel-monitoring/sentinel/internal/models"
+)
+
+func (s *Server) handleListPerformanceTargets(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	customerFilter := strings.TrimSpace(r.URL.Query().Get("customer"))
+	var targets []models.PerformanceTargetListItem
+	var err error
+	if isPlatformAdmin(user) {
+		if customerFilter != "" {
+			targets, err = s.store.ListPerformanceTargetsByTenant(customerFilter)
+		} else {
+			targets, err = s.store.ListPerformanceTargets()
+		}
+	} else if user.TenantID != "" {
+		targets, err = s.store.ListPerformanceTargetsByTenant(user.TenantID)
+	} else {
+		targets = []models.PerformanceTargetListItem{}
+	}
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if targets == nil {
+		targets = []models.PerformanceTargetListItem{}
+	}
+	for i := range targets {
+		redactPerformanceTarget(&targets[i].PerformanceTarget, user)
+	}
+	jsonOK(w, targets)
+}
+
+func (s *Server) handleGetPerformanceTarget(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	id := r.PathValue("id")
+	t, err := s.store.GetPerformanceTarget(id)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if t == nil || !canAccessTenant(user, t.TenantID) || (!isPlatformAdmin(user) && t.TenantID == "") {
+		jsonError(w, http.StatusNotFound, "not found")
+		return
+	}
+	redactPerformanceTarget(t, user)
+	jsonOK(w, t)
+}
+
+func (s *Server) handleCreatePerformanceTarget(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	var t models.PerformanceTarget
+	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if t.Name == "" || t.URL == "" {
+		jsonError(w, http.StatusBadRequest, "name and url required")
+		return
+	}
+	if isCustomerAdmin(user) {
+		t.TenantID = user.TenantID
+	} else if isPlatformAdmin(user) {
+		t.TenantID = strings.TrimSpace(t.TenantID)
+	} else {
+		jsonError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if err := s.store.CreatePerformanceTarget(&t); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	jsonOK(w, t)
+}
+
+func (s *Server) handleUpdatePerformanceTarget(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	id := r.PathValue("id")
+	existing, err := s.store.GetPerformanceTarget(id)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing == nil {
+		jsonError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if isCustomerAdmin(user) {
+		if existing.TenantID != user.TenantID {
+			jsonError(w, http.StatusNotFound, "not found")
+			return
+		}
+	} else if !isPlatformAdmin(user) {
+		jsonError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	var input models.PerformanceTarget
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	existing.Name = input.Name
+	existing.URL = input.URL
+	if input.Method != "" {
+		existing.Method = input.Method
+	}
+	if input.IntervalSeconds > 0 {
+		existing.IntervalSeconds = input.IntervalSeconds
+	}
+	if input.TimeoutMs > 0 {
+		existing.TimeoutMs = input.TimeoutMs
+	}
+	if input.SlowThresholdMs > 0 {
+		existing.SlowThresholdMs = input.SlowThresholdMs
+	}
+	existing.FollowRedirects = input.FollowRedirects
+	existing.Enabled = input.Enabled
+	existing.AlertEmails = input.AlertEmails
+	if isCustomerAdmin(user) {
+		existing.TenantID = user.TenantID
+	} else {
+		existing.TenantID = strings.TrimSpace(input.TenantID)
+	}
+
+	if err := s.store.UpdatePerformanceTarget(existing); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	jsonOK(w, existing)
+}
+
+func (s *Server) handleDeletePerformanceTarget(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	id := r.PathValue("id")
+	existing, err := s.store.GetPerformanceTarget(id)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if existing == nil {
+		jsonError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if isCustomerAdmin(user) {
+		if existing.TenantID != user.TenantID {
+			jsonError(w, http.StatusNotFound, "not found")
+			return
+		}
+	} else if !isPlatformAdmin(user) {
+		jsonError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	if err := s.store.DeletePerformanceTarget(id); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleListPerformanceResults(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	id := r.PathValue("id")
+	t, err := s.store.GetPerformanceTarget(id)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if t == nil || !canAccessTenant(user, t.TenantID) || (!isPlatformAdmin(user) && t.TenantID == "") {
+		jsonError(w, http.StatusNotFound, "not found")
+		return
+	}
+	limit := queryInt(r, "limit", 50)
+	offset := queryInt(r, "offset", 0)
+	results, err := s.store.ListPerformanceResults(id, limit, offset)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if results == nil {
+		results = []models.PerformanceResult{}
+	}
+	jsonOK(w, results)
+}
+
+func (s *Server) handleGetPerformanceStats(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	id := r.PathValue("id")
+	t, err := s.store.GetPerformanceTarget(id)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if t == nil || !canAccessTenant(user, t.TenantID) || (!isPlatformAdmin(user) && t.TenantID == "") {
+		jsonError(w, http.StatusNotFound, "not found")
+		return
+	}
+	period := r.URL.Query().Get("period")
+	since := periodSince(period)
+	stats, err := s.store.GetPerformanceTargetStats(id, since)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	jsonOK(w, stats)
+}

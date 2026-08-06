@@ -1,0 +1,12 @@
+services:
+  sentinel:
+    build: .
+    ports:
+      - "8082:8082"
+    volumes:
+      - sentinel-data:/var/lib/sentinel
+      - ./config.example.yaml:/etc/sentinel/config.yaml:ro
+    restart: unless-stopped
+
+volumes:
+  sentinel-data:

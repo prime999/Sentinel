@@ -1,0 +1,98 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import AdminRoute from './components/AdminRoute'
+import Layout from './components/Layout'
+import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
+import Monitors from './pages/Monitors'
+import Performance from './pages/Performance'
+import PerformanceDetail from './pages/PerformanceDetail'
+import PerformanceForm from './pages/PerformanceForm'
+import MonitorDetail from './pages/MonitorDetail'
+import MonitorForm from './pages/MonitorForm'
+import SettingsLayout from './pages/settings/SettingsLayout'
+import SettingsGeneral from './pages/settings/SettingsGeneral'
+import SettingsSMTP from './pages/settings/SettingsSMTP'
+import SettingsTeam from './pages/settings/SettingsTeam'
+import SettingsWebhooks from './pages/settings/SettingsWebhooks'
+import SettingsMaintenance from './pages/settings/SettingsMaintenance'
+import SettingsServer from './pages/settings/SettingsServer'
+import SettingsStatusPage from './pages/settings/SettingsStatusPage'
+import SettingsTokens from './pages/settings/SettingsTokens'
+import SettingsAudit from './pages/settings/SettingsAudit'
+import SettingsCustomers from './pages/settings/SettingsCustomers'
+import Incidents from './pages/Incidents'
+import StatusPage from './pages/StatusPage'
+import Profile from './pages/Profile'
+import { api, Profile as AuthProfile } from './api'
+import { AuthProvider } from './context/AuthContext'
+import { colors } from './theme'
+
+export default function App() {
+  const [user, setUser] = useState<AuthProfile | null>(null)
+  const [authed, setAuthed] = useState<boolean | null>(null)
+
+  const refreshUser = useCallback(async () => {
+    const profile = await api.getProfile()
+    setUser(profile)
+    setAuthed(true)
+  }, [])
+
+  useEffect(() => {
+    api.getProfile()
+      .then(profile => { setUser(profile); setAuthed(true) })
+      .catch(() => setAuthed(false))
+  }, [])
+
+  if (authed === null) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', color: colors.textMuted, minHeight: '100vh', background: colors.bg, display: 'grid', placeItems: 'center' }}>
+        Loading…
+      </div>
+    )
+  }
+
+  if (!authed) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login onLogin={refreshUser} />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/status" element={<StatusPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    )
+  }
+
+  return (
+    <AuthProvider user={user} refresh={refreshUser}>
+      <Layout onLogout={async () => { await api.logout(); setUser(null); setAuthed(false) }}>
+        <Routes>
+          <Route path="/" element={<Monitors />} />
+          <Route path="/incidents" element={<Incidents />} />
+          <Route path="/status" element={<StatusPage />} />
+          <Route path="/performance" element={<Performance />} />
+          <Route path="/performance/targets/new" element={<AdminRoute><PerformanceForm /></AdminRoute>} />
+          <Route path="/performance/targets/:id/edit" element={<AdminRoute><PerformanceForm /></AdminRoute>} />
+          <Route path="/performance/:id" element={<PerformanceDetail />} />
+          <Route path="/monitors/new" element={<AdminRoute><MonitorForm /></AdminRoute>} />
+          <Route path="/monitors/:id" element={<MonitorDetail />} />
+          <Route path="/monitors/:id/edit" element={<AdminRoute><MonitorForm /></AdminRoute>} />
+          <Route path="/settings" element={<AdminRoute><SettingsLayout /></AdminRoute>}>
+            <Route path="general" element={<SettingsGeneral />} />
+            <Route path="customers" element={<SettingsCustomers />} />
+            <Route path="smtp" element={<SettingsSMTP />} />
+            <Route path="team" element={<SettingsTeam />} />
+            <Route path="webhooks" element={<SettingsWebhooks />} />
+            <Route path="maintenance" element={<SettingsMaintenance />} />
+            <Route path="server" element={<SettingsServer />} />
+            <Route path="status-page" element={<SettingsStatusPage />} />
+            <Route path="tokens" element={<SettingsTokens />} />
+            <Route path="audit" element={<SettingsAudit />} />
+          </Route>
+          <Route path="/profile" element={<Profile />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
+    </AuthProvider>
+  )
+}

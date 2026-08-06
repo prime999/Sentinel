@@ -1,0 +1,94 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hexGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#2DD4BF"/>
+    </linearGradient>
+
+    <linearGradient id="blueArc" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+
+    <linearGradient id="greenArc" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22C55E"/>
+      <stop offset="100%" stop-color="#4ADE80"/>
+    </linearGradient>
+
+    <linearGradient id="yellowArc" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#FBBF24"/>
+    </linearGradient>
+
+    <linearGradient id="redArc" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EF4444"/>
+      <stop offset="100%" stop-color="#DC2626"/>
+    </linearGradient>
+
+    <linearGradient id="needle" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#2DD4BF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Hexagon -->
+  <polygon
+    points="256,40 432,144 432,368 256,472 80,368 80,144"
+    fill="none"
+    stroke="url(#hexGradient)"
+    stroke-width="18"
+    stroke-linejoin="round"/>
+
+  <!-- Blue Arc -->
+  <path
+    d="M160 240
+       A110 110 0 0 1 310 155"
+    fill="none"
+    stroke="url(#blueArc)"
+    stroke-width="32"
+    stroke-linecap="round"/>
+
+  <!-- Green Arc -->
+  <path
+    d="M215 260
+       A55 55 0 0 1 290 205"
+    fill="none"
+    stroke="url(#greenArc)"
+    stroke-width="24"
+    stroke-linecap="round"/>
+
+  <!-- Yellow Arc -->
+  <path
+    d="M160 280
+       A110 110 0 0 0 245 350"
+    fill="none"
+    stroke="url(#yellowArc)"
+    stroke-width="32"
+    stroke-linecap="round"/>
+
+  <!-- Red Arc -->
+  <path
+    d="M275 350
+       A110 110 0 0 0 365 255"
+    fill="none"
+    stroke="url(#redArc)"
+    stroke-width="32"
+    stroke-linecap="round"/>
+
+  <!-- Radar Needle -->
+  <line
+    x1="256"
+    y1="256"
+    x2="355"
+    y2="185"
+    stroke="url(#needle)"
+    stroke-width="18"
+    stroke-linecap="round"/>
+
+  <!-- Center Dot -->
+  <circle
+    cx="256"
+    cy="256"
+    r="28"
+    fill="#2DD4BF"/>
+</svg>

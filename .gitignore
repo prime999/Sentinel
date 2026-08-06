@@ -1,0 +1,11 @@
+bin/
+.tools/
+data/
+*.db
+*.db-*
+web/node_modules/
+web/dist/
+internal/ui/dist/*
+!internal/ui/dist/.gitkeep
+config.yaml
+.DS_Store

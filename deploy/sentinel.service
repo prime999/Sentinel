@@ -1,0 +1,20 @@
+[Unit]
+Description=Sentinel Website Monitoring
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sentinel
+Group=sentinel
+ExecStart=/usr/local/bin/sentinel -config /etc/sentinel/config.yaml
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sentinel
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

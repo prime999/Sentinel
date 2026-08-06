@@ -1,0 +1,306 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/sentinel-monitoring/sentinel/internal/config"
+	"github.com/sentinel-monitoring/sentinel/internal/models"
+)
+
+func (s *Server) handleListIncidents(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	openOnly := r.URL.Query().Get("open") == "1"
+	limit := queryInt(r, "limit", 100)
+	var items []models.IncidentListItem
+	var err error
+	if isPlatformAdmin(user) {
+		items, err = s.store.ListIncidents(limit, openOnly)
+	} else if user.TenantID != "" {
+		items, err = s.store.ListIncidentsByTenant(limit, openOnly, user.TenantID)
+	} else {
+		items = []models.IncidentListItem{}
+	}
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if items == nil {
+		items = []models.IncidentListItem{}
+	}
+	jsonOK(w, items)
+}
+
+func (s *Server) handleGetWebhooks(w http.ResponseWriter, r *http.Request) {
+	hooks, err := s.store.GetWebhooks()
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if hooks == nil {
+		hooks = []models.WebhookConfig{}
+	}
+	jsonOK(w, hooks)
+}
+
+func (s *Server) handlePutWebhooks(w http.ResponseWriter, r *http.Request) {
+	var hooks []models.WebhookConfig
+	if err := json.NewDecoder(r.Body).Decode(&hooks); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if err := s.store.SaveWebhooks(hooks); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = s.store.InsertAudit(currentUser(r).Username, "update", "webhooks", "")
+	jsonOK(w, hooks)
+}
+
+func (s *Server) handleListMaintenance(w http.ResponseWriter, r *http.Request) {
+	items, err := s.store.ListMaintenanceWindows()
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if items == nil {
+		items = []models.MaintenanceWindow{}
+	}
+	jsonOK(w, items)
+}
+
+func (s *Server) handleCreateMaintenance(w http.ResponseWriter, r *http.Request) {
+	var wnd models.MaintenanceWindow
+	if err := json.NewDecoder(r.Body).Decode(&wnd); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if wnd.Name == "" || wnd.EndsAt.Before(wnd.StartsAt) {
+		jsonError(w, http.StatusBadRequest, "invalid maintenance window")
+		return
+	}
+	if err := s.store.CreateMaintenanceWindow(&wnd); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = s.store.InsertAudit(currentUser(r).Username, "create", "maintenance", wnd.Name)
+	w.WriteHeader(http.StatusCreated)
+	jsonOK(w, wnd)
+}
+
+func (s *Server) handleDeleteMaintenance(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := s.store.DeleteMaintenanceWindow(id); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = s.store.InsertAudit(currentUser(r).Username, "delete", "maintenance", id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleGetServerSettings(w http.ResponseWriter, r *http.Request) {
+	cfg, err := s.store.GetServerSettings(s.serverFallback())
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	jsonOK(w, cfg)
+}
+
+func (s *Server) handlePutServerSettings(w http.ResponseWriter, r *http.Request) {
+	var cfg models.ServerSettings
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if err := s.store.SaveServerSettings(cfg); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = s.store.InsertAudit(currentUser(r).Username, "update", "server", "")
+	jsonOK(w, cfg)
+}
+
+func (s *Server) handleGetStatusPageConfig(w http.ResponseWriter, r *http.Request) {
+	cfg, err := s.store.GetStatusPageConfig()
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	jsonOK(w, cfg)
+}
+
+func (s *Server) handlePutStatusPageConfig(w http.ResponseWriter, r *http.Request) {
+	var cfg models.StatusPageConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if err := s.store.SaveStatusPageConfig(cfg); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = s.store.InsertAudit(currentUser(r).Username, "update", "status_page", "")
+	jsonOK(w, cfg)
+}
+
+func (s *Server) handlePublicStatus(w http.ResponseWriter, r *http.Request) {
+	cfg, err := s.store.GetStatusPageConfig()
+	if err != nil || !cfg.Enabled {
+		jsonError(w, http.StatusNotFound, "status page not available")
+		return
+	}
+	title := cfg.Title
+	if title == "" {
+		title = "System Status"
+	}
+
+	var monitors []models.PublicMonitorStatus
+	for _, id := range cfg.MonitorIDs {
+		m, err := s.store.GetMonitor(id)
+		if err != nil || m == nil {
+			continue
+		}
+		item := models.PublicMonitorStatus{
+			ID:     m.ID,
+			Name:   m.Name,
+			Type:   string(m.Type),
+			Status: string(m.LastStatus),
+		}
+		if m.LastCheckedAt != nil {
+			item.LastCheck = m.LastCheckedAt.UTC().Format(time.RFC3339)
+		}
+		if m.Type == models.MonitorHTTP || m.Type == models.MonitorSSL {
+			item.URL = m.URL
+		}
+		monitors = append(monitors, item)
+	}
+
+	jsonOK(w, models.PublicStatusResponse{Title: title, Monitors: monitors})
+}
+
+func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
+	limit := queryInt(r, "limit", 100)
+	items, err := s.store.ListAuditLog(limit)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if items == nil {
+		items = []models.AuditEntry{}
+	}
+	jsonOK(w, items)
+}
+
+func (s *Server) handleListAPITokens(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	tokens, err := s.store.ListAPITokens(user.ID)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if tokens == nil {
+		tokens = []models.APIToken{}
+	}
+	jsonOK(w, tokens)
+}
+
+type createTokenRequest struct {
+	Name string `json:"name"`
+}
+
+func (s *Server) handleCreateAPIToken(w http.ResponseWriter, r *http.Request) {
+	var req createTokenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		jsonError(w, http.StatusBadRequest, "name required")
+		return
+	}
+	token, err := randomToken(32)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "token error")
+		return
+	}
+	created, err := s.store.CreateAPIToken(currentUser(r).ID, req.Name, token)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	_ = s.store.InsertAudit(currentUser(r).Username, "create", "api_token", req.Name)
+	w.WriteHeader(http.StatusCreated)
+	jsonOK(w, created)
+}
+
+func (s *Server) handleDeleteAPIToken(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := s.store.DeleteAPIToken(id, currentUser(r).ID); err != nil {
+		jsonError(w, http.StatusNotFound, "token not found")
+		return
+	}
+	_ = s.store.InsertAudit(currentUser(r).Username, "delete", "api_token", id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+	m, err := s.store.GetMonitorByHeartbeatToken(token)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if m == nil || !m.Enabled {
+		jsonError(w, http.StatusNotFound, "not found")
+		return
+	}
+
+	now := time.Now().UTC()
+	result := &models.CheckResult{
+		MonitorID:      m.ID,
+		Status:         models.StatusUp,
+		ResponseTimeMs: 0,
+		CheckedAt:      now,
+	}
+	if err := s.store.InsertCheckResult(result); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	prevStatus := m.LastStatus
+	m.LastCheckedAt = &now
+	m.LastStatus = models.StatusUp
+	m.ConsecutiveFailures = 0
+	if err := s.store.UpdateMonitorState(m.ID, models.StatusUp, 0, now); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if prevStatus == models.StatusDown {
+		open, _ := s.store.GetOpenIncident(m.ID, models.IncidentDown)
+		if open != nil {
+			_ = s.store.ResolveIncident(open.ID, now)
+			_ = s.alerter.NotifyMonitor(m, "RECOVERY", "Heartbeat received", 0)
+		}
+	}
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) serverFallback() config.ServerConfig {
+	return config.ServerConfig{
+		DashboardURL:  s.dashboardURL,
+		RetentionDays: 90,
+		Workers:       10,
+	}
+}
+
+func parseTagsInput(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	var tags []string
+	for _, t := range strings.Split(raw, ",") {
+		t = strings.TrimSpace(t)
+		if t != "" {
+			tags = append(tags, t)
+		}
+	}
+	return tags
+}

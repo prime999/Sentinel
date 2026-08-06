@@ -1,0 +1,185 @@
+package store
+
+import (
+	"database/sql"
+	"time"
+
+	"github.com/sentinel-monitoring/sentinel/internal/models"
+)
+
+const perfTargetColumns = `id, name, url, method, interval_seconds, timeout_ms, slow_threshold_ms,
+follow_redirects, enabled, alert_emails, tenant_id, last_status, last_checked_at, created_at, updated_at`
+
+func (s *Store) ListPerformanceTargets() ([]models.PerformanceTargetListItem, error) {
+	return s.listPerformanceTargetsQuery("")
+}
+
+func (s *Store) ListPerformanceTargetsByTenant(tenantID string) ([]models.PerformanceTargetListItem, error) {
+	if tenantID == "" {
+		return []models.PerformanceTargetListItem{}, nil
+	}
+	return s.listPerformanceTargetsQuery(tenantID)
+}
+
+func (s *Store) listPerformanceTargetsQuery(tenantID string) ([]models.PerformanceTargetListItem, error) {
+	q := `
+		SELECT ` + perfTargetColumns + `,
+			(SELECT response_time_ms FROM performance_results pr
+			 WHERE pr.target_id = performance_targets.id ORDER BY checked_at DESC LIMIT 1) AS latest_rt
+		FROM performance_targets`
+	var args []any
+	if tenantID != "" {
+		q += ` WHERE tenant_id = ?`
+		args = append(args, tenantID)
+	}
+	q += ` ORDER BY name ASC`
+
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.PerformanceTargetListItem
+	for rows.Next() {
+		t, latest, err := scanPerformanceTargetRow(rows, true)
+		if err != nil {
+			return nil, err
+		}
+		item := models.PerformanceTargetListItem{PerformanceTarget: *t}
+		if latest.Valid {
+			v := int(latest.Int64)
+			item.LatestResponseTimeMs = &v
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) ListEnabledPerformanceTargets() ([]models.PerformanceTarget, error) {
+	rows, err := s.db.Query(`
+		SELECT ` + perfTargetColumns + ` FROM performance_targets WHERE enabled = 1 ORDER BY name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var targets []models.PerformanceTarget
+	for rows.Next() {
+		t, _, err := scanPerformanceTargetRow(rows, false)
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, *t)
+	}
+	return targets, rows.Err()
+}
+
+func (s *Store) GetPerformanceTarget(id string) (*models.PerformanceTarget, error) {
+	row := s.db.QueryRow(`SELECT `+perfTargetColumns+` FROM performance_targets WHERE id = ?`, id)
+	t, _, err := scanPerformanceTargetRow(row, false)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return t, err
+}
+
+func (s *Store) CreatePerformanceTarget(t *models.PerformanceTarget) error {
+	now := time.Now().UTC()
+	t.ID = newID()
+	t.CreatedAt = now
+	t.UpdatedAt = now
+	if t.Method == "" {
+		t.Method = "GET"
+	}
+	if t.IntervalSeconds == 0 {
+		t.IntervalSeconds = 300
+	}
+	if t.TimeoutMs == 0 {
+		t.TimeoutMs = 10000
+	}
+	if t.SlowThresholdMs == 0 {
+		t.SlowThresholdMs = 3000
+	}
+	t.Enabled = true
+	t.LastStatus = models.StatusUnknown
+
+	_, err := s.db.Exec(`
+		INSERT INTO performance_targets (`+perfTargetColumns+`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.ID, t.Name, t.URL, t.Method, t.IntervalSeconds, t.TimeoutMs, t.SlowThresholdMs,
+		boolToInt(t.FollowRedirects), boolToInt(t.Enabled), t.AlertEmails, nullString(t.TenantID),
+		string(t.LastStatus), nil, formatTime(t.CreatedAt), formatTime(t.UpdatedAt),
+	)
+	return err
+}
+
+func (s *Store) UpdatePerformanceTarget(t *models.PerformanceTarget) error {
+	t.UpdatedAt = time.Now().UTC()
+	var lastChecked any
+	if t.LastCheckedAt != nil {
+		lastChecked = formatTime(*t.LastCheckedAt)
+	}
+	_, err := s.db.Exec(`
+		UPDATE performance_targets SET
+			name=?, url=?, method=?, interval_seconds=?, timeout_ms=?, slow_threshold_ms=?,
+			follow_redirects=?, enabled=?, alert_emails=?, tenant_id=?, last_status=?, last_checked_at=?, updated_at=?
+		WHERE id=?`,
+		t.Name, t.URL, t.Method, t.IntervalSeconds, t.TimeoutMs, t.SlowThresholdMs,
+		boolToInt(t.FollowRedirects), boolToInt(t.Enabled), t.AlertEmails, nullString(t.TenantID),
+		string(t.LastStatus), lastChecked, formatTime(t.UpdatedAt), t.ID,
+	)
+	return err
+}
+
+func (s *Store) DeletePerformanceTarget(id string) error {
+	_, err := s.db.Exec(`DELETE FROM performance_targets WHERE id = ?`, id)
+	return err
+}
+
+func (s *Store) UpdatePerformanceTargetAfterCheck(id string, status models.MonitorStatus, checkedAt time.Time) error {
+	_, err := s.db.Exec(`
+		UPDATE performance_targets SET last_status=?, last_checked_at=?, updated_at=? WHERE id=?`,
+		string(status), formatTime(checkedAt), formatTime(time.Now().UTC()), id,
+	)
+	return err
+}
+
+func scanPerformanceTargetRow(row interface {
+	Scan(dest ...any) error
+}, withLatest bool) (*models.PerformanceTarget, sql.NullInt64, error) {
+	var t models.PerformanceTarget
+	var lastStatus string
+	var followRedirects, enabled int
+	var alertEmails, tenantID, lastCheckedAt, createdAt, updatedAt sql.NullString
+	var latestRT sql.NullInt64
+
+	dest := []any{
+		&t.ID, &t.Name, &t.URL, &t.Method, &t.IntervalSeconds, &t.TimeoutMs, &t.SlowThresholdMs,
+		&followRedirects, &enabled, &alertEmails, &tenantID, &lastStatus, &lastCheckedAt, &createdAt, &updatedAt,
+	}
+	if withLatest {
+		dest = append(dest, &latestRT)
+	}
+
+	if err := row.Scan(dest...); err != nil {
+		return nil, latestRT, err
+	}
+
+	t.FollowRedirects = intToBool(followRedirects)
+	t.Enabled = intToBool(enabled)
+	t.AlertEmails = nullableString(alertEmails)
+	t.TenantID = nullableString(tenantID)
+	t.LastStatus = models.MonitorStatus(lastStatus)
+	if t.LastStatus == models.StatusDown {
+		t.LastStatus = models.StatusDegraded
+	}
+	t.LastCheckedAt = nullableTime(lastCheckedAt)
+	if ct, err := parseTime(nullableString(createdAt)); err == nil {
+		t.CreatedAt = ct
+	}
+	if ut, err := parseTime(nullableString(updatedAt)); err == nil {
+		t.UpdatedAt = ut
+	}
+	return &t, latestRT, nil
+}
