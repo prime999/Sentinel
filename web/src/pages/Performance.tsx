@@ -4,6 +4,7 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api, FleetPerformance, PerformanceHealth, PerformanceTarget, ServicePerformance } from '../api'
+import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import { useAuth } from '../context/AuthContext'
 import MetricCard from '../components/MetricCard'
 import { colors } from '../theme'
@@ -28,7 +29,7 @@ export default function Performance() {
   const [summary, setSummary] = useState<FleetPerformance | null>(null)
   const [period, setPeriod] = useState('24h')
   const [search, setSearch] = useState('')
-  const [customerFilter, setCustomerFilter] = useState('')
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
   const [error, setError] = useState('')
 
@@ -39,17 +40,20 @@ export default function Performance() {
 
   useEffect(() => {
     Promise.all([
-      api.performanceTargets(customerFilter || undefined).then(setTargets),
-      api.performance(period, customerFilter || undefined).then(setSummary),
+      api.performanceTargets().then(setTargets),
+      api.performance(period).then(setSummary),
     ]).catch(err => setError(err instanceof Error ? err.message : 'Failed to load'))
-  }, [period, customerFilter])
+  }, [period])
 
+  const scopedTargets = targets.filter(t => matchesCustomerFilter(t.tenant_id, selectedCustomers))
   const q = search.trim().toLowerCase()
   const filteredTargets = q
-    ? targets.filter(t => `${t.name} ${t.url}`.toLowerCase().includes(q))
-    : targets
+    ? scopedTargets.filter(t => `${t.name} ${t.url}`.toLowerCase().includes(q))
+    : scopedTargets
 
+  const targetIds = new Set(scopedTargets.map(t => t.id))
   const services = (summary?.services || []).filter(s => {
+    if (!targetIds.has(s.service_id) && selectedCustomers.length > 0) return false
     if (!q) return true
     return `${s.name} ${s.target}`.toLowerCase().includes(q)
   })
@@ -78,7 +82,14 @@ export default function Performance() {
               : `${filteredTargets.length} of ${targets.length} targets`}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {isPlatformAdmin && customers.length > 0 && (
+            <CustomerFilter
+              customers={customers}
+              selectedIds={selectedCustomers}
+              onChange={setSelectedCustomers}
+            />
+          )}
           <select value={period} onChange={e => setPeriod(e.target.value)} className="input" style={{ width: 'auto', padding: '8px 14px' }}>
             <option value="24h">Last 24 hours</option>
             <option value="7d">Last 7 days</option>
@@ -87,18 +98,6 @@ export default function Performance() {
           {isAdmin && <Link to="/performance/targets/new" className="btn btn-primary">+ Add Target</Link>}
         </div>
       </div>
-
-      {isPlatformAdmin && customers.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: colors.textMuted, fontWeight: 600 }}>Customer:</span>
-          <button type="button" className="btn" style={{ fontSize: 13, ...(customerFilter === '' ? { background: colors.bgElevated } : {}) }}
-            onClick={() => setCustomerFilter('')}>All</button>
-          {customers.map(c => (
-            <button key={c.id} type="button" className="btn" style={{ fontSize: 13, ...(customerFilter === c.id ? { background: colors.bgElevated } : {}) }}
-              onClick={() => setCustomerFilter(c.id)}>{c.name}</button>
-          ))}
-        </div>
-      )}
 
       {error && <div style={styles.error}>{error}</div>}
 
@@ -127,7 +126,11 @@ export default function Performance() {
           {filteredTargets.length === 0 ? (
             <div style={styles.empty}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>No matches</div>
-              <div style={{ color: colors.textMuted }}>No targets match “{search.trim()}”.</div>
+              <div style={{ color: colors.textMuted }}>
+                {search.trim()
+                  ? `No targets match “${search.trim()}”.`
+                  : 'No targets for the selected customers.'}
+              </div>
             </div>
           ) : (
             <div style={styles.targetGrid}>
@@ -151,7 +154,7 @@ export default function Performance() {
             </div>
           )}
 
-          {summary && summary.total_checks > 0 && !q && (
+          {summary && summary.total_checks > 0 && !q && selectedCustomers.length === 0 && (
             <>
               <div className="grid-4" style={{ marginBottom: 28 }}>
                 <MetricCard label="Fleet P95" value={`${summary.p95_ms} ms`} accent="blue" />
