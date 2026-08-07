@@ -45,7 +45,7 @@ export default function SettingsTeam() {
       setPassword('')
       setRole('viewer')
       setTenantId('')
-      setMessage('Team member added')
+      setMessage('User added')
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add member')
@@ -77,12 +77,12 @@ export default function SettingsTeam() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Remove this team member?')) return
+    if (!confirm('Remove this user?')) return
     setError('')
     setMessage('')
     try {
       await api.deleteTeamMember(id)
-      setMessage('Member removed')
+      setMessage('User removed')
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
@@ -98,13 +98,20 @@ export default function SettingsTeam() {
   const viewerRoleLabel = 'User - Read Only Access'
 
   return (
-    <>
+    <div className="page">
+      <h1 className="page-title">Users</h1>
+      <p className="page-subtitle">
+        {isPlatformAdmin
+          ? 'Manage platform and customer users.'
+          : 'Manage users for your customer account.'}
+      </p>
+
       {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error}>{error}</div>}
 
       <div style={styles.grid}>
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Team Members</h3>
+          <h3 style={styles.cardTitle}>All users</h3>
           <p style={{ color: colors.textMuted, fontSize: 14, margin: '0 0 20px' }}>
             {isPlatformAdmin
               ? 'Platform admins have full access. Assign a customer for customer admins and users.'
@@ -112,7 +119,7 @@ export default function SettingsTeam() {
           </p>
 
           {members.length === 0 ? (
-            <p style={{ color: colors.textMuted }}>No team members yet.</p>
+            <p style={{ color: colors.textMuted }}>No users yet.</p>
           ) : (
             <div style={styles.table}>
               <div style={{ ...styles.tableHead, gridTemplateColumns: isPlatformAdmin ? '1fr minmax(180px, auto) minmax(160px, auto) 100px' : '1fr minmax(220px, auto) 100px' }}>
@@ -169,16 +176,42 @@ export default function SettingsTeam() {
           )}
         </div>
 
-        <form onSubmit={handleAdd} style={styles.card}>
-          <h3 style={styles.cardTitle}>Add Member</h3>
+        <form onSubmit={handleAdd} style={styles.card} autoComplete="off">
+          <h3 style={styles.cardTitle}>Add user</h3>
           <Field label="Username">
-            <input className="input" value={username} onChange={e => setUsername(e.target.value)} required />
+            <input
+              className="input"
+              name="sentinel-new-username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              required
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
           </Field>
           <Field label="Email (optional)">
-            <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="For password reset" />
+            <input
+              className="input"
+              type="email"
+              name="sentinel-new-email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="For password reset"
+              autoComplete="off"
+            />
           </Field>
           <Field label="Password">
-            <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+            <input
+              className="input"
+              type="password"
+              name="sentinel-new-password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete="new-password"
+            />
             <p style={{ color: colors.textMuted, fontSize: 12, margin: '6px 0 0' }}>
               At least 8 characters, with a letter and a number.
             </p>
@@ -199,10 +232,10 @@ export default function SettingsTeam() {
               </select>
             </Field>
           )}
-          <button type="submit" className="btn btn-primary" style={{ marginTop: 8 }}>Add Member</button>
+          <button type="submit" className="btn btn-primary" style={{ marginTop: 8 }}>Add user</button>
         </form>
       </div>
-    </>
+    </div>
   )
 }
 

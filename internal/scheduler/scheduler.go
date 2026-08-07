@@ -183,7 +183,11 @@ func (sch *Scheduler) runPerformanceCheck(ctx context.Context, t *models.Perform
 }
 
 func (sch *Scheduler) prune() {
-	before := time.Now().AddDate(0, 0, -sch.retention)
+	days := sch.retention
+	if days < 30 {
+		days = 30
+	}
+	before := time.Now().AddDate(0, 0, -days)
 	n, err := sch.store.PruneOldResults(before)
 	if err != nil {
 		log.Printf("scheduler: prune: %v", err)

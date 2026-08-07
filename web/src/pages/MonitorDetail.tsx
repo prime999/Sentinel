@@ -26,11 +26,11 @@ export default function MonitorDetail() {
     if (!id) return null
     const [m, r, s] = await Promise.all([
       api.getMonitor(id),
-      api.results(id),
+      api.results(id, { limit: 10, offset: 0 }),
       api.stats(id, periodRef.current),
     ])
     setMonitor(m)
-    setResults(r)
+    setResults(r.items)
     setStats(s)
     return m
   }, [id])
@@ -119,7 +119,7 @@ export default function MonitorDetail() {
         <SidePanel monitor={monitor} latest={latest} results={results} onCheckDue={() => refreshRef.current?.()} />
       </div>
 
-      <HistoryTable monitor={monitor} results={results} />
+      <HistoryTable monitor={monitor} />
     </div>
   )
 }
@@ -359,11 +359,51 @@ function Empty() {
   return <div style={{ color: colors.textMuted, fontSize: 13 }}>Waiting for check data…</div>
 }
 
-function HistoryTable({ monitor, results }: { monitor: Monitor; results: CheckResult[] }) {
+function HistoryTable({ monitor }: { monitor: Monitor }) {
   const type = monitor.type || 'http'
+  const pageSize = 10
+  const [page, setPage] = useState(0)
+  const [items, setItems] = useState<CheckResult[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setPage(0)
+  }, [monitor.id])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    api.results(monitor.id, { limit: pageSize, offset: page * pageSize })
+      .then(res => {
+        if (cancelled) return
+        setItems(res.items)
+        setTotal(res.total)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setItems([])
+          setTotal(0)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [monitor.id, page])
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const from = total === 0 ? 0 : page * pageSize + 1
+  const to = Math.min(total, (page + 1) * pageSize)
+
   return (
     <div style={{ ...styles.chartCard, marginTop: 0 }}>
-      <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>Recent Checks</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Recent Checks</h3>
+        <span style={{ fontSize: 13, color: colors.textMuted }}>
+          {total === 0 ? 'No checks yet' : `Showing ${from}–${to} of ${total}`}
+        </span>
+      </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={styles.table}>
           <thead>
@@ -376,20 +416,55 @@ function HistoryTable({ monitor, results }: { monitor: Monitor; results: CheckRe
             </tr>
           </thead>
           <tbody>
-            {results.map(r => (
-              <tr key={r.id}>
-                <td style={styles.td}>{new Date(r.checked_at).toLocaleString()}</td>
-                <td style={styles.td}><StatusBadge status={r.status} /></td>
-                {type === 'http' && <td style={styles.td}>{r.status_code ?? '—'}</td>}
-                {type !== 'dns' && <td style={styles.td}>{r.response_time_ms} ms</td>}
-                <td style={{ ...styles.td, color: r.error ? colors.red : colors.textMuted, maxWidth: 360 }}>
-                  {r.error || historySummary(type, r) || '—'}
-                </td>
+            {loading ? (
+              <tr>
+                <td colSpan={5} style={{ ...styles.td, color: colors.textMuted }}>Loading…</td>
               </tr>
-            ))}
+            ) : items.length === 0 ? (
+              <tr>
+                <td colSpan={5} style={{ ...styles.td, color: colors.textMuted }}>No check results yet.</td>
+              </tr>
+            ) : (
+              items.map(r => (
+                <tr key={r.id}>
+                  <td style={styles.td}>{new Date(r.checked_at).toLocaleString()}</td>
+                  <td style={styles.td}><StatusBadge status={r.status} /></td>
+                  {type === 'http' && <td style={styles.td}>{r.status_code ?? '—'}</td>}
+                  {type !== 'dns' && <td style={styles.td}>{r.response_time_ms} ms</td>}
+                  <td style={{ ...styles.td, color: r.error ? colors.red : colors.textMuted, maxWidth: 360 }}>
+                    {r.error || historySummary(type, r) || '—'}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+      {total > pageSize && (
+        <div style={styles.pager}>
+          <button
+            type="button"
+            className="btn"
+            style={styles.pagerBtn}
+            disabled={page <= 0 || loading}
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+          >
+            Previous
+          </button>
+          <span style={{ fontSize: 13, color: colors.textMuted }}>
+            Page {page + 1} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn"
+            style={styles.pagerBtn}
+            disabled={page + 1 >= totalPages || loading}
+            onClick={() => setPage(p => p + 1)}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -432,4 +507,18 @@ const styles: Record<string, React.CSSProperties> = {
     color: colors.textMuted, fontWeight: 600, fontSize: 12, textTransform: 'uppercase',
   },
   td: { padding: '12px', borderBottom: `1px solid ${colors.border}` },
+  pager: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTop: `1px solid ${colors.border}`,
+  },
+  pagerBtn: {
+    minHeight: 36,
+    padding: '0 14px',
+    fontSize: 13,
+  },
 }

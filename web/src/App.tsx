@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
 import AdminRoute from './components/AdminRoute'
+import PlatformAdminRoute from './components/PlatformAdminRoute'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
@@ -77,11 +78,13 @@ export default function App() {
           <Route path="/monitors/new" element={<AdminRoute><MonitorForm /></AdminRoute>} />
           <Route path="/monitors/:id" element={<MonitorDetail />} />
           <Route path="/monitors/:id/edit" element={<AdminRoute><MonitorForm /></AdminRoute>} />
+          <Route path="/customers" element={<PlatformAdminRoute><SettingsCustomers /></PlatformAdminRoute>} />
+          <Route path="/users" element={<AdminRoute><SettingsTeam /></AdminRoute>} />
+          <Route path="/settings/customers" element={<Navigate to="/customers" replace />} />
+          <Route path="/settings/team" element={<Navigate to="/users" replace />} />
           <Route path="/settings" element={<AdminRoute><SettingsLayout /></AdminRoute>}>
             <Route path="general" element={<SettingsGeneral />} />
-            <Route path="customers" element={<SettingsCustomers />} />
             <Route path="smtp" element={<SettingsSMTP />} />
-            <Route path="team" element={<SettingsTeam />} />
             <Route path="webhooks" element={<SettingsWebhooks />} />
             <Route path="maintenance" element={<SettingsMaintenance />} />
             <Route path="server" element={<SettingsServer />} />

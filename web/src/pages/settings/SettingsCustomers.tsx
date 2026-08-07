@@ -72,15 +72,18 @@ export default function SettingsCustomers() {
   }
 
   return (
-    <>
+    <div className="page">
+      <h1 className="page-title">Customers</h1>
+      <p className="page-subtitle">Group monitors by customer and set monitor quotas.</p>
+
       {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error}>{error}</div>}
 
       <div style={styles.grid}>
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Customers</h3>
+          <h3 style={styles.cardTitle}>All customers</h3>
           <p style={{ color: colors.textMuted, fontSize: 14, margin: '0 0 20px' }}>
-            Group monitors by customer and set monitor quotas (default 1).
+            Default quota is 1 monitor per customer.
           </p>
           {customers.length === 0 ? (
             <p style={{ color: colors.textMuted }}>No customers yet.</p>
@@ -140,7 +143,7 @@ export default function SettingsCustomers() {
           <button type="submit" className="btn btn-primary" style={{ marginTop: 8 }}>Add Customer</button>
         </form>
       </div>
-    </>
+    </div>
   )
 }
 

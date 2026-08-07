@@ -4,8 +4,6 @@ import { colors } from '../../theme'
 
 const allTabs = [
   { path: '/settings/general', label: 'General', platformOnly: true },
-  { path: '/settings/customers', label: 'Customers', platformOnly: true },
-  { path: '/settings/team', label: 'Team', platformOnly: false },
   { path: '/settings/smtp', label: 'SMTP', platformOnly: true },
   { path: '/settings/webhooks', label: 'Webhooks', platformOnly: true },
   { path: '/settings/maintenance', label: 'Maintenance', platformOnly: true },
@@ -19,7 +17,7 @@ export default function SettingsLayout() {
   const location = useLocation()
   const { isPlatformAdmin } = useAuth()
   const tabs = allTabs.filter(t => !t.platformOnly || isPlatformAdmin)
-  const defaultPath = isPlatformAdmin ? '/settings/general' : '/settings/team'
+  const defaultPath = isPlatformAdmin ? '/settings/general' : '/settings/tokens'
 
   if (location.pathname === '/settings') {
     return <Navigate to={defaultPath} replace />
@@ -36,7 +34,7 @@ export default function SettingsLayout() {
       <p className="page-subtitle">
         {isPlatformAdmin
           ? 'Configure organization details and alert delivery.'
-          : 'Manage your team and API tokens.'}
+          : 'Manage API tokens for this account.'}
       </p>
 
       <nav style={styles.tabs}>

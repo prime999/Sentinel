@@ -1,23 +1,51 @@
 import { Link, useLocation } from 'react-router-dom'
 import { ReactNode, useEffect, useState } from 'react'
 import AppLogo from './AppLogo'
+import NavIcon from './NavIcon'
 import ProfileMenu from './ProfileMenu'
 import { api, OrgSettings } from '../api'
 import { useAuth } from '../context/AuthContext'
+import { iconSizes, icons, NavIconKey } from '../icons'
 import { colors } from '../theme'
 
-const allNavItems = [
-  { path: '/', label: 'Monitors', icon: '◉', adminOnly: false },
-  { path: '/incidents', label: 'Incidents', icon: '⚡', adminOnly: false },
-  { path: '/performance', label: 'Performance', icon: '▤', adminOnly: false },
-  { path: '/settings', label: 'Settings', icon: '⚙', adminOnly: true },
+type NavItem = {
+  path: string
+  label: string
+  icon: NavIconKey
+  adminOnly?: boolean
+  platformOnly?: boolean
+}
+
+const allNavItems: NavItem[] = [
+  { path: '/', label: 'Monitors', icon: 'monitors' },
+  { path: '/incidents', label: 'Incidents', icon: 'incidents' },
+  { path: '/performance', label: 'Performance', icon: 'performance' },
+  { path: '/customers', label: 'Customers', icon: 'customers', platformOnly: true },
+  { path: '/users', label: 'Users', icon: 'users', adminOnly: true },
+  { path: '/settings', label: 'Settings', icon: 'settings', adminOnly: true },
 ]
+
+function isActivePath(pathname: string, path: string) {
+  if (path === '/') {
+    return pathname === '/' || (pathname.startsWith('/monitors/') && !pathname.endsWith('/new'))
+  }
+  if (path === '/performance') return pathname.startsWith('/performance')
+  if (path === '/incidents') return pathname.startsWith('/incidents')
+  if (path === '/customers') return pathname.startsWith('/customers')
+  if (path === '/users') return pathname.startsWith('/users')
+  return pathname.startsWith(path)
+}
 
 export default function Layout({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
   const location = useLocation()
   const { isAdmin, isPlatformAdmin } = useAuth()
   const [org, setOrg] = useState<OrgSettings | null>(null)
-  const navItems = allNavItems.filter(item => !item.adminOnly || isAdmin)
+
+  const navItems = allNavItems.filter(item => {
+    if (item.platformOnly && !isPlatformAdmin) return false
+    if (item.adminOnly && !isAdmin) return false
+    return true
+  })
 
   useEffect(() => {
     if (!isPlatformAdmin) return
@@ -25,34 +53,33 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
   }, [location.pathname, isPlatformAdmin])
 
   const brandName = org?.company_name || 'Sentinel'
+  const tagline = org?.tagline || 'Infrastructure Monitoring'
 
   return (
     <div style={styles.shell}>
       <aside style={styles.sidebar}>
         <Link to="/" style={styles.logo}>
-          <AppLogo src={org?.logo} size={32} />
+          <AppLogo src={org?.logo} size={iconSizes.brandLogo} />
           <span style={styles.logoText}>
-            <span>{brandName}</span>
-            {org?.tagline && <span style={styles.logoTagline}>{org.tagline}</span>}
+            <span style={styles.logoName}>{brandName}</span>
+            <span style={styles.logoTagline}>{tagline}</span>
           </span>
         </Link>
 
         <nav style={styles.nav}>
           {navItems.map(item => {
-            const active = item.path === '/'
-              ? location.pathname === '/' || (location.pathname.startsWith('/monitors/') && !location.pathname.endsWith('/new'))
-              : item.path === '/performance'
-                ? location.pathname.startsWith('/performance')
-                : item.path === '/incidents'
-                  ? location.pathname.startsWith('/incidents')
-                  : location.pathname.startsWith(item.path)
+            const active = isActivePath(location.pathname, item.path)
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                style={{ ...styles.navItem, ...(active ? styles.navActive : {}) }}
+                style={{
+                  ...styles.navItem,
+                  ...(active ? styles.navActive : {}),
+                }}
               >
-                <span style={styles.navIcon}>{item.icon}</span>
+                {active && <span style={styles.navAccent} />}
+                <NavIcon src={icons[item.icon]} size={iconSizes.nav} alt={item.label} />
                 {item.label}
               </Link>
             )
@@ -79,48 +106,56 @@ const styles: Record<string, React.CSSProperties> = {
     background: colors.bg,
   },
   sidebar: {
-    width: 240,
+    width: 260,
     flexShrink: 0,
     background: colors.sidebar,
     borderRight: `1px solid ${colors.border}`,
     display: 'flex',
     flexDirection: 'column',
-    padding: '20px 12px',
+    padding: '24px 14px',
   },
   logo: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    padding: '8px 12px',
-    marginBottom: 24,
+    gap: 12,
+    padding: '4px 10px 28px',
     color: colors.text,
-    fontWeight: 700,
-    fontSize: 18,
     textDecoration: 'none',
   },
-  logoText: { display: 'flex', flexDirection: 'column', minWidth: 0 },
-  logoTagline: { fontSize: 10, fontWeight: 500, color: colors.textMuted, marginTop: 2, lineHeight: 1.2 },
+  logoText: { display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2 },
+  logoName: { fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' },
+  logoTagline: { fontSize: 11, fontWeight: 500, color: colors.textMuted, lineHeight: 1.3 },
   nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
   navItem: {
+    position: 'relative',
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    padding: '10px 12px',
-    borderRadius: 8,
+    gap: 12,
+    padding: '11px 14px',
+    borderRadius: 12,
     color: colors.textMuted,
     fontSize: 14,
     fontWeight: 500,
     textDecoration: 'none',
-    transition: 'background 0.15s',
+    transition: 'background 0.15s, color 0.15s',
   },
   navActive: {
-    background: colors.card,
-    color: colors.text,
+    background: colors.brandDim,
+    color: colors.brand,
   },
-  navIcon: { width: 20, textAlign: 'center', fontSize: 14 },
+  navAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 10,
+    bottom: 10,
+    width: 3,
+    borderRadius: 2,
+    background: colors.brand,
+  },
   sidebarFooter: {
     borderTop: `1px solid ${colors.border}`,
     paddingTop: 16,
+    marginTop: 12,
   },
   main: {
     flex: 1,
@@ -128,10 +163,11 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     minWidth: 0,
     overflow: 'auto',
+    background: colors.bg,
   },
   content: {
     flex: 1,
-    padding: '24px 32px',
+    padding: '28px 32px',
     width: '100%',
   },
 }

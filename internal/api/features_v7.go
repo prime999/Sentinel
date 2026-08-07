@@ -115,6 +115,10 @@ func (s *Server) handlePutServerSettings(w http.ResponseWriter, r *http.Request)
 		jsonError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
+	if cfg.RetentionDays < 30 {
+		jsonError(w, http.StatusBadRequest, "retention_days must be at least 30")
+		return
+	}
 	if err := s.store.SaveServerSettings(cfg); err != nil {
 		jsonInternal(w, err)
 		return
@@ -137,6 +141,12 @@ func (s *Server) handlePutStatusPageConfig(w http.ResponseWriter, r *http.Reques
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 		jsonError(w, http.StatusBadRequest, "invalid request")
 		return
+	}
+	if cfg.Title == "" {
+		cfg.Title = "System Status"
+	}
+	if cfg.MonitorIDs == nil {
+		cfg.MonitorIDs = []string{}
 	}
 	if err := s.store.SaveStatusPageConfig(cfg); err != nil {
 		jsonInternal(w, err)
@@ -283,7 +293,7 @@ func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
 func (s *Server) serverFallback() config.ServerConfig {
 	return config.ServerConfig{
 		DashboardURL:  s.dashboardURL,
-		RetentionDays: 90,
+		RetentionDays: 30,
 		Workers:       10,
 	}
 }

@@ -29,7 +29,7 @@ export default function StatusPage() {
     return <div style={styles.shell}><div style={styles.center}>Loading…</div></div>
   }
 
-  const up = data.monitors.filter(m => m.status === 'up').length
+  const up = (data.monitors || []).filter(m => m.status === 'up').length
 
   return (
     <div style={styles.shell}>
@@ -37,22 +37,28 @@ export default function StatusPage() {
         <header style={styles.header}>
           <h1 style={styles.title}>{data.title}</h1>
           <p style={styles.subtitle}>
-            {up} of {data.monitors.length} services operational
+            {up} of {(data.monitors || []).length} services operational
           </p>
         </header>
         <div style={styles.list}>
-          {data.monitors.map(m => (
-            <div key={m.id} style={styles.row}>
-              <div>
-                <div style={styles.name}>{m.name}</div>
-                {m.url && <div style={styles.url}>{m.url}</div>}
-                {m.last_checked_at && (
-                  <div style={styles.meta}>Last check {new Date(m.last_checked_at).toLocaleString()}</div>
-                )}
-              </div>
-              <StatusBadge status={m.status as 'up' | 'down' | 'degraded' | 'unknown'} />
+          {(data.monitors || []).length === 0 ? (
+            <div style={{ ...styles.row, justifyContent: 'center', color: colors.textMuted }}>
+              No monitors are published on this status page yet.
             </div>
-          ))}
+          ) : (
+            (data.monitors || []).map(m => (
+              <div key={m.id} style={styles.row}>
+                <div>
+                  <div style={styles.name}>{m.name}</div>
+                  {m.url && <div style={styles.url}>{m.url}</div>}
+                  {m.last_checked_at && (
+                    <div style={styles.meta}>Last check {new Date(m.last_checked_at).toLocaleString()}</div>
+                  )}
+                </div>
+                <StatusBadge status={m.status as 'up' | 'down' | 'degraded' | 'unknown'} />
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

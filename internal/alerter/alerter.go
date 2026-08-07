@@ -15,10 +15,7 @@ import (
 	"github.com/sentinel-monitoring/sentinel/internal/store"
 )
 
-const (
-	defaultFlapThreshold = 2
-	slowAlertCooldown     = 15 * time.Minute
-)
+const defaultFlapThreshold = 2
 
 func monitorAlertAfterFailures(m *models.Monitor) int {
 	if m.AlertAfterFailures < 1 {
@@ -116,33 +113,10 @@ func (a *Alerter) HandleResult(m *models.Monitor, result *models.CheckResult) er
 		}
 	}
 
-	// Leaving slow/degraded state
+	// Uptime monitors do not email on latency/degraded — that is performance-target only.
+	// Silently close any leftover slow incidents if the check recovered.
 	if newStatus != models.StatusDegraded && prevStatus == models.StatusDegraded {
-		hadSlow, _ := a.store.HasOpenIncident(m.ID, models.IncidentSlow)
-		if hadSlow {
-			_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentSlow, result.CheckedAt)
-			return a.NotifyMonitor(m, "RECOVERY", "Response time back to normal", result.ResponseTimeMs)
-		}
-	}
-
-	// Slow alert with cooldown
-	if newStatus == models.StatusDegraded {
-		lastSlow, _ := a.store.GetLastSlowAlertAt(m.ID)
-		if lastSlow == nil || time.Since(*lastSlow) >= slowAlertCooldown {
-			open, _ := a.store.GetOpenIncident(m.ID, models.IncidentSlow)
-			if open == nil {
-				inc := &models.Incident{
-					MonitorID: m.ID,
-					Type:      models.IncidentSlow,
-					Message:   fmt.Sprintf("Response time %dms exceeds threshold %dms", result.ResponseTimeMs, m.SlowThresholdMs),
-					StartedAt: result.CheckedAt,
-				}
-				if err := a.store.CreateIncident(inc); err != nil {
-					return err
-				}
-				return a.NotifyMonitor(m, "SLOW", inc.Message, result.ResponseTimeMs)
-			}
-		}
+		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentSlow, result.CheckedAt)
 	}
 
 	return nil
@@ -255,7 +229,7 @@ func (a *Alerter) sendSMTP(to, subject, htmlBody string) error {
 	}
 
 	var msg bytes.Buffer
-	msg.WriteString(fmt.Sprintf("From: %s\r\n", from))
+	msg.WriteString(fmt.Sprintf("From: %s\r\n", formatFromHeader(from)))
 	msg.WriteString(fmt.Sprintf("To: %s\r\n", to))
 	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	msg.WriteString("MIME-Version: 1.0\r\n")
@@ -283,6 +257,20 @@ func smtpAuth(cfg models.SMTPConfig) smtp.Auth {
 		return nil
 	}
 	return smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
+}
+
+// formatFromHeader sets a friendly display name for inbox UIs while keeping the
+// envelope address as the bare email (MAIL FROM).
+func formatFromHeader(from string) string {
+	from = strings.TrimSpace(from)
+	if from == "" {
+		return from
+	}
+	// Already has a display name.
+	if strings.Contains(from, "<") && strings.Contains(from, ">") {
+		return from
+	}
+	return fmt.Sprintf("\"Sentinel Monitoring\" <%s>", from)
 }
 
 func (a *Alerter) tlsConfig() *tls.Config {

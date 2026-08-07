@@ -275,6 +275,11 @@ export default function MonitorForm() {
             </Field>
           )}
         </div>
+        {monitorType !== 'dns' && (
+          <p style={{ color: colors.textMuted, fontSize: 13, margin: '-8px 0 0' }}>
+            Slow threshold marks the monitor as warning in the UI only. Latency emails require a Performance target.
+          </p>
+        )}
         <Field label="Alert after consecutive failures">
           <input
             type="number"
@@ -339,7 +344,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid', gap: 20, maxWidth: 720, background: colors.card,
     padding: '28px 32px', borderRadius: 12, border: `1px solid ${colors.border}`,
   },
-  row: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 },
+  row: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'start' },
   error: {
     background: colors.redDim, color: colors.red,
     padding: 12, borderRadius: 8, marginBottom: 16,

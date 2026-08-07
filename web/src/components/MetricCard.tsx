@@ -19,28 +19,35 @@ export default function MetricCard({
     red: colors.red,
   }[accent]
 
-  const accentBg = {
-    default: colors.card,
-    green: colors.greenDim,
-    blue: colors.blueDim,
-    yellow: colors.yellowDim,
-    red: colors.redDim,
-  }[accent]
-
   return (
     <div style={{
-      background: accentBg,
+      background: colors.card,
       border: `1px solid ${colors.border}`,
-      borderRadius: 12,
-      padding: '18px 20px',
+      borderRadius: colors.radius,
+      padding: 24,
     }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+      <div style={{
+        fontSize: 12,
+        fontWeight: 500,
+        color: colors.textMuted,
+        marginBottom: 10,
+      }}>
         {label}
       </div>
-      <div style={{ fontSize: 28, fontWeight: 700, color: accentColor, lineHeight: 1.1 }}>
+      <div style={{
+        fontSize: 28,
+        fontWeight: 700,
+        color: accentColor,
+        lineHeight: 1.1,
+        letterSpacing: '-0.02em',
+      }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: 12, color: colors.textDim, marginTop: 6 }}>{sub}</div>}
+      {sub && (
+        <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 8 }}>
+          {sub}
+        </div>
+      )}
     </div>
   )
 }
