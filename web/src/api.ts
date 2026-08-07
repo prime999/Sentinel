@@ -25,6 +25,8 @@ export interface Monitor {
   tags?: string[]
   heartbeat_token?: string
   tenant_id?: string
+  alert_after_failures?: number
+  consecutive_failures?: number
   last_status: 'up' | 'down' | 'degraded' | 'unknown'
   last_checked_at?: string
   latest_response_time_ms?: number
@@ -129,6 +131,8 @@ export interface PerformanceTarget {
   enabled: boolean
   alert_emails?: string
   tenant_id?: string
+  alert_after_slow?: number
+  consecutive_slow?: number
   last_status: 'up' | 'down' | 'degraded' | 'unknown'
   last_checked_at?: string
   latest_response_time_ms?: number

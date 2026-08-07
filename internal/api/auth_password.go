@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/sentinel-monitoring/sentinel/internal/store"
 )
 
 type forgotPasswordRequest struct {
@@ -31,7 +33,7 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.store.GetUserByEmail(email)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 
@@ -48,7 +50,7 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	expires := time.Now().UTC().Add(time.Hour)
 	if err := s.store.CreatePasswordResetToken(user.ID, token, expires); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 
@@ -73,14 +75,18 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "token and new password required")
 		return
 	}
-	if len(req.NewPassword) < 6 {
-		jsonError(w, http.StatusBadRequest, "password must be at least 6 characters")
+	if len(req.NewPassword) < 8 {
+		jsonError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+	if err := store.ValidatePassword(req.NewPassword); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	userID, err := s.store.GetPasswordResetUserID(req.Token)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if userID == "" {
@@ -96,7 +102,7 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := s.store.UpdateUser(userID, user.Username, user.Email, user.Role, req.NewPassword, user.TenantID, false)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.DeletePasswordResetToken(req.Token)

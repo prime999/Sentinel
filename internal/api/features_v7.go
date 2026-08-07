@@ -24,7 +24,7 @@ func (s *Server) handleListIncidents(w http.ResponseWriter, r *http.Request) {
 		items = []models.IncidentListItem{}
 	}
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if items == nil {
@@ -36,7 +36,7 @@ func (s *Server) handleListIncidents(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetWebhooks(w http.ResponseWriter, r *http.Request) {
 	hooks, err := s.store.GetWebhooks()
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if hooks == nil {
@@ -52,7 +52,7 @@ func (s *Server) handlePutWebhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.SaveWebhooks(hooks); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(currentUser(r).Username, "update", "webhooks", "")
@@ -62,7 +62,7 @@ func (s *Server) handlePutWebhooks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListMaintenance(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.ListMaintenanceWindows()
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if items == nil {
@@ -82,7 +82,7 @@ func (s *Server) handleCreateMaintenance(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := s.store.CreateMaintenanceWindow(&wnd); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(currentUser(r).Username, "create", "maintenance", wnd.Name)
@@ -93,7 +93,7 @@ func (s *Server) handleCreateMaintenance(w http.ResponseWriter, r *http.Request)
 func (s *Server) handleDeleteMaintenance(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := s.store.DeleteMaintenanceWindow(id); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(currentUser(r).Username, "delete", "maintenance", id)
@@ -103,7 +103,7 @@ func (s *Server) handleDeleteMaintenance(w http.ResponseWriter, r *http.Request)
 func (s *Server) handleGetServerSettings(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.store.GetServerSettings(s.serverFallback())
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	jsonOK(w, cfg)
@@ -116,7 +116,7 @@ func (s *Server) handlePutServerSettings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := s.store.SaveServerSettings(cfg); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(currentUser(r).Username, "update", "server", "")
@@ -126,7 +126,7 @@ func (s *Server) handlePutServerSettings(w http.ResponseWriter, r *http.Request)
 func (s *Server) handleGetStatusPageConfig(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.store.GetStatusPageConfig()
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	jsonOK(w, cfg)
@@ -139,7 +139,7 @@ func (s *Server) handlePutStatusPageConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := s.store.SaveStatusPageConfig(cfg); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(currentUser(r).Username, "update", "status_page", "")
@@ -172,9 +172,6 @@ func (s *Server) handlePublicStatus(w http.ResponseWriter, r *http.Request) {
 		if m.LastCheckedAt != nil {
 			item.LastCheck = m.LastCheckedAt.UTC().Format(time.RFC3339)
 		}
-		if m.Type == models.MonitorHTTP || m.Type == models.MonitorSSL {
-			item.URL = m.URL
-		}
 		monitors = append(monitors, item)
 	}
 
@@ -185,7 +182,7 @@ func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
 	limit := queryInt(r, "limit", 100)
 	items, err := s.store.ListAuditLog(limit)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if items == nil {
@@ -198,7 +195,7 @@ func (s *Server) handleListAPITokens(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	tokens, err := s.store.ListAPITokens(user.ID)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if tokens == nil {
@@ -224,7 +221,7 @@ func (s *Server) handleCreateAPIToken(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := s.store.CreateAPIToken(currentUser(r).ID, req.Name, token)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(currentUser(r).Username, "create", "api_token", req.Name)
@@ -246,7 +243,7 @@ func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	m, err := s.store.GetMonitorByHeartbeatToken(token)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if m == nil || !m.Enabled {
@@ -262,7 +259,7 @@ func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
 		CheckedAt:      now,
 	}
 	if err := s.store.InsertCheckResult(result); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	prevStatus := m.LastStatus
@@ -270,7 +267,7 @@ func (s *Server) handleHeartbeatPing(w http.ResponseWriter, r *http.Request) {
 	m.LastStatus = models.StatusUp
 	m.ConsecutiveFailures = 0
 	if err := s.store.UpdateMonitorState(m.ID, models.StatusUp, 0, now); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if prevStatus == models.StatusDown {

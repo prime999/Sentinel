@@ -5,13 +5,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptrace"
 	"strings"
 	"time"
 
 	"github.com/sentinel-monitoring/sentinel/internal/models"
+	"github.com/sentinel-monitoring/sentinel/internal/safehost"
 )
 
 type timingInfo struct {
@@ -57,6 +57,12 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	defer cancel()
 	reqCtx = httptrace.WithClientTrace(reqCtx, trace)
 
+	if err := safehost.ValidateHTTPURL(m.URL); err != nil {
+		result.Error = err.Error()
+		result.ResponseTimeMs = int(time.Since(start).Milliseconds())
+		return result
+	}
+
 	method := m.Method
 	if method == "" {
 		method = http.MethodGet
@@ -90,7 +96,7 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	client := &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
-			DialContext: (&net.Dialer{Timeout: timeout}).DialContext,
+			DialContext:         safehost.ControlDialContext,
 			TLSHandshakeTimeout: timeout,
 			TLSClientConfig:     &tls.Config{InsecureSkipVerify: false},
 		},
@@ -100,6 +106,9 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 			}
 			if len(via) >= 10 {
 				return fmt.Errorf("too many redirects")
+			}
+			if err := safehost.ValidateHTTPURL(req.URL.String()); err != nil {
+				return err
 			}
 			return nil
 		},

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sentinel-monitoring/sentinel/internal/models"
+	"github.com/sentinel-monitoring/sentinel/internal/safehost"
 )
 
 func (c *Checker) probePort(ctx context.Context, m *models.Monitor) *models.CheckResult {
@@ -28,12 +29,20 @@ func (c *Checker) probePort(ctx context.Context, m *models.Monitor) *models.Chec
 		result.Error = "host and port are required for port monitors"
 		return result
 	}
+	if err := safehost.ValidateHostname(host); err != nil {
+		result.Error = err.Error()
+		return result
+	}
 
-	timeout := time.Duration(m.TimeoutMs) * time.Millisecond
-	dialer := net.Dialer{Timeout: timeout}
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+	dialCtx := ctx
+	if m.TimeoutMs > 0 {
+		var cancel context.CancelFunc
+		dialCtx, cancel = context.WithTimeout(ctx, time.Duration(m.TimeoutMs)*time.Millisecond)
+		defer cancel()
+	}
 
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	conn, err := safehost.ControlDialContext(dialCtx, "tcp", addr)
 	elapsed := int(time.Since(start).Milliseconds())
 	result.ResponseTimeMs = elapsed
 	tcpMs := elapsed

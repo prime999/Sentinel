@@ -80,6 +80,7 @@ type Monitor struct {
 	Tags                []string      `json:"tags"`
 	HeartbeatToken      string        `json:"heartbeat_token,omitempty"`
 	TenantID            string        `json:"tenant_id,omitempty"`
+	AlertAfterFailures  int           `json:"alert_after_failures"`
 	ConsecutiveFailures int           `json:"consecutive_failures"`
 	LastStatus          MonitorStatus `json:"last_status"`
 	LastCheckedAt       *time.Time    `json:"last_checked_at,omitempty"`
@@ -88,21 +89,23 @@ type Monitor struct {
 }
 
 type PerformanceTarget struct {
-	ID              string        `json:"id"`
-	Name            string        `json:"name"`
-	URL             string        `json:"url"`
-	Method          string        `json:"method"`
-	IntervalSeconds int           `json:"interval_seconds"`
-	TimeoutMs       int           `json:"timeout_ms"`
-	SlowThresholdMs int           `json:"slow_threshold_ms"`
-	FollowRedirects bool          `json:"follow_redirects"`
-	Enabled         bool          `json:"enabled"`
-	AlertEmails     string        `json:"alert_emails"`
-	TenantID        string        `json:"tenant_id,omitempty"`
-	LastStatus      MonitorStatus `json:"last_status"`
-	LastCheckedAt   *time.Time    `json:"last_checked_at,omitempty"`
-	CreatedAt       time.Time     `json:"created_at"`
-	UpdatedAt       time.Time     `json:"updated_at"`
+	ID               string        `json:"id"`
+	Name             string        `json:"name"`
+	URL              string        `json:"url"`
+	Method           string        `json:"method"`
+	IntervalSeconds  int           `json:"interval_seconds"`
+	TimeoutMs        int           `json:"timeout_ms"`
+	SlowThresholdMs  int           `json:"slow_threshold_ms"`
+	FollowRedirects  bool          `json:"follow_redirects"`
+	Enabled          bool          `json:"enabled"`
+	AlertEmails      string        `json:"alert_emails"`
+	TenantID         string        `json:"tenant_id,omitempty"`
+	AlertAfterSlow   int           `json:"alert_after_slow"`
+	ConsecutiveSlow  int           `json:"consecutive_slow"`
+	LastStatus       MonitorStatus `json:"last_status"`
+	LastCheckedAt    *time.Time    `json:"last_checked_at,omitempty"`
+	CreatedAt        time.Time     `json:"created_at"`
+	UpdatedAt        time.Time     `json:"updated_at"`
 }
 
 type PerformanceResult struct {

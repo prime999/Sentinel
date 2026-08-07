@@ -39,7 +39,7 @@ func (s *Server) handleGetFleetPerformance(w http.ResponseWriter, r *http.Reques
 		fleet = &models.FleetPerformance{Monitors: []models.MonitorPerformance{}, Timeline: []models.FleetTimelinePoint{}}
 	}
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	fleet.Period = period

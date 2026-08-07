@@ -25,6 +25,7 @@ const defaults: Partial<Monitor> = {
   follow_redirects: true,
   enabled: true,
   invert: false,
+  alert_after_failures: 2,
 }
 
 export default function MonitorForm() {
@@ -274,6 +275,18 @@ export default function MonitorForm() {
             </Field>
           )}
         </div>
+        <Field label="Alert after consecutive failures">
+          <input
+            type="number"
+            min={1}
+            className="input"
+            value={form.alert_after_failures ?? 2}
+            onChange={e => set('alert_after_failures', Math.max(1, +e.target.value || 1))}
+          />
+          <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
+            Send a DOWN alert only after this many failed checks in a row (default 2).
+          </p>
+        </Field>
         <Field label="Alert emails (comma-separated)">
           <input value={form.alert_emails || ''} onChange={e => set('alert_emails', e.target.value)} className="input" />
         </Field>

@@ -99,14 +99,22 @@ func (a *Alerter) HandlePerformanceResult(t *models.PerformanceTarget, result *m
 
 	wasSlow := prev == models.StatusDegraded
 	isSlow := newStatus == models.StatusDegraded
+	threshold := t.AlertAfterSlow
+	if threshold < 1 {
+		threshold = 1
+	}
+	consecutive := t.ConsecutiveSlow
 
 	if isSlow {
 		openSlow, _ := a.store.GetOpenIncident(t.ID, models.IncidentSlow)
 		if openSlow != nil {
 			return nil
 		}
-		lastSlow, _ := a.store.GetLastSlowAlertAt(t.ID)
-		if lastSlow != nil && time.Since(*lastSlow) < slowAlertCooldown {
+		if consecutive < threshold {
+			return nil
+		}
+		// Fire once when crossing the consecutive threshold (or when already at/above after recovery gap).
+		if wasSlow && consecutive != threshold {
 			return nil
 		}
 		pct, total, slow, _ := a.store.GetPerformanceSlowStats(t.ID, time.Now().Add(-time.Hour))
@@ -115,7 +123,7 @@ func (a *Alerter) HandlePerformanceResult(t *models.PerformanceTarget, result *m
 			total = 1
 			slow = 1
 		}
-		msg := fmt.Sprintf("%.1f%% of checks slow (%d of %d in the last hour)", pct, slow, total)
+		msg := fmt.Sprintf("%.1f%% of checks slow (%d of %d in the last hour); %d consecutive slow check(s)", pct, slow, total, consecutive)
 		_ = a.store.CreateIncident(&models.Incident{
 			MonitorID: t.ID, Type: models.IncidentSlow, Message: msg, StartedAt: result.CheckedAt,
 		})
@@ -123,9 +131,13 @@ func (a *Alerter) HandlePerformanceResult(t *models.PerformanceTarget, result *m
 	}
 
 	if !isSlow && wasSlow {
-		_ = a.store.ResolveOpenIncidents(t.ID, models.IncidentSlow, result.CheckedAt)
-		_ = a.store.ResolveOpenIncidents(t.ID, models.IncidentDown, result.CheckedAt)
-		return a.sendPerformanceAlert(t, "NORMAL", "Back to normal", result.ResponseTimeMs)
+		hadSlow, _ := a.store.HasOpenIncident(t.ID, models.IncidentSlow)
+		hadDown, _ := a.store.HasOpenIncident(t.ID, models.IncidentDown)
+		if hadSlow || hadDown {
+			_ = a.store.ResolveOpenIncidents(t.ID, models.IncidentSlow, result.CheckedAt)
+			_ = a.store.ResolveOpenIncidents(t.ID, models.IncidentDown, result.CheckedAt)
+			return a.sendPerformanceAlert(t, "NORMAL", "Back to normal", result.ResponseTimeMs)
+		}
 	}
 
 	return nil

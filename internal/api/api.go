@@ -12,6 +12,7 @@ import (
 	"github.com/sentinel-monitoring/sentinel/internal/alerter"
 	"github.com/sentinel-monitoring/sentinel/internal/config"
 	"github.com/sentinel-monitoring/sentinel/internal/models"
+	"github.com/sentinel-monitoring/sentinel/internal/safehost"
 	"github.com/sentinel-monitoring/sentinel/internal/store"
 )
 
@@ -138,7 +139,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := s.store.GetUserByUsername(req.Username)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if user == nil || !store.CheckPassword(user.PasswordHash, req.Password) {
@@ -162,6 +163,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   cookieSecure(r, s.dashboardURL),
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expires,
 	})
@@ -177,6 +179,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   cookieSecure(r, s.dashboardURL),
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
 	jsonOK(w, map[string]bool{"ok": true})
@@ -201,13 +205,13 @@ func (s *Server) handleListMonitors(w http.ResponseWriter, r *http.Request) {
 		monitors = []models.MonitorListItem{}
 	}
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if tag != "" {
 		monitors, err = filterMonitorsByTag(monitors, tag)
 		if err != nil {
-			jsonError(w, http.StatusInternalServerError, err.Error())
+			jsonInternal(w, err)
 			return
 		}
 	}
@@ -239,7 +243,7 @@ func (s *Server) handleGetMonitor(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	m, err := s.store.GetMonitor(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if m == nil || !canAccessTenant(user, m.TenantID) || (!isPlatformAdmin(user) && m.TenantID == "") {
@@ -274,24 +278,32 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if m.IntervalSeconds < 30 {
+		m.IntervalSeconds = 30
+	}
+	if err := safehost.ValidateMonitorTarget(string(m.Type), m.URL, m.Port); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	if m.Type == models.MonitorHeartbeat {
-		if m.HeartbeatToken == "" {
-			token, err := randomToken(24)
-			if err != nil {
-				jsonError(w, http.StatusInternalServerError, "token error")
-				return
-			}
-			m.HeartbeatToken = token
+		token, err := randomToken(24)
+		if err != nil {
+			jsonError(w, http.StatusInternalServerError, "token error")
+			return
 		}
+		m.HeartbeatToken = token
 		if m.Name == "" {
 			m.Name = "Heartbeat Monitor"
 		}
+	} else {
+		m.HeartbeatToken = ""
 	}
 	if m.Tags == nil {
 		m.Tags = []string{}
 	}
 	if err := s.store.CreateMonitor(&m); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(user.Username, "create", "monitor", m.Name)
@@ -304,7 +316,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	existing, err := s.store.GetMonitor(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if existing == nil {
@@ -343,13 +355,20 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	existing.KeywordMustNotExist = input.KeywordMustNotExist
 	existing.RequestBody = input.RequestBody
 	existing.RequestHeaders = input.RequestHeaders
-	existing.IntervalSeconds = input.IntervalSeconds
+	if input.IntervalSeconds < 30 {
+		existing.IntervalSeconds = 30
+	} else {
+		existing.IntervalSeconds = input.IntervalSeconds
+	}
 	existing.TimeoutMs = input.TimeoutMs
 	existing.SlowThresholdMs = input.SlowThresholdMs
 	existing.FollowRedirects = input.FollowRedirects
 	existing.AlertEmails = input.AlertEmails
 	existing.Enabled = input.Enabled
 	existing.Invert = input.Invert
+	if input.AlertAfterFailures > 0 {
+		existing.AlertAfterFailures = input.AlertAfterFailures
+	}
 	if input.Tags != nil {
 		existing.Tags = input.Tags
 	}
@@ -363,6 +382,11 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 		existing.TenantID = strings.TrimSpace(input.TenantID)
 	}
 
+	if err := safehost.ValidateMonitorTarget(string(existing.Type), existing.URL, existing.Port); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	// Quota when newly assigning or changing customer.
 	if existing.TenantID != "" && existing.TenantID != prevTenant {
 		if err := s.store.AssertMonitorQuota(existing.TenantID); err != nil {
@@ -372,7 +396,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.store.UpdateMonitor(existing); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(user.Username, "update", "monitor", existing.Name)
@@ -384,7 +408,7 @@ func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	existing, err := s.store.GetMonitor(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if existing == nil {
@@ -401,7 +425,7 @@ func (s *Server) handleDeleteMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.DeleteMonitor(id); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	_ = s.store.InsertAudit(user.Username, "delete", "monitor", id)
@@ -413,7 +437,7 @@ func (s *Server) handleListResults(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	m, err := s.store.GetMonitor(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if m == nil || !canAccessTenant(user, m.TenantID) || (!isPlatformAdmin(user) && m.TenantID == "") {
@@ -424,7 +448,7 @@ func (s *Server) handleListResults(w http.ResponseWriter, r *http.Request) {
 	offset := queryInt(r, "offset", 0)
 	results, err := s.store.ListCheckResults(id, limit, offset)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if results == nil {
@@ -438,7 +462,7 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	m, err := s.store.GetMonitor(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if m == nil || !canAccessTenant(user, m.TenantID) || (!isPlatformAdmin(user) && m.TenantID == "") {
@@ -457,7 +481,7 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	}
 	stats, err := s.store.GetMonitorStats(id, since)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	jsonOK(w, stats)
@@ -466,7 +490,7 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetSMTP(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.store.GetSMTPConfig(s.defaultSMTP)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	cfg.Password = maskPassword(cfg.Password)
@@ -488,7 +512,7 @@ func (s *Server) handlePutSMTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.SaveSMTPConfig(input); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	s.alerter.UpdateSMTP(input)

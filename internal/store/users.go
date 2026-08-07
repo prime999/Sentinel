@@ -67,6 +67,26 @@ func CheckPassword(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
+// ValidatePassword enforces a minimum strength policy for new passwords.
+func ValidatePassword(password string) error {
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters")
+	}
+	var hasLetter, hasDigit bool
+	for _, r := range password {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
+			hasLetter = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		}
+	}
+	if !hasLetter || !hasDigit {
+		return fmt.Errorf("password must include at least one letter and one number")
+	}
+	return nil
+}
+
 func (s *Store) ListAlertProfileEmails() ([]string, error) {
 	rows, err := s.db.Query(`
 		SELECT email FROM users
@@ -216,8 +236,8 @@ func (s *Store) CreateUser(username, email, password string, role models.UserRol
 	if username == "" {
 		return nil, fmt.Errorf("username required")
 	}
-	if password == "" {
-		return nil, fmt.Errorf("password required")
+	if err := ValidatePassword(password); err != nil {
+		return nil, err
 	}
 	if role != models.RoleAdmin && role != models.RoleViewer {
 		return nil, fmt.Errorf("invalid role")
@@ -270,6 +290,9 @@ func (s *Store) UpdateUser(id, username, email string, role models.UserRole, pas
 		existing.Role = role
 	}
 	if password != "" {
+		if err := ValidatePassword(password); err != nil {
+			return nil, err
+		}
 		hash, err := HashPassword(password)
 		if err != nil {
 			return nil, err

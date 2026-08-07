@@ -57,7 +57,7 @@ func (s *Server) handleListTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	out := make([]teamMemberResponse, 0, len(users))
@@ -117,7 +117,7 @@ func (s *Server) handleUpdateTeamMember(w http.ResponseWriter, r *http.Request) 
 
 	existing, err := s.store.GetUserByID(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if existing == nil {
@@ -155,7 +155,7 @@ func (s *Server) handleUpdateTeamMember(w http.ResponseWriter, r *http.Request) 
 	if wasPlatformAdmin && !willBePlatformAdmin {
 		admins, err := s.store.CountPlatformAdmins()
 		if err != nil {
-			jsonError(w, http.StatusInternalServerError, err.Error())
+			jsonInternal(w, err)
 			return
 		}
 		if admins <= 1 {
@@ -201,7 +201,7 @@ func (s *Server) handleDeleteTeamMember(w http.ResponseWriter, r *http.Request) 
 
 	target, err := s.store.GetUserByID(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if target == nil {
@@ -222,7 +222,7 @@ func (s *Server) handleDeleteTeamMember(w http.ResponseWriter, r *http.Request) 
 	if target.Role == models.RoleAdmin && target.TenantID == "" {
 		admins, err := s.store.CountPlatformAdmins()
 		if err != nil {
-			jsonError(w, http.StatusInternalServerError, err.Error())
+			jsonInternal(w, err)
 			return
 		}
 		if admins <= 1 {

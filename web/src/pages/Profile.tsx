@@ -31,6 +31,10 @@ export default function Profile() {
       setError('New passwords do not match')
       return
     }
+    if (newPassword && (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword))) {
+      setError('New password must be at least 8 characters and include a letter and a number')
+      return
+    }
 
     try {
       const updated = await api.updateProfile({

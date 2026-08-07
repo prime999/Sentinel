@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sentinel-monitoring/sentinel/internal/models"
+	"github.com/sentinel-monitoring/sentinel/internal/safehost"
 )
 
 func (s *Server) handleListPerformanceTargets(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +26,7 @@ func (s *Server) handleListPerformanceTargets(w http.ResponseWriter, r *http.Req
 		targets = []models.PerformanceTargetListItem{}
 	}
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if targets == nil {
@@ -42,7 +43,7 @@ func (s *Server) handleGetPerformanceTarget(w http.ResponseWriter, r *http.Reque
 	id := r.PathValue("id")
 	t, err := s.store.GetPerformanceTarget(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if t == nil || !canAccessTenant(user, t.TenantID) || (!isPlatformAdmin(user) && t.TenantID == "") {
@@ -64,6 +65,13 @@ func (s *Server) handleCreatePerformanceTarget(w http.ResponseWriter, r *http.Re
 		jsonError(w, http.StatusBadRequest, "name and url required")
 		return
 	}
+	if err := safehost.ValidateHTTPURL(t.URL); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if t.IntervalSeconds < 30 {
+		t.IntervalSeconds = 30
+	}
 	if isCustomerAdmin(user) {
 		t.TenantID = user.TenantID
 	} else if isPlatformAdmin(user) {
@@ -73,7 +81,7 @@ func (s *Server) handleCreatePerformanceTarget(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err := s.store.CreatePerformanceTarget(&t); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -85,7 +93,7 @@ func (s *Server) handleUpdatePerformanceTarget(w http.ResponseWriter, r *http.Re
 	id := r.PathValue("id")
 	existing, err := s.store.GetPerformanceTarget(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if existing == nil {
@@ -113,7 +121,9 @@ func (s *Server) handleUpdatePerformanceTarget(w http.ResponseWriter, r *http.Re
 	if input.Method != "" {
 		existing.Method = input.Method
 	}
-	if input.IntervalSeconds > 0 {
+	if input.IntervalSeconds < 30 {
+		existing.IntervalSeconds = 30
+	} else {
 		existing.IntervalSeconds = input.IntervalSeconds
 	}
 	if input.TimeoutMs > 0 {
@@ -125,14 +135,21 @@ func (s *Server) handleUpdatePerformanceTarget(w http.ResponseWriter, r *http.Re
 	existing.FollowRedirects = input.FollowRedirects
 	existing.Enabled = input.Enabled
 	existing.AlertEmails = input.AlertEmails
+	if input.AlertAfterSlow > 0 {
+		existing.AlertAfterSlow = input.AlertAfterSlow
+	}
 	if isCustomerAdmin(user) {
 		existing.TenantID = user.TenantID
 	} else {
 		existing.TenantID = strings.TrimSpace(input.TenantID)
 	}
+	if err := safehost.ValidateHTTPURL(existing.URL); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	if err := s.store.UpdatePerformanceTarget(existing); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	jsonOK(w, existing)
@@ -143,7 +160,7 @@ func (s *Server) handleDeletePerformanceTarget(w http.ResponseWriter, r *http.Re
 	id := r.PathValue("id")
 	existing, err := s.store.GetPerformanceTarget(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if existing == nil {
@@ -160,7 +177,7 @@ func (s *Server) handleDeletePerformanceTarget(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err := s.store.DeletePerformanceTarget(id); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -171,7 +188,7 @@ func (s *Server) handleListPerformanceResults(w http.ResponseWriter, r *http.Req
 	id := r.PathValue("id")
 	t, err := s.store.GetPerformanceTarget(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if t == nil || !canAccessTenant(user, t.TenantID) || (!isPlatformAdmin(user) && t.TenantID == "") {
@@ -182,7 +199,7 @@ func (s *Server) handleListPerformanceResults(w http.ResponseWriter, r *http.Req
 	offset := queryInt(r, "offset", 0)
 	results, err := s.store.ListPerformanceResults(id, limit, offset)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if results == nil {
@@ -196,7 +213,7 @@ func (s *Server) handleGetPerformanceStats(w http.ResponseWriter, r *http.Reques
 	id := r.PathValue("id")
 	t, err := s.store.GetPerformanceTarget(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if t == nil || !canAccessTenant(user, t.TenantID) || (!isPlatformAdmin(user) && t.TenantID == "") {
@@ -207,7 +224,7 @@ func (s *Server) handleGetPerformanceStats(w http.ResponseWriter, r *http.Reques
 	since := periodSince(period)
 	stats, err := s.store.GetPerformanceTargetStats(id, since)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	jsonOK(w, stats)

@@ -14,7 +14,7 @@ type customerRequest struct {
 func (s *Server) handleListCustomers(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.ListCustomers()
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if items == nil {
@@ -53,7 +53,7 @@ func (s *Server) handleUpdateCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 	existing, err := s.store.GetCustomer(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if existing == nil {
@@ -81,7 +81,7 @@ func (s *Server) handleDeleteCustomer(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	existing, err := s.store.GetCustomer(id)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	if existing == nil {
