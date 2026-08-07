@@ -272,6 +272,9 @@ export default function MonitorForm() {
           {monitorType !== 'dns' && (
             <Field label="Slow threshold (ms)">
               <input type="number" value={form.slow_threshold_ms ?? 3000} onChange={e => set('slow_threshold_ms', +e.target.value)} className="input" />
+              <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
+                Marks the monitor as warning in the UI only. Latency emails require a Performance target.
+              </p>
             </Field>
           )}
         </div>
