@@ -444,8 +444,17 @@ func (s *Server) handleListResults(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusNotFound, "not found")
 		return
 	}
-	limit := queryInt(r, "limit", 50)
+	limit := queryInt(r, "limit", 10)
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
 	offset := queryInt(r, "offset", 0)
+	if offset < 0 {
+		offset = 0
+	}
 	results, err := s.store.ListCheckResults(id, limit, offset)
 	if err != nil {
 		jsonInternal(w, err)
@@ -454,7 +463,17 @@ func (s *Server) handleListResults(w http.ResponseWriter, r *http.Request) {
 	if results == nil {
 		results = []models.CheckResult{}
 	}
-	jsonOK(w, results)
+	total, err := s.store.CountCheckResults(id)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	jsonOK(w, map[string]any{
+		"items":  results,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }
 
 func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {

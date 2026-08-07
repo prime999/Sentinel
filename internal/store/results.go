@@ -21,7 +21,10 @@ func (s *Store) InsertCheckResult(r *models.CheckResult) error {
 
 func (s *Store) ListCheckResults(monitorID string, limit, offset int) ([]models.CheckResult, error) {
 	if limit <= 0 {
-		limit = 50
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
 	}
 	rows, err := s.db.Query(`
 		SELECT id, monitor_id, status, status_code, response_time_ms, dns_ms, tcp_ms, tls_ms, ttfb_ms, error, details, checked_at
@@ -42,6 +45,12 @@ func (s *Store) ListCheckResults(monitorID string, limit, offset int) ([]models.
 		results = append(results, *r)
 	}
 	return results, rows.Err()
+}
+
+func (s *Store) CountCheckResults(monitorID string) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM check_results WHERE monitor_id = ?`, monitorID).Scan(&n)
+	return n, err
 }
 
 func scanCheckResult(row interface {

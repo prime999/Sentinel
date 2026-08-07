@@ -3,7 +3,7 @@ import { api, ServerSettings } from '../../api'
 import { colors } from '../../theme'
 
 export default function SettingsServer() {
-  const [cfg, setCfg] = useState<ServerSettings>({ dashboard_url: '', retention_days: 90, workers: 10 })
+  const [cfg, setCfg] = useState<ServerSettings>({ dashboard_url: '', retention_days: 30, workers: 10 })
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -33,7 +33,15 @@ export default function SettingsServer() {
           <input className="input" value={cfg.dashboard_url} onChange={e => setCfg(c => ({ ...c, dashboard_url: e.target.value }))} /></label>
         <div className="grid-2" style={{ gap: 16 }}>
           <label className="field"><span className="field-label">Retention (days)</span>
-            <input type="number" className="input" value={cfg.retention_days} onChange={e => setCfg(c => ({ ...c, retention_days: +e.target.value }))} /></label>
+            <input
+              type="number"
+              min={30}
+              className="input"
+              value={cfg.retention_days}
+              onChange={e => setCfg(c => ({ ...c, retention_days: Math.max(30, +e.target.value || 30) }))}
+            />
+            <span style={{ fontSize: 12, color: colors.textMuted, marginTop: 6 }}>Minimum 30 days — check history is kept for this period.</span>
+          </label>
           <label className="field"><span className="field-label">Workers</span>
             <input type="number" className="input" value={cfg.workers} onChange={e => setCfg(c => ({ ...c, workers: +e.target.value }))} /></label>
         </div>

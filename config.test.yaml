@@ -1,7 +1,7 @@
 server:
   listen: "127.0.0.1:18080"
   workers: 5
-  retention_days: 90
+  retention_days: 30
   dashboard_url: "http://localhost:18080"
 
 auth:

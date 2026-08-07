@@ -71,6 +71,9 @@ func (s *Store) GetServerSettings(fallback config.ServerConfig) (models.ServerSe
 	if cfg.RetentionDays == 0 {
 		cfg.RetentionDays = fallback.RetentionDays
 	}
+	if cfg.RetentionDays < 30 {
+		cfg.RetentionDays = 30
+	}
 	if cfg.Workers == 0 {
 		cfg.Workers = fallback.Workers
 	}
@@ -88,11 +91,21 @@ func (s *Store) SaveServerSettings(cfg models.ServerSettings) error {
 func (s *Store) GetStatusPageConfig() (models.StatusPageConfig, error) {
 	raw, err := s.GetSetting("status_page")
 	if err != nil {
-		return models.StatusPageConfig{}, nil
+		return models.StatusPageConfig{
+			Enabled:    false,
+			Title:      "System Status",
+			MonitorIDs: []string{},
+		}, nil
 	}
 	var cfg models.StatusPageConfig
 	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
 		return models.StatusPageConfig{}, err
+	}
+	if cfg.Title == "" {
+		cfg.Title = "System Status"
+	}
+	if cfg.MonitorIDs == nil {
+		cfg.MonitorIDs = []string{}
 	}
 	return cfg, nil
 }

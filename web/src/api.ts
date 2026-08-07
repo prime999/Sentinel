@@ -47,6 +47,13 @@ export interface CheckResult {
   checked_at: string
 }
 
+export interface PaginatedResults<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface SSLDetails {
   expires_at: string
   days_remaining: number
@@ -360,7 +367,13 @@ export const api = {
   updateMonitor: (id: string, data: Partial<Monitor>) =>
     request<Monitor>(`/api/monitors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteMonitor: (id: string) => request(`/api/monitors/${id}`, { method: 'DELETE' }),
-  results: (id: string) => request<CheckResult[]>(`/api/monitors/${id}/results?limit=20`),
+  results: (id: string, opts?: { limit?: number; offset?: number }) => {
+    const limit = opts?.limit ?? 10
+    const offset = opts?.offset ?? 0
+    return request<PaginatedResults<CheckResult>>(
+      `/api/monitors/${id}/results?limit=${limit}&offset=${offset}`,
+    )
+  },
   stats: (id: string, period = '24h') =>
     request<MonitorStats>(`/api/monitors/${id}/stats?period=${period}`),
   performance: (period = '24h', customer?: string) => {

@@ -54,7 +54,10 @@ func (c *Config) applyDefaults() {
 		c.Server.Workers = 10
 	}
 	if c.Server.RetentionDays == 0 {
-		c.Server.RetentionDays = 90
+		c.Server.RetentionDays = 30
+	}
+	if c.Server.RetentionDays < 30 {
+		c.Server.RetentionDays = 30
 	}
 	if c.Server.DashboardURL == "" {
 		c.Server.DashboardURL = "http://localhost:8082"
