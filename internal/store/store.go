@@ -74,6 +74,9 @@ func (s *Store) migrate() error {
 	if err := s.migrateV8(); err != nil {
 		return fmt.Errorf("run v8 migrations: %w", err)
 	}
+	if err := s.migrateV9(); err != nil {
+		return fmt.Errorf("run v9 migrations: %w", err)
+	}
 	return nil
 }
 

@@ -166,10 +166,17 @@ func (sch *Scheduler) runPerformanceCheck(ctx context.Context, t *models.Perform
 		status = models.StatusDegraded
 	}
 	prevStatus := t.LastStatus
-	if err := sch.store.UpdatePerformanceTargetAfterCheck(t.ID, status, result.CheckedAt); err != nil {
+	consecutive := t.ConsecutiveSlow
+	if status == models.StatusDegraded {
+		consecutive++
+	} else {
+		consecutive = 0
+	}
+	if err := sch.store.UpdatePerformanceTargetAfterCheck(t.ID, status, consecutive, result.CheckedAt); err != nil {
 		log.Printf("scheduler: update performance target: %v", err)
 	}
 	t.LastStatus = status
+	t.ConsecutiveSlow = consecutive
 	if err := sch.alerter.HandlePerformanceResult(t, result, prevStatus); err != nil {
 		log.Printf("scheduler: performance alert: %v", err)
 	}

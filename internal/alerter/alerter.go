@@ -16,9 +16,16 @@ import (
 )
 
 const (
-	flapThreshold    = 2
-	slowAlertCooldown = 15 * time.Minute
+	defaultFlapThreshold = 2
+	slowAlertCooldown     = 15 * time.Minute
 )
+
+func monitorAlertAfterFailures(m *models.Monitor) int {
+	if m.AlertAfterFailures < 1 {
+		return defaultFlapThreshold
+	}
+	return m.AlertAfterFailures
+}
 
 type Alerter struct {
 	store        *store.Store
@@ -73,9 +80,10 @@ func (a *Alerter) HandleResult(m *models.Monitor, result *models.CheckResult) er
 	m.LastStatus = newStatus
 	m.ConsecutiveFailures = failures
 
-	// Down alert after flap threshold
-	if newStatus == models.StatusDown && failures >= flapThreshold {
-		if prevStatus != models.StatusDown || failures == flapThreshold {
+	// Down alert after configured consecutive failures
+	threshold := monitorAlertAfterFailures(m)
+	if newStatus == models.StatusDown && failures >= threshold {
+		if prevStatus != models.StatusDown || failures == threshold {
 			open, _ := a.store.GetOpenIncident(m.ID, models.IncidentDown)
 			if open == nil {
 				inc := &models.Incident{

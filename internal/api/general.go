@@ -13,7 +13,7 @@ const maxLogoBytes = 512 * 1024
 func (s *Server) handleGetGeneral(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.store.GetOrgSettings()
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	jsonOK(w, cfg)
@@ -42,7 +42,7 @@ func (s *Server) handlePutGeneral(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.store.SaveOrgSettings(input); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	jsonOK(w, input)
@@ -50,7 +50,7 @@ func (s *Server) handlePutGeneral(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleResetGeneral(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.DeleteSetting("org"); err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		jsonInternal(w, err)
 		return
 	}
 	jsonOK(w, models.OrgSettings{})

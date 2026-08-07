@@ -178,7 +178,10 @@ export default function SettingsTeam() {
             <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="For password reset" />
           </Field>
           <Field label="Password">
-            <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+            <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+            <p style={{ color: colors.textMuted, fontSize: 12, margin: '6px 0 0' }}>
+              At least 8 characters, with a letter and a number.
+            </p>
           </Field>
           <Field label="Role">
             <select className="input" value={role} onChange={e => setRole(e.target.value as UserRole)}>

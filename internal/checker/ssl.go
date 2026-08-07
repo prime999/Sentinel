@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sentinel-monitoring/sentinel/internal/models"
+	"github.com/sentinel-monitoring/sentinel/internal/safehost"
 )
 
 func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.CheckResult {
@@ -30,6 +31,10 @@ func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.Check
 		result.Error = "hostname is required for SSL monitors"
 		return result
 	}
+	if err := safehost.ValidateHostname(host); err != nil {
+		result.Error = err.Error()
+		return result
+	}
 
 	port := 443
 	if m.Port != nil {
@@ -37,17 +42,22 @@ func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.Check
 	}
 
 	timeout := time.Duration(m.TimeoutMs) * time.Millisecond
-	dialer := &net.Dialer{Timeout: timeout}
-	conn, err := tls.DialWithDialer(dialer, "tcp", fmt.Sprintf("%s:%d", host, port), &tls.Config{
-		ServerName: host,
-	})
-	result.ResponseTimeMs = int(time.Since(start).Milliseconds())
-
+	raw, err := safehost.ControlDialContext(ctx, "tcp", net.JoinHostPort(host, fmt.Sprintf("%d", port)))
 	if err != nil {
+		result.ResponseTimeMs = int(time.Since(start).Milliseconds())
+		result.Error = fmt.Sprintf("TLS connection failed: %v", err)
+		return result
+	}
+	_ = raw.SetDeadline(time.Now().Add(timeout))
+	conn := tls.Client(raw, &tls.Config{ServerName: host})
+	if err := conn.HandshakeContext(ctx); err != nil {
+		_ = raw.Close()
+		result.ResponseTimeMs = int(time.Since(start).Milliseconds())
 		result.Error = fmt.Sprintf("TLS connection failed: %v", err)
 		return result
 	}
 	defer conn.Close()
+	result.ResponseTimeMs = int(time.Since(start).Milliseconds())
 
 	state := conn.ConnectionState()
 	if len(state.PeerCertificates) == 0 {
@@ -90,7 +100,6 @@ func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.Check
 		result.Details = string(b)
 	}
 
-	// Check chain via system roots
 	if _, err := cert.Verify(x509.VerifyOptions{DNSName: host}); err != nil && !containsIssue(issues, "self_signed") {
 		issues = append(issues, "chain_error")
 		details.Issues = issues

@@ -8,7 +8,8 @@ import (
 )
 
 const perfTargetColumns = `id, name, url, method, interval_seconds, timeout_ms, slow_threshold_ms,
-follow_redirects, enabled, alert_emails, tenant_id, last_status, last_checked_at, created_at, updated_at`
+follow_redirects, enabled, alert_emails, tenant_id, alert_after_slow, consecutive_slow,
+last_status, last_checked_at, created_at, updated_at`
 
 func (s *Store) ListPerformanceTargets() ([]models.PerformanceTargetListItem, error) {
 	return s.listPerformanceTargetsQuery("")
@@ -92,7 +93,7 @@ func (s *Store) CreatePerformanceTarget(t *models.PerformanceTarget) error {
 	if t.Method == "" {
 		t.Method = "GET"
 	}
-	if t.IntervalSeconds == 0 {
+	if t.IntervalSeconds < 30 {
 		t.IntervalSeconds = 300
 	}
 	if t.TimeoutMs == 0 {
@@ -101,14 +102,18 @@ func (s *Store) CreatePerformanceTarget(t *models.PerformanceTarget) error {
 	if t.SlowThresholdMs == 0 {
 		t.SlowThresholdMs = 3000
 	}
+	if t.AlertAfterSlow < 1 {
+		t.AlertAfterSlow = 1
+	}
 	t.Enabled = true
 	t.LastStatus = models.StatusUnknown
 
 	_, err := s.db.Exec(`
 		INSERT INTO performance_targets (`+perfTargetColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.Name, t.URL, t.Method, t.IntervalSeconds, t.TimeoutMs, t.SlowThresholdMs,
 		boolToInt(t.FollowRedirects), boolToInt(t.Enabled), t.AlertEmails, nullString(t.TenantID),
+		t.AlertAfterSlow, t.ConsecutiveSlow,
 		string(t.LastStatus), nil, formatTime(t.CreatedAt), formatTime(t.UpdatedAt),
 	)
 	return err
@@ -120,14 +125,21 @@ func (s *Store) UpdatePerformanceTarget(t *models.PerformanceTarget) error {
 	if t.LastCheckedAt != nil {
 		lastChecked = formatTime(*t.LastCheckedAt)
 	}
+	if t.AlertAfterSlow < 1 {
+		t.AlertAfterSlow = 1
+	}
+	if t.IntervalSeconds < 30 {
+		t.IntervalSeconds = 30
+	}
 	_, err := s.db.Exec(`
 		UPDATE performance_targets SET
 			name=?, url=?, method=?, interval_seconds=?, timeout_ms=?, slow_threshold_ms=?,
-			follow_redirects=?, enabled=?, alert_emails=?, tenant_id=?, last_status=?, last_checked_at=?, updated_at=?
+			follow_redirects=?, enabled=?, alert_emails=?, tenant_id=?, alert_after_slow=?,
+			last_status=?, last_checked_at=?, updated_at=?
 		WHERE id=?`,
 		t.Name, t.URL, t.Method, t.IntervalSeconds, t.TimeoutMs, t.SlowThresholdMs,
 		boolToInt(t.FollowRedirects), boolToInt(t.Enabled), t.AlertEmails, nullString(t.TenantID),
-		string(t.LastStatus), lastChecked, formatTime(t.UpdatedAt), t.ID,
+		t.AlertAfterSlow, string(t.LastStatus), lastChecked, formatTime(t.UpdatedAt), t.ID,
 	)
 	return err
 }
@@ -137,10 +149,10 @@ func (s *Store) DeletePerformanceTarget(id string) error {
 	return err
 }
 
-func (s *Store) UpdatePerformanceTargetAfterCheck(id string, status models.MonitorStatus, checkedAt time.Time) error {
+func (s *Store) UpdatePerformanceTargetAfterCheck(id string, status models.MonitorStatus, consecutiveSlow int, checkedAt time.Time) error {
 	_, err := s.db.Exec(`
-		UPDATE performance_targets SET last_status=?, last_checked_at=?, updated_at=? WHERE id=?`,
-		string(status), formatTime(checkedAt), formatTime(time.Now().UTC()), id,
+		UPDATE performance_targets SET last_status=?, consecutive_slow=?, last_checked_at=?, updated_at=? WHERE id=?`,
+		string(status), consecutiveSlow, formatTime(checkedAt), formatTime(time.Now().UTC()), id,
 	)
 	return err
 }
@@ -156,7 +168,8 @@ func scanPerformanceTargetRow(row interface {
 
 	dest := []any{
 		&t.ID, &t.Name, &t.URL, &t.Method, &t.IntervalSeconds, &t.TimeoutMs, &t.SlowThresholdMs,
-		&followRedirects, &enabled, &alertEmails, &tenantID, &lastStatus, &lastCheckedAt, &createdAt, &updatedAt,
+		&followRedirects, &enabled, &alertEmails, &tenantID, &t.AlertAfterSlow, &t.ConsecutiveSlow,
+		&lastStatus, &lastCheckedAt, &createdAt, &updatedAt,
 	}
 	if withLatest {
 		dest = append(dest, &latestRT)
@@ -170,6 +183,9 @@ func scanPerformanceTargetRow(row interface {
 	t.Enabled = intToBool(enabled)
 	t.AlertEmails = nullableString(alertEmails)
 	t.TenantID = nullableString(tenantID)
+	if t.AlertAfterSlow < 1 {
+		t.AlertAfterSlow = 1
+	}
 	t.LastStatus = models.MonitorStatus(lastStatus)
 	if t.LastStatus == models.StatusDown {
 		t.LastStatus = models.StatusDegraded
