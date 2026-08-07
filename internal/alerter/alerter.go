@@ -229,7 +229,7 @@ func (a *Alerter) sendSMTP(to, subject, htmlBody string) error {
 	}
 
 	var msg bytes.Buffer
-	msg.WriteString(fmt.Sprintf("From: %s\r\n", from))
+	msg.WriteString(fmt.Sprintf("From: %s\r\n", formatFromHeader(from)))
 	msg.WriteString(fmt.Sprintf("To: %s\r\n", to))
 	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	msg.WriteString("MIME-Version: 1.0\r\n")
@@ -257,6 +257,20 @@ func smtpAuth(cfg models.SMTPConfig) smtp.Auth {
 		return nil
 	}
 	return smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
+}
+
+// formatFromHeader sets a friendly display name for inbox UIs while keeping the
+// envelope address as the bare email (MAIL FROM).
+func formatFromHeader(from string) string {
+	from = strings.TrimSpace(from)
+	if from == "" {
+		return from
+	}
+	// Already has a display name.
+	if strings.Contains(from, "<") && strings.Contains(from, ">") {
+		return from
+	}
+	return fmt.Sprintf("\"Sentinel Monitoring\" <%s>", from)
 }
 
 func (a *Alerter) tlsConfig() *tls.Config {
