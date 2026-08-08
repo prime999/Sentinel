@@ -451,12 +451,14 @@ export const api = {
     openOnly?: boolean
     date?: string
     limit?: number
+    offset?: number
     status?: string
     type?: string
     monitorId?: string
   }) => {
     const params = new URLSearchParams()
-    params.set('limit', String(opts?.limit ?? 100))
+    params.set('limit', String(opts?.limit ?? 20))
+    params.set('offset', String(opts?.offset ?? 0))
     if (opts?.openOnly) params.set('open', '1')
     if (opts?.status) params.set('status', opts.status)
     if (opts?.type) params.set('type', opts.type)
@@ -466,7 +468,7 @@ export const api = {
       params.set('from', from)
       params.set('to', to)
     }
-    return request<Incident[]>(`/api/incidents?${params}`)
+    return request<PaginatedResults<Incident>>(`/api/incidents?${params}`)
   },
   getWebhooks: () => request<WebhookConfig[]>('/api/settings/webhooks'),
   putWebhooks: (hooks: WebhookConfig[]) =>

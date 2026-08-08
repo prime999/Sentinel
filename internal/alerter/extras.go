@@ -30,13 +30,27 @@ func (a *Alerter) handleSSLExtras(m *models.Monitor, result *models.CheckResult)
 		return nil
 	}
 
-	// Certificate fingerprint change
+	// Successful SSL probe after renewal clears expiry warnings.
+	if result.Status == models.StatusUp || result.Status == models.StatusDegraded {
+		if details.DaysRemaining > 60 {
+			_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentSSLExpiry, result.CheckedAt)
+			_ = a.store.SaveLastAlertedSSLDays(m.ID, 0)
+		}
+		// Leftover open cert-change rows from older versions are notices, not outages.
+		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentCertChange, result.CheckedAt)
+	}
+
+	// Certificate fingerprint change — informational event (renewal), not an outage.
 	prevFP, _ := a.store.GetSnapshot(m.ID, "ssl_fp")
 	if prevFP != "" && prevFP != details.Fingerprint {
 		msg := fmt.Sprintf("Certificate fingerprint changed (issuer: %s)", details.Issuer)
+		resolved := result.CheckedAt
 		_ = a.store.CreateIncident(&models.Incident{
-			MonitorID: m.ID, Type: models.IncidentCertChange,
-			Message: msg, StartedAt: result.CheckedAt,
+			MonitorID:  m.ID,
+			Type:       models.IncidentCertChange,
+			Message:    msg,
+			StartedAt:  result.CheckedAt,
+			ResolvedAt: &resolved,
 		})
 		_ = a.NotifyMonitor(m, "CERT CHANGE", msg, result.ResponseTimeMs)
 	}
@@ -87,9 +101,13 @@ func (a *Alerter) handleDNSExtras(m *models.Monitor, result *models.CheckResult)
 	}
 	msg := strings.Join(msgs, "; ")
 
+	resolved := result.CheckedAt
 	_ = a.store.CreateIncident(&models.Incident{
-		MonitorID: m.ID, Type: models.IncidentDNSChange,
-		Message: msg, StartedAt: result.CheckedAt,
+		MonitorID:  m.ID,
+		Type:       models.IncidentDNSChange,
+		Message:    msg,
+		StartedAt:  result.CheckedAt,
+		ResolvedAt: &resolved,
 	})
 	_ = a.store.SaveSnapshot(m.ID, "dns_alert", time.Now().UTC().Format(time.RFC3339Nano))
 	return a.NotifyMonitor(m, "DNS CHANGE", msg, result.ResponseTimeMs)

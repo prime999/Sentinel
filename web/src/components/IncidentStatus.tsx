@@ -1,0 +1,39 @@
+import StatusBadge from './StatusBadge'
+import { colors } from '../theme'
+import type { Incident } from '../api'
+
+/** Status label for incident rows — cert/DNS changes are notices, not downtime. */
+export default function IncidentStatus({ incident }: { incident: Incident }) {
+  const type = (incident.type || '').toLowerCase()
+
+  if (type === 'cert_change' || type === 'dns_change') {
+    return <span style={styles.notice}>Notice</span>
+  }
+
+  if (type === 'ssl_expiry' || type === 'slow') {
+    if (incident.resolved_at) {
+      return <span style={styles.resolved}>Resolved</span>
+    }
+    return <span style={styles.warning}>Warning</span>
+  }
+
+  if (incident.resolved_at) {
+    return <span style={styles.resolved}>Resolved</span>
+  }
+
+  return <StatusBadge status="down" />
+}
+
+export function incidentStatusLabel(incident: Incident): string {
+  const type = (incident.type || '').toLowerCase()
+  if (type === 'cert_change' || type === 'dns_change') return 'Notice'
+  if (incident.resolved_at) return 'Resolved'
+  if (type === 'ssl_expiry' || type === 'slow') return 'Warning'
+  return 'Open'
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  resolved: { color: colors.green, fontSize: 13, fontWeight: 600 },
+  notice: { color: colors.blue, fontSize: 13, fontWeight: 600 },
+  warning: { color: colors.yellow, fontSize: 13, fontWeight: 600 },
+}

@@ -155,12 +155,6 @@ func (a *Alerter) HandleResult(m *models.Monitor, result *models.CheckResult) er
 		m.LastStatus = newStatus
 		m.ConsecutiveFailures = 0
 		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentDown, result.CheckedAt)
-		_ = a.store.CreateIncident(&models.Incident{
-			MonitorID: m.ID,
-			Type:      models.IncidentRecovery,
-			Message:   "Monitor is back online",
-			StartedAt: result.CheckedAt,
-		})
 		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentSlow, result.CheckedAt)
 		return a.notifyMonitorAlert(m, "RECOVERY", "Monitor is back online", result.ResponseTimeMs)
 	}

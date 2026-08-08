@@ -10,11 +10,15 @@ import (
 
 func (s *Store) CreateIncident(inc *models.Incident) error {
 	inc.ID = newID()
+	var resolved any
+	if inc.ResolvedAt != nil {
+		resolved = formatTime(*inc.ResolvedAt)
+	}
 	_, err := s.db.Exec(`
 		INSERT INTO incidents (id, monitor_id, type, message, started_at, resolved_at)
 		VALUES (?, ?, ?, ?, ?, ?)`,
 		inc.ID, inc.MonitorID, string(inc.Type), inc.Message,
-		formatTime(inc.StartedAt), nil,
+		formatTime(inc.StartedAt), resolved,
 	)
 	return err
 }
@@ -197,6 +201,10 @@ func incidentConds(q IncidentQuery) ([]string, []any) {
 	if typ := strings.TrimSpace(q.Type); typ != "" {
 		conds = append(conds, `i.type = ?`)
 		args = append(args, typ)
+	} else {
+		// Outages are one row (down/ssl/…); recovery is email-only, not a separate incident.
+		conds = append(conds, `i.type != ?`)
+		args = append(args, string(models.IncidentRecovery))
 	}
 	if q.MonitorID != "" {
 		conds = append(conds, `i.monitor_id = ?`)

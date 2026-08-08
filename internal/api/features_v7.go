@@ -14,7 +14,17 @@ import (
 func (s *Server) handleListIncidents(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	openOnly := r.URL.Query().Get("open") == "1"
-	limit := queryInt(r, "limit", 100)
+	limit := queryInt(r, "limit", 20)
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := queryInt(r, "offset", 0)
+	if offset < 0 {
+		offset = 0
+	}
 	from, to, err := parseIncidentDayRange(r)
 	if err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
@@ -26,6 +36,7 @@ func (s *Server) handleListIncidents(w http.ResponseWriter, r *http.Request) {
 	}
 	q := store.IncidentQuery{
 		Limit:     limit,
+		Offset:    offset,
 		OpenOnly:  openOnly,
 		Status:    status,
 		Type:      strings.TrimSpace(r.URL.Query().Get("type")),
@@ -49,7 +60,17 @@ func (s *Server) handleListIncidents(w http.ResponseWriter, r *http.Request) {
 	if items == nil {
 		items = []models.IncidentListItem{}
 	}
-	jsonOK(w, items)
+	total, err := s.store.CountIncidents(q)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	jsonOK(w, map[string]any{
+		"items":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }
 
 func (s *Server) handleGetWebhooks(w http.ResponseWriter, r *http.Request) {

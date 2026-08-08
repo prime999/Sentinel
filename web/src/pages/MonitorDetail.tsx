@@ -6,6 +6,7 @@ import {
 import { api, CheckResult, DNSDetails, Incident, Monitor, MonitorStats, PortDetails, SSLDetails } from '../api'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
+import IncidentStatus, { incidentStatusLabel } from '../components/IncidentStatus'
 import MetricCard from '../components/MetricCard'
 import StatusBadge from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
@@ -319,7 +320,7 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
             <Row label="Type" value={lastIncident.type} />
             <Row label="When" value={new Date(lastIncident.started_at).toLocaleString()} />
             <Row label="Message" value={lastIncident.message || '—'} />
-            <Row label="Status" value={lastIncident.resolved_at ? 'Resolved' : 'Open'} />
+            <Row label="Status" value={incidentStatusLabel(lastIncident)} />
           </>
         ) : (
           <div style={{ color: colors.textMuted, fontSize: 13 }}>No recent incidents</div>
@@ -457,11 +458,7 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
                     {inc.message || '—'}
                   </td>
                   <td style={styles.td}>
-                    {inc.resolved_at ? (
-                      <span style={{ color: colors.green, fontWeight: 600, fontSize: 13 }}>Resolved</span>
-                    ) : (
-                      <StatusBadge status={inc.type === 'recovery' ? 'up' : 'down'} />
-                    )}
+                    <IncidentStatus incident={inc} />
                   </td>
                   <td style={{ ...styles.td, color: colors.textMuted }}>
                     {inc.resolved_at ? new Date(inc.resolved_at).toLocaleString() : '—'}

@@ -6,7 +6,6 @@ export type IncidentStatusFilter = '' | 'open' | 'resolved'
 const TYPE_OPTIONS = [
   { value: '', label: 'All types' },
   { value: 'down', label: 'Down' },
-  { value: 'recovery', label: 'Recovery' },
   { value: 'ssl_expiry', label: 'SSL expiry' },
   { value: 'cert_change', label: 'Cert change' },
   { value: 'dns_change', label: 'DNS change' },

@@ -68,10 +68,10 @@ export default function Monitors() {
     try {
       const [mons, incs] = await Promise.all([
         api.monitors({ tag: tagFilter || undefined }),
-        api.incidents({}),
+        api.incidents({ limit: 50, offset: 0 }),
       ])
       setMonitors(mons)
-      setIncidents(incs)
+      setIncidents(incs.items)
       setError('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load')
