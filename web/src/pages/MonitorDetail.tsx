@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { api, CheckResult, DNSDetails, Incident, Monitor, MonitorStats, PortDetails, SSLDetails } from '../api'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
+import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import MetricCard from '../components/MetricCard'
 import StatusBadge from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
@@ -362,18 +363,30 @@ function Empty() {
 function IncidentsTable({ monitorId }: { monitorId: string }) {
   const pageSize = 10
   const [page, setPage] = useState(0)
+  const [filters, setFilters] = useState<IncidentFilterValues>({
+    date: '',
+    status: '',
+    type: '',
+    monitorId: '',
+  })
   const [items, setItems] = useState<Incident[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setPage(0)
-  }, [monitorId])
+  }, [monitorId, filters.date, filters.status, filters.type])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    api.monitorIncidents(monitorId, { limit: pageSize, offset: page * pageSize })
+    api.monitorIncidents(monitorId, {
+      limit: pageSize,
+      offset: page * pageSize,
+      date: filters.date || undefined,
+      status: filters.status || undefined,
+      type: filters.type || undefined,
+    })
       .then(res => {
         if (cancelled) return
         setItems(res.items)
@@ -389,19 +402,29 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [monitorId, page])
+  }, [monitorId, page, filters.date, filters.status, filters.type])
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const from = total === 0 ? 0 : page * pageSize + 1
   const to = Math.min(total, (page + 1) * pageSize)
+  const filtered = !!(filters.date || filters.status || filters.type)
 
   return (
     <div style={{ ...styles.chartCard, marginTop: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Recent Incidents</h3>
         <span style={{ fontSize: 13, color: colors.textMuted }}>
-          {total === 0 ? 'No incidents yet' : `Showing ${from}–${to} of ${total}`}
+          {total === 0
+            ? (filtered ? 'No matching incidents' : 'No incidents yet')
+            : `Showing ${from}–${to} of ${total}`}
         </span>
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <IncidentFilters
+          value={filters}
+          onChange={setFilters}
+          showMonitor={false}
+        />
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={styles.table}>

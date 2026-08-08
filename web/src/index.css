@@ -145,6 +145,21 @@ input:focus, select:focus, textarea:focus {
   vertical-align: middle;
 }
 
+/* Keep native calendar affordance for date fields */
+input[type="date"].input {
+  appearance: auto;
+  -webkit-appearance: auto;
+  color-scheme: dark;
+  min-width: 160px;
+  cursor: pointer;
+}
+
+input[type="date"].input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.85;
+  filter: invert(0.85);
+}
+
 textarea.input {
   height: auto;
   min-height: 96px;

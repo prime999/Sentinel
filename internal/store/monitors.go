@@ -129,7 +129,7 @@ func (s *Store) listMonitorsQuery(tenantID string) ([]models.MonitorListItem, er
 		q += ` WHERE tenant_id = ?`
 		args = append(args, tenantID)
 	}
-	q += ` ORDER BY name ASC`
+	q += ` ORDER BY created_at DESC`
 
 	rows, err := s.db.Query(q, args...)
 	if err != nil {

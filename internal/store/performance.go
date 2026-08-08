@@ -232,7 +232,7 @@ func (s *Store) GetFleetPerformanceScoped(since time.Time, tenantID string) (*mo
 		q += ` AND tenant_id = ?`
 		args = append(args, tenantID)
 	}
-	q += ` ORDER BY name ASC`
+	q += ` ORDER BY created_at DESC`
 	targetRows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err

@@ -1,17 +1,37 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, Incident } from '../api'
+import { api, Incident, Monitor } from '../api'
+import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import StatusBadge from '../components/StatusBadge'
 import { colors } from '../theme'
 
+const emptyFilters: IncidentFilterValues = {
+  date: '',
+  status: '',
+  type: '',
+  monitorId: '',
+}
+
 export default function Incidents() {
   const [incidents, setIncidents] = useState<Incident[]>([])
-  const [openOnly, setOpenOnly] = useState(false)
+  const [monitors, setMonitors] = useState<Monitor[]>([])
+  const [filters, setFilters] = useState<IncidentFilterValues>(emptyFilters)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    api.monitors().then(setMonitors).catch(() => {})
+  }, [])
 
   async function load() {
     try {
-      setIncidents(await api.incidents(openOnly))
+      setError('')
+      setIncidents(await api.incidents({
+        date: filters.date || undefined,
+        status: filters.status || undefined,
+        type: filters.type || undefined,
+        monitorId: filters.monitorId || undefined,
+        limit: 200,
+      }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load')
     }
@@ -21,9 +41,10 @@ export default function Incidents() {
     load()
     const id = setInterval(load, 30000)
     return () => clearInterval(id)
-  }, [openOnly])
+  }, [filters.date, filters.status, filters.type, filters.monitorId])
 
   const open = incidents.filter(i => !i.resolved_at).length
+  const monitorOptions = monitors.map(m => ({ id: m.id, name: m.name }))
 
   return (
     <div className="page">
@@ -31,19 +52,28 @@ export default function Incidents() {
         <div>
           <h1 className="page-title">Incidents</h1>
           <p className="page-subtitle" style={{ marginBottom: 0 }}>
-            {open} open · {incidents.length} total
+            {open} open · {incidents.length} shown
           </p>
         </div>
-        <label style={styles.filter}>
-          <input type="checkbox" checked={openOnly} onChange={e => setOpenOnly(e.target.checked)} />
-          Open only
-        </label>
+      </div>
+
+      <div style={styles.filterCard}>
+        <IncidentFilters
+          value={filters}
+          onChange={setFilters}
+          monitors={monitorOptions}
+          showMonitor
+        />
       </div>
 
       {error && <div style={styles.error}>{error}</div>}
 
       {incidents.length === 0 ? (
-        <div style={styles.empty}>No incidents recorded yet.</div>
+        <div style={styles.empty}>
+          {filters.date || filters.status || filters.type || filters.monitorId
+            ? 'No incidents match these filters.'
+            : 'No incidents recorded yet.'}
+        </div>
       ) : (
         <div style={styles.tableWrap}>
           <table style={styles.table}>
@@ -85,8 +115,14 @@ export default function Incidents() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-  filter: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, color: colors.textMuted },
+  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 16, flexWrap: 'wrap' },
+  filterCard: {
+    background: colors.card,
+    border: `1px solid ${colors.border}`,
+    borderRadius: 12,
+    padding: '14px 16px',
+    marginBottom: 20,
+  },
   tableWrap: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, overflow: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
   link: { color: colors.brand, textDecoration: 'none', fontWeight: 500 },

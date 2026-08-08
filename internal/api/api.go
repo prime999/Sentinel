@@ -500,7 +500,21 @@ func (s *Server) handleListMonitorIncidents(w http.ResponseWriter, r *http.Reque
 	if offset < 0 {
 		offset = 0
 	}
-	items, err := s.store.ListIncidentsByMonitor(id, limit, offset)
+	from, to, err := parseIncidentDayRange(r)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	q := store.IncidentQuery{
+		MonitorID: id,
+		Limit:     limit,
+		Offset:    offset,
+		From:      from,
+		To:        to,
+		Status:    strings.TrimSpace(r.URL.Query().Get("status")),
+		Type:      strings.TrimSpace(r.URL.Query().Get("type")),
+	}
+	items, err := s.store.QueryIncidents(q)
 	if err != nil {
 		jsonInternal(w, err)
 		return
@@ -508,7 +522,7 @@ func (s *Server) handleListMonitorIncidents(w http.ResponseWriter, r *http.Reque
 	if items == nil {
 		items = []models.IncidentListItem{}
 	}
-	total, err := s.store.CountIncidentsByMonitor(id)
+	total, err := s.store.CountIncidents(q)
 	if err != nil {
 		jsonInternal(w, err)
 		return
@@ -627,4 +641,42 @@ func queryInt(r *http.Request, key string, def int) int {
 		return def
 	}
 	return n
+}
+
+// parseIncidentDayRange reads ?from=&to= RFC3339 bounds, or ?date=YYYY-MM-DD
+// as a local calendar day on the server. Prefer from/to when the client sends them.
+func parseIncidentDayRange(r *http.Request) (from, to *time.Time, err error) {
+	if raw := strings.TrimSpace(r.URL.Query().Get("from")); raw != "" {
+		t, e := time.Parse(time.RFC3339Nano, raw)
+		if e != nil {
+			t, e = time.Parse(time.RFC3339, raw)
+		}
+		if e != nil {
+			return nil, nil, fmt.Errorf("invalid from timestamp")
+		}
+		from = &t
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("to")); raw != "" {
+		t, e := time.Parse(time.RFC3339Nano, raw)
+		if e != nil {
+			t, e = time.Parse(time.RFC3339, raw)
+		}
+		if e != nil {
+			return nil, nil, fmt.Errorf("invalid to timestamp")
+		}
+		to = &t
+	}
+	if from != nil || to != nil {
+		return from, to, nil
+	}
+	if date := strings.TrimSpace(r.URL.Query().Get("date")); date != "" {
+		day, e := time.ParseInLocation("2006-01-02", date, time.Local)
+		if e != nil {
+			return nil, nil, fmt.Errorf("invalid date (use YYYY-MM-DD)")
+		}
+		start := day
+		end := day.Add(24 * time.Hour)
+		return &start, &end, nil
+	}
+	return nil, nil, nil
 }

@@ -68,7 +68,7 @@ export default function Monitors() {
     try {
       const [mons, incs] = await Promise.all([
         api.monitors({ tag: tagFilter || undefined }),
-        api.incidents(false),
+        api.incidents({}),
       ])
       setMonitors(mons)
       setIncidents(incs)

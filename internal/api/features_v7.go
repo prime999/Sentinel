@@ -8,18 +8,37 @@ import (
 
 	"github.com/sentinel-monitoring/sentinel/internal/config"
 	"github.com/sentinel-monitoring/sentinel/internal/models"
+	"github.com/sentinel-monitoring/sentinel/internal/store"
 )
 
 func (s *Server) handleListIncidents(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	openOnly := r.URL.Query().Get("open") == "1"
 	limit := queryInt(r, "limit", 100)
+	from, to, err := parseIncidentDayRange(r)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	if openOnly && status == "" {
+		status = "open"
+	}
+	q := store.IncidentQuery{
+		Limit:     limit,
+		OpenOnly:  openOnly,
+		Status:    status,
+		Type:      strings.TrimSpace(r.URL.Query().Get("type")),
+		MonitorID: strings.TrimSpace(r.URL.Query().Get("monitor_id")),
+		From:      from,
+		To:        to,
+	}
 	var items []models.IncidentListItem
-	var err error
 	if isPlatformAdmin(user) {
-		items, err = s.store.ListIncidents(limit, openOnly)
+		items, err = s.store.QueryIncidents(q)
 	} else if user.TenantID != "" {
-		items, err = s.store.ListIncidentsByTenant(limit, openOnly, user.TenantID)
+		q.TenantID = user.TenantID
+		items, err = s.store.QueryIncidents(q)
 	} else {
 		items = []models.IncidentListItem{}
 	}
