@@ -3,7 +3,7 @@ import { colors } from '../theme'
 const labels: Record<string, string> = {
   up: 'Healthy',
   down: 'Down',
-  degraded: 'Degraded',
+  degraded: 'Warning',
   unknown: 'Unknown',
 }
 

@@ -10,11 +10,15 @@ import (
 
 func (s *Store) CreateIncident(inc *models.Incident) error {
 	inc.ID = newID()
+	var resolved any
+	if inc.ResolvedAt != nil {
+		resolved = formatTime(*inc.ResolvedAt)
+	}
 	_, err := s.db.Exec(`
 		INSERT INTO incidents (id, monitor_id, type, message, started_at, resolved_at)
 		VALUES (?, ?, ?, ?, ?, ?)`,
 		inc.ID, inc.MonitorID, string(inc.Type), inc.Message,
-		formatTime(inc.StartedAt), nil,
+		formatTime(inc.StartedAt), resolved,
 	)
 	return err
 }
@@ -80,43 +84,64 @@ func scanIncident(row interface {
 	return &inc, nil
 }
 
+// IncidentQuery filters incident listings.
+type IncidentQuery struct {
+	OpenOnly  bool
+	Status    string // "", "open", "resolved"
+	Type      string
+	TenantID  string
+	MonitorID string
+	From      *time.Time
+	To        *time.Time
+	Limit     int
+	Offset    int
+}
+
 func (s *Store) ListIncidents(limit int, openOnly bool) ([]models.IncidentListItem, error) {
-	return s.ListIncidentsScoped(limit, openOnly, "")
+	return s.QueryIncidents(IncidentQuery{Limit: limit, OpenOnly: openOnly})
 }
 
 func (s *Store) ListIncidentsByTenant(limit int, openOnly bool, tenantID string) ([]models.IncidentListItem, error) {
 	if tenantID == "" {
 		return []models.IncidentListItem{}, nil
 	}
-	return s.ListIncidentsScoped(limit, openOnly, tenantID)
+	return s.QueryIncidents(IncidentQuery{Limit: limit, OpenOnly: openOnly, TenantID: tenantID})
 }
 
 func (s *Store) ListIncidentsScoped(limit int, openOnly bool, tenantID string) ([]models.IncidentListItem, error) {
-	if limit <= 0 {
-		limit = 100
+	return s.QueryIncidents(IncidentQuery{Limit: limit, OpenOnly: openOnly, TenantID: tenantID})
+}
+
+func (s *Store) ListIncidentsByMonitor(monitorID string, limit, offset int) ([]models.IncidentListItem, error) {
+	return s.QueryIncidents(IncidentQuery{MonitorID: monitorID, Limit: limit, Offset: offset})
+}
+
+func (s *Store) CountIncidentsByMonitor(monitorID string) (int, error) {
+	return s.CountIncidents(IncidentQuery{MonitorID: monitorID})
+}
+
+func (s *Store) QueryIncidents(q IncidentQuery) ([]models.IncidentListItem, error) {
+	if q.Limit <= 0 {
+		q.Limit = 100
 	}
-	q := `
+	if q.Offset < 0 {
+		q.Offset = 0
+	}
+
+	sqlQ := `
 		SELECT i.id, i.monitor_id, i.type, i.message, i.started_at, i.resolved_at,
 			COALESCE(m.name, pt.name, '') AS monitor_name
 		FROM incidents i
 		LEFT JOIN monitors m ON m.id = i.monitor_id
 		LEFT JOIN performance_targets pt ON pt.id = i.monitor_id`
-	var conds []string
-	var args []any
-	if openOnly {
-		conds = append(conds, `i.resolved_at IS NULL`)
-	}
-	if tenantID != "" {
-		conds = append(conds, `(m.tenant_id = ? OR pt.tenant_id = ?)`)
-		args = append(args, tenantID, tenantID)
-	}
+	conds, args := incidentConds(q)
 	if len(conds) > 0 {
-		q += ` WHERE ` + strings.Join(conds, ` AND `)
+		sqlQ += ` WHERE ` + strings.Join(conds, ` AND `)
 	}
-	q += ` ORDER BY i.started_at DESC LIMIT ?`
-	args = append(args, limit)
+	sqlQ += ` ORDER BY CASE WHEN i.resolved_at IS NULL THEN 0 ELSE 1 END, i.started_at DESC LIMIT ? OFFSET ?`
+	args = append(args, q.Limit, q.Offset)
 
-	rows, err := s.db.Query(q, args...)
+	rows, err := s.db.Query(sqlQ, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,6 +168,61 @@ func (s *Store) ListIncidentsScoped(limit int, openOnly bool, tenantID string) (
 		out = append(out, item)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) CountIncidents(q IncidentQuery) (int, error) {
+	sqlQ := `
+		SELECT COUNT(*)
+		FROM incidents i
+		LEFT JOIN monitors m ON m.id = i.monitor_id
+		LEFT JOIN performance_targets pt ON pt.id = i.monitor_id`
+	conds, args := incidentConds(q)
+	if len(conds) > 0 {
+		sqlQ += ` WHERE ` + strings.Join(conds, ` AND `)
+	}
+	var n int
+	err := s.db.QueryRow(sqlQ, args...).Scan(&n)
+	return n, err
+}
+
+func incidentConds(q IncidentQuery) ([]string, []any) {
+	var conds []string
+	var args []any
+	switch strings.ToLower(strings.TrimSpace(q.Status)) {
+	case "open":
+		conds = append(conds, `i.resolved_at IS NULL`)
+	case "resolved":
+		conds = append(conds, `i.resolved_at IS NOT NULL`)
+	default:
+		if q.OpenOnly {
+			conds = append(conds, `i.resolved_at IS NULL`)
+		}
+	}
+	if typ := strings.TrimSpace(q.Type); typ != "" {
+		conds = append(conds, `i.type = ?`)
+		args = append(args, typ)
+	} else {
+		// Outages are one row (down/ssl/…); recovery is email-only, not a separate incident.
+		conds = append(conds, `i.type != ?`)
+		args = append(args, string(models.IncidentRecovery))
+	}
+	if q.MonitorID != "" {
+		conds = append(conds, `i.monitor_id = ?`)
+		args = append(args, q.MonitorID)
+	}
+	if q.TenantID != "" {
+		conds = append(conds, `(m.tenant_id = ? OR pt.tenant_id = ?)`)
+		args = append(args, q.TenantID, q.TenantID)
+	}
+	if q.From != nil {
+		conds = append(conds, `i.started_at >= ?`)
+		args = append(args, formatTime(*q.From))
+	}
+	if q.To != nil {
+		conds = append(conds, `i.started_at < ?`)
+		args = append(args, formatTime(*q.To))
+	}
+	return conds, args
 }
 
 func (s *Store) GetLastSlowAlertAt(monitorID string) (*time.Time, error) {

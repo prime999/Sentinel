@@ -186,6 +186,7 @@ export type UserRole = 'admin' | 'viewer'
 export interface Profile {
   id: string
   username: string
+  name: string
   email: string
   role: UserRole
   tenant_id?: string
@@ -227,6 +228,7 @@ export interface UpdateTeamMemberRequest {
 export interface UpdateProfileRequest {
   current_password: string
   username?: string
+  name?: string
   email?: string
   new_password?: string
 }
@@ -296,6 +298,14 @@ export interface Incident {
   message?: string
   started_at: string
   resolved_at?: string
+}
+
+/** Local-calendar day → ISO from/to for incident filters. */
+export function localDayBounds(date: string): { from: string; to: string } {
+  const [y, m, d] = date.split('-').map(Number)
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0)
+  const end = new Date(y, m - 1, d + 1, 0, 0, 0, 0)
+  return { from: start.toISOString(), to: end.toISOString() }
 }
 
 export interface AuditEntry {
@@ -374,6 +384,27 @@ export const api = {
       `/api/monitors/${id}/results?limit=${limit}&offset=${offset}`,
     )
   },
+  monitorIncidents: (id: string, opts?: {
+    limit?: number
+    offset?: number
+    date?: string
+    status?: string
+    type?: string
+  }) => {
+    const limit = opts?.limit ?? 20
+    const offset = opts?.offset ?? 0
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+    if (opts?.date) {
+      const { from, to } = localDayBounds(opts.date)
+      params.set('from', from)
+      params.set('to', to)
+    }
+    if (opts?.status) params.set('status', opts.status)
+    if (opts?.type) params.set('type', opts.type)
+    return request<PaginatedResults<Incident>>(
+      `/api/monitors/${id}/incidents?${params}`,
+    )
+  },
   stats: (id: string, period = '24h') =>
     request<MonitorStats>(`/api/monitors/${id}/stats?period=${period}`),
   performance: (period = '24h', customer?: string) => {
@@ -416,8 +447,29 @@ export const api = {
     request<SMTPConfig>('/api/settings/smtp', { method: 'PUT', body: JSON.stringify(cfg) }),
   testSMTP: (to: string) =>
     request('/api/settings/smtp/test', { method: 'POST', body: JSON.stringify({ to }) }),
-  incidents: (openOnly = false) =>
-    request<Incident[]>(`/api/incidents?limit=100${openOnly ? '&open=1' : ''}`),
+  incidents: (opts?: {
+    openOnly?: boolean
+    date?: string
+    limit?: number
+    offset?: number
+    status?: string
+    type?: string
+    monitorId?: string
+  }) => {
+    const params = new URLSearchParams()
+    params.set('limit', String(opts?.limit ?? 20))
+    params.set('offset', String(opts?.offset ?? 0))
+    if (opts?.openOnly) params.set('open', '1')
+    if (opts?.status) params.set('status', opts.status)
+    if (opts?.type) params.set('type', opts.type)
+    if (opts?.monitorId) params.set('monitor_id', opts.monitorId)
+    if (opts?.date) {
+      const { from, to } = localDayBounds(opts.date)
+      params.set('from', from)
+      params.set('to', to)
+    }
+    return request<PaginatedResults<Incident>>(`/api/incidents?${params}`)
+  },
   getWebhooks: () => request<WebhookConfig[]>('/api/settings/webhooks'),
   putWebhooks: (hooks: WebhookConfig[]) =>
     request<WebhookConfig[]>('/api/settings/webhooks', { method: 'PUT', body: JSON.stringify(hooks) }),

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { api, MaintenanceWindow, Monitor } from '../../api'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import { colors } from '../../theme'
 
 export default function SettingsMaintenance() {
@@ -10,6 +11,8 @@ export default function SettingsMaintenance() {
   const [startsAt, setStartsAt] = useState('')
   const [endsAt, setEndsAt] = useState('')
   const [error, setError] = useState('')
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   async function load() {
     const [w, m] = await Promise.all([api.listMaintenance(), api.monitors()])
@@ -39,11 +42,22 @@ export default function SettingsMaintenance() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this maintenance window?')) return
-    await api.deleteMaintenance(id)
-    await load()
+  async function confirmDelete() {
+    if (!deleteId) return
+    setBusy(true)
+    setError('')
+    try {
+      await api.deleteMaintenance(deleteId)
+      setDeleteId(null)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setBusy(false)
+    }
   }
+
+  const deleteTarget = windows.find(w => w.id === deleteId)
 
   return (
     <>
@@ -80,13 +94,28 @@ export default function SettingsMaintenance() {
                   <td>{w.name}</td>
                   <td>{w.monitor_id ? monitors.find(m => m.id === w.monitor_id)?.name || w.monitor_id : 'All'}</td>
                   <td>{new Date(w.starts_at).toLocaleString()} – {new Date(w.ends_at).toLocaleString()}</td>
-                  <td><button type="button" className="btn" onClick={() => handleDelete(w.id)}>Delete</button></td>
+                  <td><button type="button" className="btn" onClick={() => setDeleteId(w.id)}>Delete</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Delete maintenance window?"
+        message={
+          deleteTarget
+            ? `Delete “${deleteTarget.name}”? Alerts will no longer be suppressed for this window.`
+            : 'Delete this maintenance window?'
+        }
+        confirmLabel="Delete"
+        danger
+        busy={busy}
+        onConfirm={confirmDelete}
+        onCancel={() => { if (!busy) setDeleteId(null) }}
+      />
     </>
   )
 }

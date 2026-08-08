@@ -26,9 +26,11 @@ export default function DashboardRail({
   incidents: Incident[]
   uptimePct: number | null
 }) {
-  const open = incidents.filter(i => !i.resolved_at)
-  const last = open[0] || incidents[0]
-  const recent = incidents.slice(0, 5)
+  const byNewest = [...incidents].sort(
+    (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+  )
+  const last = byNewest[0]
+  const recent = byNewest.slice(0, 5)
 
   const dayBars = buildDayBars(incidents, 30)
 
@@ -43,6 +45,9 @@ export default function DashboardRail({
             {last.message && (
               <div style={styles.lastMsg}>{last.message}</div>
             )}
+            <div style={styles.lastMeta}>
+              {last.resolved_at ? 'Resolved' : 'Open'}
+            </div>
             <Link to="/incidents" style={styles.link}>View incidents →</Link>
           </>
         ) : (
@@ -163,8 +168,14 @@ const styles: Record<string, React.CSSProperties> = {
   lastMsg: {
     fontSize: 12,
     color: colors.textMuted,
-    marginBottom: 12,
+    marginBottom: 8,
     lineHeight: 1.4,
+  },
+  lastMeta: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: colors.textMuted,
+    marginBottom: 12,
   },
   link: {
     fontSize: 13,

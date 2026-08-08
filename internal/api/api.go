@@ -56,6 +56,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /api/monitors/{id}", s.adminRequired(s.handleUpdateMonitor))
 	s.mux.HandleFunc("DELETE /api/monitors/{id}", s.adminRequired(s.handleDeleteMonitor))
 	s.mux.HandleFunc("GET /api/monitors/{id}/results", s.authRequired(s.handleListResults))
+	s.mux.HandleFunc("GET /api/monitors/{id}/incidents", s.authRequired(s.handleListMonitorIncidents))
 	s.mux.HandleFunc("GET /api/monitors/{id}/stats", s.authRequired(s.handleGetStats))
 	s.mux.HandleFunc("GET /api/performance", s.authRequired(s.handleGetFleetPerformance))
 	s.mux.HandleFunc("GET /api/performance/targets", s.authRequired(s.handleListPerformanceTargets))
@@ -476,6 +477,64 @@ func (s *Server) handleListResults(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleListMonitorIncidents(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	id := r.PathValue("id")
+	m, err := s.store.GetMonitor(id)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	if m == nil || !canAccessTenant(user, m.TenantID) || (!isPlatformAdmin(user) && m.TenantID == "") {
+		jsonError(w, http.StatusNotFound, "not found")
+		return
+	}
+	limit := queryInt(r, "limit", 20)
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := queryInt(r, "offset", 0)
+	if offset < 0 {
+		offset = 0
+	}
+	from, to, err := parseIncidentDayRange(r)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	q := store.IncidentQuery{
+		MonitorID: id,
+		Limit:     limit,
+		Offset:    offset,
+		From:      from,
+		To:        to,
+		Status:    strings.TrimSpace(r.URL.Query().Get("status")),
+		Type:      strings.TrimSpace(r.URL.Query().Get("type")),
+	}
+	items, err := s.store.QueryIncidents(q)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	if items == nil {
+		items = []models.IncidentListItem{}
+	}
+	total, err := s.store.CountIncidents(q)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	jsonOK(w, map[string]any{
+		"items":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
 func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	id := r.PathValue("id")
@@ -582,4 +641,42 @@ func queryInt(r *http.Request, key string, def int) int {
 		return def
 	}
 	return n
+}
+
+// parseIncidentDayRange reads ?from=&to= RFC3339 bounds, or ?date=YYYY-MM-DD
+// as a local calendar day on the server. Prefer from/to when the client sends them.
+func parseIncidentDayRange(r *http.Request) (from, to *time.Time, err error) {
+	if raw := strings.TrimSpace(r.URL.Query().Get("from")); raw != "" {
+		t, e := time.Parse(time.RFC3339Nano, raw)
+		if e != nil {
+			t, e = time.Parse(time.RFC3339, raw)
+		}
+		if e != nil {
+			return nil, nil, fmt.Errorf("invalid from timestamp")
+		}
+		from = &t
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("to")); raw != "" {
+		t, e := time.Parse(time.RFC3339Nano, raw)
+		if e != nil {
+			t, e = time.Parse(time.RFC3339, raw)
+		}
+		if e != nil {
+			return nil, nil, fmt.Errorf("invalid to timestamp")
+		}
+		to = &t
+	}
+	if from != nil || to != nil {
+		return from, to, nil
+	}
+	if date := strings.TrimSpace(r.URL.Query().Get("date")); date != "" {
+		day, e := time.ParseInLocation("2006-01-02", date, time.Local)
+		if e != nil {
+			return nil, nil, fmt.Errorf("invalid date (use YYYY-MM-DD)")
+		}
+		start := day
+		end := day.Add(24 * time.Hour)
+		return &start, &end, nil
+	}
+	return nil, nil, nil
 }

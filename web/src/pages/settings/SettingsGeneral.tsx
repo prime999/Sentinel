@@ -1,5 +1,6 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react'
 import AppLogo from '../../components/AppLogo'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import { api, OrgSettings } from '../../api'
 import { colors } from '../../theme'
 
@@ -9,6 +10,8 @@ export default function SettingsGeneral() {
   const [cfg, setCfg] = useState<OrgSettings>({ company_name: '', tagline: '', logo: '' })
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [resetOpen, setResetOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => { api.getGeneral().then(setCfg).catch(() => {}) }, [])
 
@@ -34,16 +37,19 @@ export default function SettingsGeneral() {
     e.target.value = ''
   }
 
-  async function handleReset() {
-    if (!confirm('Reset organization branding to defaults? This removes your company name, tagline, and logo.')) return
+  async function confirmReset() {
+    setBusy(true)
     setError('')
     setMessage('')
     try {
       const reset = await api.resetGeneral()
       setCfg(reset)
+      setResetOpen(false)
       setMessage('Organization settings reset to defaults')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reset failed')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -67,7 +73,7 @@ export default function SettingsGeneral() {
       {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error}>{error}</div>}
 
-      <div style={styles.grid}>
+      <div className="split-panels">
         <form onSubmit={handleSave} style={styles.card}>
           <h3 style={styles.cardTitle}>Organization</h3>
           <Field label="Company Name">
@@ -106,7 +112,7 @@ export default function SettingsGeneral() {
 
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
             <button type="submit" className="btn btn-primary">Save Changes</button>
-            <button type="button" className="btn" onClick={handleReset}>Reset to Default</button>
+            <button type="button" className="btn" onClick={() => setResetOpen(true)}>Reset to Default</button>
           </div>
         </form>
 
@@ -124,6 +130,17 @@ export default function SettingsGeneral() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={resetOpen}
+        title="Reset branding?"
+        message="Reset organization branding to defaults? This removes your company name, tagline, and logo."
+        confirmLabel="Reset"
+        danger
+        busy={busy}
+        onConfirm={confirmReset}
+        onCancel={() => { if (!busy) setResetOpen(false) }}
+      />
     </>
   )
 }
@@ -138,10 +155,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 20, maxWidth: 900 },
   card: {
     background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '24px 28px',
+    borderRadius: 12, padding: '24px 28px', minWidth: 0,
   },
   cardTitle: { margin: '0 0 20px', fontSize: 16, fontWeight: 600 },
   logoRow: { display: 'flex', alignItems: 'center', gap: 16 },

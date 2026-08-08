@@ -59,10 +59,7 @@ func (c *Checker) probePort(ctx context.Context, m *models.Monitor) *models.Chec
 	}
 	_ = conn.Close()
 
-	if m.SlowThresholdMs > 0 && elapsed > m.SlowThresholdMs {
-		result.Status = models.StatusDegraded
-	} else {
-		result.Status = models.StatusUp
-	}
+	// Uptime port checks are up/down only. Latency belongs to performance targets.
+	result.Status = models.StatusUp
 	return result
 }

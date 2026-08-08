@@ -3,9 +3,19 @@ import { api } from '../api'
 import { roleLabel, useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 
+function initialsFrom(name: string, username: string): string {
+  const source = (name || username || 'U').trim()
+  const parts = source.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return source.slice(0, 2).toUpperCase()
+}
+
 export default function Profile() {
   const { refresh } = useAuth()
   const [username, setUsername] = useState('')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
@@ -17,6 +27,7 @@ export default function Profile() {
   useEffect(() => {
     api.getProfile().then(p => {
       setUsername(p.username)
+      setName(p.name || '')
       setEmail(p.email || '')
       setRole(p.role)
     }).catch(() => {})
@@ -40,10 +51,12 @@ export default function Profile() {
       const updated = await api.updateProfile({
         current_password: currentPassword,
         username: username.trim(),
+        name: name.trim(),
         email: email.trim(),
         new_password: newPassword || undefined,
       })
       setUsername(updated.username)
+      setName(updated.name || '')
       setEmail(updated.email || '')
       setRole(updated.role)
       setCurrentPassword('')
@@ -56,7 +69,8 @@ export default function Profile() {
     }
   }
 
-  const initials = username.slice(0, 2).toUpperCase()
+  const display = name.trim() || username || 'admin'
+  const initials = initialsFrom(name, username)
 
   return (
     <div className="page">
@@ -66,42 +80,97 @@ export default function Profile() {
       <div style={styles.headerCard}>
         <span style={styles.avatar}>{initials}</span>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>{username || 'admin'}</div>
-          <div style={{ color: colors.textMuted, fontSize: 14 }}>{role ? roleLabel(role) : 'User'}</div>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>{display}</div>
+          <div style={{ color: colors.textMuted, fontSize: 14 }}>
+            @{username || 'admin'} · {role ? roleLabel(role) : 'User'}
+          </div>
         </div>
       </div>
 
       {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error}>{error}</div>}
 
-      <form onSubmit={handleSubmit} style={styles.form}>
+      <form onSubmit={handleSubmit} style={styles.form} autoComplete="off">
         <h3 style={styles.sectionTitle}>Account Details</h3>
-        <label className="field">
-          <span className="field-label">Username</span>
-          <input className="input" value={username} onChange={e => setUsername(e.target.value)} required />
-        </label>
-        <label className="field" style={{ marginTop: 16 }}>
-          <span className="field-label">Email</span>
-          <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Used for password reset" />
-        </label>
+        <div className="field">
+          <label className="field-label" htmlFor="profile-name">Name</label>
+          <input
+            id="profile-name"
+            className="input"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Your display name"
+            autoComplete="name"
+          />
+          <p style={{ color: colors.textMuted, fontSize: 12, margin: '8px 0 0' }}>
+            Used in greetings like “Good morning, {name.trim() || '…'}”.
+          </p>
+        </div>
+        <div className="field" style={{ marginTop: 16 }}>
+          <label className="field-label" htmlFor="profile-username">Username</label>
+          <input
+            id="profile-username"
+            className="input"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            required
+            autoComplete="username"
+          />
+        </div>
+        <div className="field" style={{ marginTop: 16 }}>
+          <label className="field-label" htmlFor="profile-email">Email</label>
+          <input
+            id="profile-email"
+            className="input"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Used for password reset"
+            autoComplete="email"
+          />
+        </div>
 
         <h3 style={{ ...styles.sectionTitle, marginTop: 28 }}>Change Password</h3>
         <p style={{ color: colors.textMuted, fontSize: 13, margin: '0 0 16px' }}>
           Enter your current password to confirm any changes.
         </p>
 
-        <label className="field">
-          <span className="field-label">Current Password</span>
-          <input className="input" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required />
-        </label>
-        <label className="field" style={{ marginTop: 16 }}>
-          <span className="field-label">New Password</span>
-          <input className="input" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Leave blank to keep current" />
-        </label>
-        <label className="field" style={{ marginTop: 16 }}>
-          <span className="field-label">Confirm New Password</span>
-          <input className="input" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Leave blank to keep current" />
-        </label>
+        <div className="field">
+          <label className="field-label" htmlFor="profile-current-password">Current Password</label>
+          <input
+            id="profile-current-password"
+            className="input"
+            type="password"
+            value={currentPassword}
+            onChange={e => setCurrentPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
+        </div>
+        <div className="field" style={{ marginTop: 16 }}>
+          <label className="field-label" htmlFor="profile-new-password">New Password</label>
+          <input
+            id="profile-new-password"
+            className="input"
+            type="password"
+            value={newPassword}
+            onChange={e => setNewPassword(e.target.value)}
+            placeholder="Leave blank to keep current"
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="field" style={{ marginTop: 16 }}>
+          <label className="field-label" htmlFor="profile-confirm-password">Confirm New Password</label>
+          <input
+            id="profile-confirm-password"
+            className="input"
+            type="password"
+            value={confirmPassword}
+            onChange={e => setConfirmPassword(e.target.value)}
+            placeholder="Leave blank to keep current"
+            autoComplete="new-password"
+          />
+        </div>
 
         <button type="submit" className="btn btn-primary" style={{ marginTop: 24 }}>Save Changes</button>
       </form>
@@ -129,11 +198,11 @@ const styles: Record<string, React.CSSProperties> = {
   ok: {
     background: colors.greenDim, color: colors.green, padding: 12,
     borderRadius: 8, marginBottom: 16, maxWidth: 480,
-    border: `1px solid rgba(63,185,80,0.3)`,
+    border: `1px solid rgba(34,197,94,0.3)`,
   },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,
     borderRadius: 8, marginBottom: 16, maxWidth: 480,
-    border: `1px solid rgba(248,81,73,0.3)`,
+    border: `1px solid rgba(239,68,68,0.3)`,
   },
 }

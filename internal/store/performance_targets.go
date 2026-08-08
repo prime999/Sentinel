@@ -33,7 +33,7 @@ func (s *Store) listPerformanceTargetsQuery(tenantID string) ([]models.Performan
 		q += ` WHERE tenant_id = ?`
 		args = append(args, tenantID)
 	}
-	q += ` ORDER BY name ASC`
+	q += ` ORDER BY created_at DESC`
 
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
@@ -59,7 +59,7 @@ func (s *Store) listPerformanceTargetsQuery(tenantID string) ([]models.Performan
 
 func (s *Store) ListEnabledPerformanceTargets() ([]models.PerformanceTarget, error) {
 	rows, err := s.db.Query(`
-		SELECT ` + perfTargetColumns + ` FROM performance_targets WHERE enabled = 1 ORDER BY name ASC`)
+		SELECT ` + perfTargetColumns + ` FROM performance_targets WHERE enabled = 1 ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}

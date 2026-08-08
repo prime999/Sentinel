@@ -77,6 +77,21 @@ func (s *Store) migrate() error {
 	if err := s.migrateV9(); err != nil {
 		return fmt.Errorf("run v9 migrations: %w", err)
 	}
+	if err := s.migrateV10(); err != nil {
+		return fmt.Errorf("run v10 migrations: %w", err)
+	}
+	if err := s.migrateV11(); err != nil {
+		return fmt.Errorf("run v11 migrations: %w", err)
+	}
+	if err := s.migrateV12(); err != nil {
+		return fmt.Errorf("run v12 migrations: %w", err)
+	}
+	if err := s.migrateV13(); err != nil {
+		return fmt.Errorf("run v13 migrations: %w", err)
+	}
+	if err := s.migrateV14(); err != nil {
+		return fmt.Errorf("run v14 migrations: %w", err)
+	}
 	return nil
 }
 

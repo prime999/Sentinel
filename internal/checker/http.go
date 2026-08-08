@@ -148,11 +148,8 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 		return result
 	}
 
-	if m.SlowThresholdMs > 0 && result.ResponseTimeMs > m.SlowThresholdMs {
-		result.Status = models.StatusDegraded
-	} else {
-		result.Status = models.StatusUp
-	}
+	// Uptime monitors are up/down only. Latency warnings belong to performance targets.
+	result.Status = models.StatusUp
 	return result
 }
 

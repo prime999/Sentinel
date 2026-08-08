@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { api, APIToken, APITokenCreated } from '../../api'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import { colors } from '../../theme'
 
 export default function SettingsTokens() {
@@ -7,6 +8,8 @@ export default function SettingsTokens() {
   const [name, setName] = useState('')
   const [created, setCreated] = useState<APITokenCreated | null>(null)
   const [error, setError] = useState('')
+  const [revokeId, setRevokeId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   async function load() {
     setTokens(await api.listTokens())
@@ -28,11 +31,22 @@ export default function SettingsTokens() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Revoke this API token?')) return
-    await api.deleteToken(id)
-    await load()
+  async function confirmRevoke() {
+    if (!revokeId) return
+    setBusy(true)
+    setError('')
+    try {
+      await api.deleteToken(revokeId)
+      setRevokeId(null)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Revoke failed')
+    } finally {
+      setBusy(false)
+    }
   }
+
+  const revokeTarget = tokens.find(t => t.id === revokeId)
 
   return (
     <>
@@ -53,24 +67,60 @@ export default function SettingsTokens() {
       </form>
       <div style={{ ...styles.card, marginTop: 24 }}>
         {tokens.length === 0 ? (
-          <p style={styles.desc}>No API tokens yet.</p>
+          <p style={{ ...styles.desc, marginBottom: 0 }}>No API tokens yet.</p>
         ) : (
-          <table style={styles.table}>
-            <thead><tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th></th></tr></thead>
-            <tbody>
-              {tokens.map(t => (
-                <tr key={t.id}>
-                  <td>{t.name}</td>
-                  <td><code>{t.prefix}…</code></td>
-                  <td>{new Date(t.created_at).toLocaleString()}</td>
-                  <td>{t.last_used_at ? new Date(t.last_used_at).toLocaleString() : '—'}</td>
-                  <td><button type="button" className="btn" onClick={() => handleDelete(t.id)}>Revoke</button></td>
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, width: '22%' }}>Name</th>
+                  <th style={{ ...styles.th, width: '18%' }}>Prefix</th>
+                  <th style={{ ...styles.th, width: '24%' }}>Created</th>
+                  <th style={{ ...styles.th, width: '24%' }}>Last used</th>
+                  <th style={{ ...styles.th, width: '12%', textAlign: 'right' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tokens.map(t => (
+                  <tr key={t.id}>
+                    <td style={styles.td}>{t.name}</td>
+                    <td style={{ ...styles.td, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, color: colors.textMuted }}>
+                      {t.prefix}…
+                    </td>
+                    <td style={styles.td}>{new Date(t.created_at).toLocaleString()}</td>
+                    <td style={styles.td}>{t.last_used_at ? new Date(t.last_used_at).toLocaleString() : '—'}</td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        style={styles.revokeBtn}
+                        onClick={() => setRevokeId(t.id)}
+                      >
+                        Revoke
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!revokeId}
+        title="Revoke API token?"
+        message={
+          revokeTarget
+            ? `Revoke “${revokeTarget.name}”? Apps using this token will lose access immediately.`
+            : 'Revoke this API token? Apps using it will lose access immediately.'
+        }
+        confirmLabel="Revoke"
+        danger
+        busy={busy}
+        onConfirm={confirmRevoke}
+        onCancel={() => { if (!busy) setRevokeId(null) }}
+      />
     </>
   )
 }
@@ -79,7 +129,31 @@ const styles: Record<string, React.CSSProperties> = {
   card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 28 },
   title: { margin: '0 0 8px' },
   desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
+  tableWrap: { overflowX: 'auto' },
+  table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 },
+  th: {
+    textAlign: 'left',
+    padding: '0 12px 12px',
+    fontSize: 11,
+    fontWeight: 600,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+    borderBottom: `1px solid ${colors.border}`,
+  },
+  td: {
+    padding: '14px 12px',
+    borderBottom: `1px solid ${colors.border}`,
+    verticalAlign: 'middle',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  revokeBtn: {
+    minHeight: 36,
+    padding: '0 14px',
+    fontSize: 13,
+  },
   tokenBox: { background: colors.bgElevated, border: `1px solid ${colors.border}`, borderRadius: 8, padding: 16, marginBottom: 16 },
   token: { display: 'block', marginTop: 8, wordBreak: 'break-all', fontSize: 13 },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },

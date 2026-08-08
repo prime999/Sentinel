@@ -23,10 +23,15 @@ function greetingFor(hour: number): string {
   return 'Good evening'
 }
 
-function displayName(username?: string): string {
+function greetingName(name?: string, username?: string): string {
+  const n = (name || '').trim()
+  if (n) {
+    // Prefer first name for the greeting.
+    return n.split(/\s+/)[0]
+  }
   if (!username) return 'there'
   if (username.includes('.') || username.includes('_') || username.includes(' ')) {
-    return username.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    return username.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).split(/\s+/)[0]
   }
   return username.charAt(0).toUpperCase() + username.slice(1)
 }
@@ -63,10 +68,10 @@ export default function Monitors() {
     try {
       const [mons, incs] = await Promise.all([
         api.monitors({ tag: tagFilter || undefined }),
-        api.incidents(false),
+        api.incidents({ limit: 50, offset: 0 }),
       ])
       setMonitors(mons)
-      setIncidents(incs)
+      setIncidents(incs.items)
       setError('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load')
@@ -151,12 +156,12 @@ export default function Monitors() {
 
   const allTags = [...new Set(monitors.flatMap(m => m.tags || []))].sort()
   const hour = new Date().getHours()
-  const name = displayName(user?.username)
+  const name = greetingName(user?.name, user?.username)
 
   const statusTabs: { id: StatusTab; label: string; count?: number }[] = [
     { id: 'all', label: 'All', count: searched.length },
     { id: 'up', label: 'Up', count: up },
-    { id: 'degraded', label: 'Degraded', count: degraded },
+    { id: 'degraded', label: 'Warning', count: degraded },
     { id: 'down', label: 'Down', count: down },
   ]
 
@@ -207,7 +212,7 @@ export default function Monitors() {
               </div>
               <div style={{ ...styles.metricStat, borderColor: 'rgba(245,158,11,0.35)' }}>
                 <div style={{ ...styles.statCount, color: colors.yellow }}>{degraded}</div>
-                <div style={styles.statLabel}>Degraded</div>
+                <div style={styles.statLabel}>Warning</div>
               </div>
               <div style={{ ...styles.metricStat, borderColor: 'rgba(239,68,68,0.35)' }}>
                 <div style={{ ...styles.statCount, color: colors.red }}>{down}</div>
