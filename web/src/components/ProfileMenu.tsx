@@ -4,6 +4,15 @@ import { api, Profile } from '../api'
 import { roleLabel, useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 
+function initialsFrom(name: string, username: string): string {
+  const source = (name || username || 'U').trim()
+  const parts = source.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return source.slice(0, 2).toUpperCase()
+}
+
 export default function ProfileMenu({ onLogout }: { onLogout: () => void }) {
   const { user } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -15,10 +24,9 @@ export default function ProfileMenu({ onLogout }: { onLogout: () => void }) {
   }, [location.pathname])
 
   const username = profile?.username || user?.username || 'admin'
-  const displayName = username.includes('.') || username.includes('_')
-    ? username.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-    : username
-  const initials = displayName.split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase()
+  const name = (profile?.name || user?.name || '').trim()
+  const displayName = name || username
+  const initials = initialsFrom(name, username)
 
   return (
     <div style={styles.wrap}>
@@ -31,7 +39,10 @@ export default function ProfileMenu({ onLogout }: { onLogout: () => void }) {
         <span style={styles.avatar}>{initials}</span>
         <span style={styles.profileInfo}>
           <span style={styles.profileName}>{displayName}</span>
-          <span style={styles.profileRole}>{profile ? roleLabel(profile.role) : 'Admin'}</span>
+          <span style={styles.profileRole}>
+            {profile ? roleLabel(profile.role) : 'Admin'}
+            {name ? ` · @${username}` : ''}
+          </span>
         </span>
         <span style={{ ...styles.chevron, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
       </button>

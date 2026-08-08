@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, Customer, PerformanceTarget } from '../api'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 
@@ -21,6 +22,8 @@ export default function PerformanceForm() {
   const [form, setForm] = useState<Partial<PerformanceTarget>>(defaults)
   const [error, setError] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (id) api.getPerformanceTarget(id).then(setForm).catch(() => {})
@@ -51,13 +54,17 @@ export default function PerformanceForm() {
     }
   }
 
-  async function handleDelete() {
-    if (!id || !confirm('Delete this performance target?')) return
+  async function confirmDelete() {
+    if (!id) return
+    setBusy(true)
+    setError('')
     try {
       await api.deletePerformanceTarget(id)
+      setDeleteOpen(false)
       navigate('/performance')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
+      setBusy(false)
     }
   }
 
@@ -132,10 +139,21 @@ export default function PerformanceForm() {
         <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
           <button type="submit" className="btn btn-primary">Save</button>
           {id && (
-            <button type="button" className="btn" onClick={handleDelete} style={{ color: colors.red }}>Delete</button>
+            <button type="button" className="btn" onClick={() => setDeleteOpen(true)} style={{ color: colors.red }}>Delete</button>
           )}
         </div>
       </form>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete performance target?"
+        message={`Delete “${form.name || 'this target'}”? Latency history for this target will be removed.`}
+        confirmLabel="Delete"
+        danger
+        busy={busy}
+        onConfirm={confirmDelete}
+        onCancel={() => { if (!busy) setDeleteOpen(false) }}
+      />
     </div>
   )
 }

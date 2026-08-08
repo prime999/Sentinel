@@ -5,6 +5,7 @@ export type UserRole = 'admin' | 'viewer'
 export interface AuthUser {
   id: string
   username: string
+  name?: string
   role: UserRole
   email?: string
   tenant_id?: string

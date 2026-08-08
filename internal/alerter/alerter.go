@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sentinel-monitoring/sentinel/internal/models"
@@ -29,17 +30,52 @@ type Alerter struct {
 	cfg          models.SMTPConfig
 	fallbackSMTP models.SMTPConfig
 	dashboardURL string
+
+	// recoveryStreak counts consecutive non-down checks while a DOWN incident is open.
+	// Recovery email fires only after reaching the same threshold used for DOWN alerts,
+	// so brief flaps during a long outage do not spam DOWN/RECOVERY pairs.
+	mu             sync.Mutex
+	recoveryStreak map[string]int
+
+	// notifyHook, when set, replaces NotifyMonitor (tests).
+	notifyHook func(m *models.Monitor, alertType, message string, responseMs int) error
 }
 
 func New(s *store.Store, cfg models.SMTPConfig, fallback models.SMTPConfig, dashboardURL string) *Alerter {
 	a := &Alerter{
-		store:        s,
-		cfg:          cfg,
-		fallbackSMTP: fallback,
-		dashboardURL: dashboardURL,
+		store:          s,
+		cfg:            cfg,
+		fallbackSMTP:   fallback,
+		dashboardURL:   dashboardURL,
+		recoveryStreak: make(map[string]int),
 	}
 	a.refreshSMTP()
 	return a
+}
+
+func (a *Alerter) notifyMonitorAlert(m *models.Monitor, alertType, message string, responseMs int) error {
+	if a.notifyHook != nil {
+		return a.notifyHook(m, alertType, message, responseMs)
+	}
+	return a.NotifyMonitor(m, alertType, message, responseMs)
+}
+
+func (a *Alerter) incRecoveryStreak(monitorID string) int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.recoveryStreak == nil {
+		a.recoveryStreak = make(map[string]int)
+	}
+	a.recoveryStreak[monitorID]++
+	return a.recoveryStreak[monitorID]
+}
+
+func (a *Alerter) clearRecoveryStreak(monitorID string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.recoveryStreak != nil {
+		delete(a.recoveryStreak, monitorID)
+	}
 }
 
 func (a *Alerter) UpdateSMTP(cfg models.SMTPConfig) {
@@ -61,64 +97,85 @@ func (a *Alerter) refreshSMTP() {
 }
 
 func (a *Alerter) HandleResult(m *models.Monitor, result *models.CheckResult) error {
-	prevStatus := m.LastStatus
 	newStatus := result.Status
 	failures := m.ConsecutiveFailures
+	threshold := monitorAlertAfterFailures(m)
+
+	open, err := a.store.GetOpenIncident(m.ID, models.IncidentDown)
+	if err != nil {
+		return err
+	}
 
 	if newStatus == models.StatusDown {
 		failures++
-	} else {
-		failures = 0
+		a.clearRecoveryStreak(m.ID)
+
+		if err := a.store.UpdateMonitorState(m.ID, models.StatusDown, failures, result.CheckedAt); err != nil {
+			return err
+		}
+		m.LastStatus = models.StatusDown
+		m.ConsecutiveFailures = failures
+
+		// Exactly one DOWN email per outage (while the incident stays open).
+		if failures < threshold {
+			return nil
+		}
+		if open != nil {
+			log.Printf("alerter: down alert skipped for %s: incident already open", m.Name)
+			return nil
+		}
+		inc := &models.Incident{
+			MonitorID: m.ID,
+			Type:      models.IncidentDown,
+			Message:   result.Error,
+			StartedAt: result.CheckedAt,
+		}
+		if err := a.store.CreateIncident(inc); err != nil {
+			return err
+		}
+		return a.notifyMonitorAlert(m, "DOWN", result.Error, result.ResponseTimeMs)
 	}
 
-	if err := a.store.UpdateMonitorState(m.ID, newStatus, failures, result.CheckedAt); err != nil {
+	// Non-down check
+	if open != nil {
+		streak := a.incRecoveryStreak(m.ID)
+		if streak < threshold {
+			// Brief up during an outage: keep showing Down and do not email yet.
+			if err := a.store.UpdateMonitorState(m.ID, models.StatusDown, m.ConsecutiveFailures, result.CheckedAt); err != nil {
+				return err
+			}
+			m.LastStatus = models.StatusDown
+			log.Printf("alerter: recovery pending for %s: %d/%d successful checks", m.Name, streak, threshold)
+			return nil
+		}
+		a.clearRecoveryStreak(m.ID)
+		if err := a.store.UpdateMonitorState(m.ID, newStatus, 0, result.CheckedAt); err != nil {
+			return err
+		}
+		m.LastStatus = newStatus
+		m.ConsecutiveFailures = 0
+		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentDown, result.CheckedAt)
+		_ = a.store.CreateIncident(&models.Incident{
+			MonitorID: m.ID,
+			Type:      models.IncidentRecovery,
+			Message:   "Monitor is back online",
+			StartedAt: result.CheckedAt,
+		})
+		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentSlow, result.CheckedAt)
+		return a.notifyMonitorAlert(m, "RECOVERY", "Monitor is back online", result.ResponseTimeMs)
+	}
+
+	a.clearRecoveryStreak(m.ID)
+	if err := a.store.UpdateMonitorState(m.ID, newStatus, 0, result.CheckedAt); err != nil {
 		return err
 	}
 	m.LastStatus = newStatus
-	m.ConsecutiveFailures = failures
+	m.ConsecutiveFailures = 0
 
-	// Down alert after configured consecutive failures
-	threshold := monitorAlertAfterFailures(m)
-	if newStatus == models.StatusDown && failures >= threshold {
-		if prevStatus != models.StatusDown || failures == threshold {
-			open, _ := a.store.GetOpenIncident(m.ID, models.IncidentDown)
-			if open == nil {
-				inc := &models.Incident{
-					MonitorID: m.ID,
-					Type:      models.IncidentDown,
-					Message:   result.Error,
-					StartedAt: result.CheckedAt,
-				}
-				if err := a.store.CreateIncident(inc); err != nil {
-					return err
-				}
-				return a.NotifyMonitor(m, "DOWN", result.Error, result.ResponseTimeMs)
-			}
-			log.Printf("alerter: down alert skipped for %s: incident already open", m.Name)
-		}
-	}
-
-	// Recovery from downtime
-	if newStatus != models.StatusDown && prevStatus == models.StatusDown {
-		open, _ := a.store.GetOpenIncident(m.ID, models.IncidentDown)
-		if open != nil {
-			_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentDown, result.CheckedAt)
-			_ = a.store.CreateIncident(&models.Incident{
-				MonitorID: m.ID,
-				Type:      models.IncidentRecovery,
-				Message:   "Monitor is back online",
-				StartedAt: result.CheckedAt,
-			})
-			return a.NotifyMonitor(m, "RECOVERY", "Monitor is back online", result.ResponseTimeMs)
-		}
-	}
-
-	// Uptime monitors do not email on latency/degraded — that is performance-target only.
-	// Silently close any leftover slow incidents if the check recovered.
-	if newStatus != models.StatusDegraded && prevStatus == models.StatusDegraded {
+	// Uptime monitors do not email on latency/degraded — performance-target only.
+	if newStatus != models.StatusDegraded {
 		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentSlow, result.CheckedAt)
 	}
-
 	return nil
 }
 

@@ -186,6 +186,7 @@ export type UserRole = 'admin' | 'viewer'
 export interface Profile {
   id: string
   username: string
+  name: string
   email: string
   role: UserRole
   tenant_id?: string
@@ -227,6 +228,7 @@ export interface UpdateTeamMemberRequest {
 export interface UpdateProfileRequest {
   current_password: string
   username?: string
+  name?: string
   email?: string
   new_password?: string
 }
@@ -372,6 +374,13 @@ export const api = {
     const offset = opts?.offset ?? 0
     return request<PaginatedResults<CheckResult>>(
       `/api/monitors/${id}/results?limit=${limit}&offset=${offset}`,
+    )
+  },
+  monitorIncidents: (id: string, opts?: { limit?: number; offset?: number }) => {
+    const limit = opts?.limit ?? 20
+    const offset = opts?.offset ?? 0
+    return request<PaginatedResults<Incident>>(
+      `/api/monitors/${id}/incidents?limit=${limit}&offset=${offset}`,
     )
   },
   stats: (id: string, period = '24h') =>

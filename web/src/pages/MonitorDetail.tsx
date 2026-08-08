@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
   Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { api, CheckResult, DNSDetails, Monitor, MonitorStats, PortDetails, SSLDetails } from '../api'
+import { api, CheckResult, DNSDetails, Incident, Monitor, MonitorStats, PortDetails, SSLDetails } from '../api'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import MetricCard from '../components/MetricCard'
 import StatusBadge from '../components/StatusBadge'
@@ -17,21 +17,24 @@ export default function MonitorDetail() {
   const { id } = useParams<{ id: string }>()
   const [monitor, setMonitor] = useState<Monitor | null>(null)
   const [stats, setStats] = useState<MonitorStats | null>(null)
-  const [results, setResults] = useState<CheckResult[]>([])
+  const [latest, setLatest] = useState<CheckResult | undefined>()
+  const [incidents, setIncidents] = useState<Incident[]>([])
   const [period, setPeriod] = useState('24h')
   const periodRef = useRef(period)
   periodRef.current = period
 
   const load = useCallback(async () => {
     if (!id) return null
-    const [m, r, s] = await Promise.all([
+    const [m, r, s, inc] = await Promise.all([
       api.getMonitor(id),
-      api.results(id, { limit: 10, offset: 0 }),
+      api.results(id, { limit: 1, offset: 0 }),
       api.stats(id, periodRef.current),
+      api.monitorIncidents(id, { limit: 20, offset: 0 }),
     ])
     setMonitor(m)
-    setResults(r.items)
+    setLatest(r.items[0])
     setStats(s)
+    setIncidents(inc.items)
     return m
   }, [id])
 
@@ -39,7 +42,6 @@ export default function MonitorDetail() {
 
   if (!monitor) return <div style={{ color: colors.textMuted }}>Loading…</div>
 
-  const latest = results[0]
   const type = monitor.type || 'http'
   const target = type === 'port' ? `${monitor.url}:${monitor.port}` : monitor.url
   const chartData = (stats?.points || []).map(p => ({
@@ -116,18 +118,12 @@ export default function MonitorDetail() {
 
       <div className="detail-grid" style={{ marginBottom: 20 }}>
         <TypeDetailPanel monitor={monitor} latest={latest} />
-        <SidePanel monitor={monitor} latest={latest} results={results} onCheckDue={() => refreshRef.current?.()} />
+        <SidePanel monitor={monitor} incidents={incidents} onCheckDue={() => refreshRef.current?.()} />
       </div>
 
-      <HistoryTable monitor={monitor} />
+      <IncidentsTable monitorId={monitor.id} />
     </div>
   )
-}
-
-function chartLabel(type: string) {
-  if (type === 'port') return 'Connect Time'
-  if (type === 'ssl') return 'TLS Check Duration'
-  return 'Response Time'
 }
 
 function TypeMetrics({ monitor, stats, latest }: { monitor: Monitor; stats: MonitorStats | null; latest?: CheckResult }) {
@@ -254,7 +250,6 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
       <Row label="Status Code" value={latest?.status_code != null ? String(latest.status_code) : '—'} />
       <Row label="Timeout" value={`${monitor.timeout_ms} ms`} />
       <Row label="Interval" value={`${monitor.interval_seconds}s`} />
-      <Row label="Slow Threshold" value={`${monitor.slow_threshold_ms} ms`} />
       {latest && (
         <>
           <div style={{ borderTop: `1px solid ${colors.border}`, margin: '12px 0' }} />
@@ -308,17 +303,22 @@ function NextCheckCountdown({ monitor, onDue }: { monitor: Monitor; onDue?: () =
   )
 }
 
-function SidePanel({ monitor, latest, results, onCheckDue }: { monitor: Monitor; latest?: CheckResult; results: CheckResult[]; onCheckDue?: () => void }) {
-  const lastFail = results.find(r => r.status === 'down' || r.status === 'degraded')
+function SidePanel({ monitor, incidents, onCheckDue }: {
+  monitor: Monitor
+  incidents: Incident[]
+  onCheckDue?: () => void
+}) {
+  const lastIncident = incidents.find(i => i.type !== 'recovery') || incidents[0]
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <Panel title="Last Incident">
-        {lastFail ? (
+        {lastIncident ? (
           <>
-            <Row label="Type" value={lastFail.status} />
-            <Row label="When" value={new Date(lastFail.checked_at).toLocaleString()} />
-            <Row label="Message" value={lastFail.error || 'Check failed'} />
+            <Row label="Type" value={lastIncident.type} />
+            <Row label="When" value={new Date(lastIncident.started_at).toLocaleString()} />
+            <Row label="Message" value={lastIncident.message || '—'} />
+            <Row label="Status" value={lastIncident.resolved_at ? 'Resolved' : 'Open'} />
           </>
         ) : (
           <div style={{ color: colors.textMuted, fontSize: 13 }}>No recent incidents</div>
@@ -359,22 +359,21 @@ function Empty() {
   return <div style={{ color: colors.textMuted, fontSize: 13 }}>Waiting for check data…</div>
 }
 
-function HistoryTable({ monitor }: { monitor: Monitor }) {
-  const type = monitor.type || 'http'
+function IncidentsTable({ monitorId }: { monitorId: string }) {
   const pageSize = 10
   const [page, setPage] = useState(0)
-  const [items, setItems] = useState<CheckResult[]>([])
+  const [items, setItems] = useState<Incident[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setPage(0)
-  }, [monitor.id])
+  }, [monitorId])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    api.results(monitor.id, { limit: pageSize, offset: page * pageSize })
+    api.monitorIncidents(monitorId, { limit: pageSize, offset: page * pageSize })
       .then(res => {
         if (cancelled) return
         setItems(res.items)
@@ -390,7 +389,7 @@ function HistoryTable({ monitor }: { monitor: Monitor }) {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [monitor.id, page])
+  }, [monitorId, page])
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const from = total === 0 ? 0 : page * pageSize + 1
@@ -399,20 +398,20 @@ function HistoryTable({ monitor }: { monitor: Monitor }) {
   return (
     <div style={{ ...styles.chartCard, marginTop: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Recent Checks</h3>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Recent Incidents</h3>
         <span style={{ fontSize: 13, color: colors.textMuted }}>
-          {total === 0 ? 'No checks yet' : `Showing ${from}–${to} of ${total}`}
+          {total === 0 ? 'No incidents yet' : `Showing ${from}–${to} of ${total}`}
         </span>
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>Time</th>
+              <th style={styles.th}>Started</th>
+              <th style={styles.th}>Type</th>
+              <th style={styles.th}>Message</th>
               <th style={styles.th}>Status</th>
-              {type === 'http' && <th style={styles.th}>Code</th>}
-              {type !== 'dns' && <th style={styles.th}>Duration</th>}
-              <th style={styles.th}>Details</th>
+              <th style={styles.th}>Resolved</th>
             </tr>
           </thead>
           <tbody>
@@ -422,17 +421,27 @@ function HistoryTable({ monitor }: { monitor: Monitor }) {
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ ...styles.td, color: colors.textMuted }}>No check results yet.</td>
+                <td colSpan={5} style={{ ...styles.td, color: colors.textMuted }}>No incidents recorded for this monitor.</td>
               </tr>
             ) : (
-              items.map(r => (
-                <tr key={r.id}>
-                  <td style={styles.td}>{new Date(r.checked_at).toLocaleString()}</td>
-                  <td style={styles.td}><StatusBadge status={r.status} /></td>
-                  {type === 'http' && <td style={styles.td}>{r.status_code ?? '—'}</td>}
-                  {type !== 'dns' && <td style={styles.td}>{r.response_time_ms} ms</td>}
-                  <td style={{ ...styles.td, color: r.error ? colors.red : colors.textMuted, maxWidth: 360 }}>
-                    {r.error || historySummary(type, r) || '—'}
+              items.map(inc => (
+                <tr key={inc.id}>
+                  <td style={styles.td}>{new Date(inc.started_at).toLocaleString()}</td>
+                  <td style={styles.td}>
+                    <span style={styles.incidentType}>{inc.type}</span>
+                  </td>
+                  <td style={{ ...styles.td, color: colors.textMuted, maxWidth: 360 }}>
+                    {inc.message || '—'}
+                  </td>
+                  <td style={styles.td}>
+                    {inc.resolved_at ? (
+                      <span style={{ color: colors.green, fontWeight: 600, fontSize: 13 }}>Resolved</span>
+                    ) : (
+                      <StatusBadge status={inc.type === 'recovery' ? 'up' : 'down'} />
+                    )}
+                  </td>
+                  <td style={{ ...styles.td, color: colors.textMuted }}>
+                    {inc.resolved_at ? new Date(inc.resolved_at).toLocaleString() : '—'}
                   </td>
                 </tr>
               ))
@@ -469,13 +478,6 @@ function HistoryTable({ monitor }: { monitor: Monitor }) {
   )
 }
 
-function historySummary(type: string, r: CheckResult): string {
-  if (type === 'ssl') { const s = parseSSL(r.details); return s ? `${s.days_remaining}d left` : '' }
-  if (type === 'port') { const p = parsePort(r.details); return p ? (p.open ? 'Open' : 'Closed') : '' }
-  if (type === 'dns') { const d = parseDNS(r.details); return d ? `${Object.values(d.records).flat().length} records` : '' }
-  return ''
-}
-
 function parseSSL(d?: string): SSLDetails | null { try { return d ? JSON.parse(d) : null } catch { return null } }
 function parseDNS(d?: string): DNSDetails | null { try { return d ? JSON.parse(d) : null } catch { return null } }
 function parsePort(d?: string): PortDetails | null { try { return d ? JSON.parse(d) : null } catch { return null } }
@@ -507,6 +509,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: colors.textMuted, fontWeight: 600, fontSize: 12, textTransform: 'uppercase',
   },
   td: { padding: '12px', borderBottom: `1px solid ${colors.border}` },
+  incidentType: {
+    textTransform: 'uppercase',
+    fontSize: 11,
+    fontWeight: 700,
+    color: colors.textMuted,
+    letterSpacing: '0.04em',
+  },
   pager: {
     display: 'flex',
     justifyContent: 'space-between',

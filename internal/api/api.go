@@ -56,6 +56,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /api/monitors/{id}", s.adminRequired(s.handleUpdateMonitor))
 	s.mux.HandleFunc("DELETE /api/monitors/{id}", s.adminRequired(s.handleDeleteMonitor))
 	s.mux.HandleFunc("GET /api/monitors/{id}/results", s.authRequired(s.handleListResults))
+	s.mux.HandleFunc("GET /api/monitors/{id}/incidents", s.authRequired(s.handleListMonitorIncidents))
 	s.mux.HandleFunc("GET /api/monitors/{id}/stats", s.authRequired(s.handleGetStats))
 	s.mux.HandleFunc("GET /api/performance", s.authRequired(s.handleGetFleetPerformance))
 	s.mux.HandleFunc("GET /api/performance/targets", s.authRequired(s.handleListPerformanceTargets))
@@ -470,6 +471,50 @@ func (s *Server) handleListResults(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonOK(w, map[string]any{
 		"items":  results,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+func (s *Server) handleListMonitorIncidents(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	id := r.PathValue("id")
+	m, err := s.store.GetMonitor(id)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	if m == nil || !canAccessTenant(user, m.TenantID) || (!isPlatformAdmin(user) && m.TenantID == "") {
+		jsonError(w, http.StatusNotFound, "not found")
+		return
+	}
+	limit := queryInt(r, "limit", 20)
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := queryInt(r, "offset", 0)
+	if offset < 0 {
+		offset = 0
+	}
+	items, err := s.store.ListIncidentsByMonitor(id, limit, offset)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	if items == nil {
+		items = []models.IncidentListItem{}
+	}
+	total, err := s.store.CountIncidentsByMonitor(id)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	jsonOK(w, map[string]any{
+		"items":  items,
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,

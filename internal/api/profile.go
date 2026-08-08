@@ -12,6 +12,7 @@ import (
 type profileResponse struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
+	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Role     string `json:"role"`
 	TenantID string `json:"tenant_id,omitempty"`
@@ -20,6 +21,7 @@ type profileResponse struct {
 type updateProfileRequest struct {
 	CurrentPassword string `json:"current_password"`
 	Username        string `json:"username"`
+	Name            string `json:"name"`
 	Email           string `json:"email"`
 	NewPassword     string `json:"new_password"`
 }
@@ -29,6 +31,7 @@ func (s *Server) handleGetProfile(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, profileResponse{
 		ID:       user.ID,
 		Username: user.Username,
+		Name:     user.Name,
 		Email:    user.Email,
 		Role:     string(user.Role),
 		TenantID: user.TenantID,
@@ -58,20 +61,21 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := fresh.Username
-	if req.Username != "" && strings.TrimSpace(req.Username) != "" {
+	if strings.TrimSpace(req.Username) != "" {
 		username = strings.TrimSpace(req.Username)
 	}
+	name := strings.TrimSpace(req.Name)
 	email := strings.TrimSpace(req.Email)
 
-	updated, err := s.store.UpdateUser(fresh.ID, username, email, fresh.Role, req.NewPassword, fresh.TenantID, false)
+	updated, err := s.store.UpdateOwnProfile(fresh.ID, username, name, email, req.NewPassword)
 	if err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if req.NewPassword != "" {
-		to, username := updated.Email, updated.Username
+		to, uname := updated.Email, updated.Username
 		go func() {
-			if err := s.alerter.SendPasswordChangedEmail(to, username); err != nil {
+			if err := s.alerter.SendPasswordChangedEmail(to, uname); err != nil {
 				log.Printf("password changed email: %v", err)
 			}
 		}()
@@ -80,6 +84,7 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, profileResponse{
 		ID:       updated.ID,
 		Username: updated.Username,
+		Name:     updated.Name,
 		Email:    updated.Email,
 		Role:     string(updated.Role),
 		TenantID: updated.TenantID,

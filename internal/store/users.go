@@ -42,9 +42,9 @@ func (s *Store) EnsureDefaultAdmin(fallback config.AuthConfig) error {
 	}
 	now := time.Now().UTC()
 	_, err = s.db.Exec(`
-		INSERT INTO users (id, username, email, password_hash, role, tenant_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
-		newID(), username, "", hash, models.RoleAdmin, formatTime(now), formatTime(now),
+		INSERT INTO users (id, username, name, email, password_hash, role, tenant_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+		newID(), username, "", "", hash, models.RoleAdmin, formatTime(now), formatTime(now),
 	)
 	return err
 }
@@ -142,7 +142,7 @@ func (s *Store) ListAlertProfileEmails() ([]string, error) {
 
 func (s *Store) ListUsers() ([]models.User, error) {
 	rows, err := s.db.Query(`
-		SELECT id, username, email, password_hash, role, tenant_id, created_at, updated_at
+		SELECT id, username, name, email, password_hash, role, tenant_id, created_at, updated_at
 		FROM users ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func (s *Store) ListUsersByTenant(tenantID string) ([]models.User, error) {
 		return []models.User{}, nil
 	}
 	rows, err := s.db.Query(`
-		SELECT id, username, email, password_hash, role, tenant_id, created_at, updated_at
+		SELECT id, username, name, email, password_hash, role, tenant_id, created_at, updated_at
 		FROM users WHERE tenant_id = ? ORDER BY created_at ASC`, tenantID)
 	if err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func (s *Store) ListUsersByTenant(tenantID string) ([]models.User, error) {
 
 func (s *Store) GetUserByID(id string) (*models.User, error) {
 	row := s.db.QueryRow(`
-		SELECT id, username, email, password_hash, role, tenant_id, created_at, updated_at
+		SELECT id, username, name, email, password_hash, role, tenant_id, created_at, updated_at
 		FROM users WHERE id = ?`, id)
 	u, err := scanUser(row)
 	if err == sql.ErrNoRows {
@@ -199,7 +199,7 @@ func (s *Store) GetUserByID(id string) (*models.User, error) {
 
 func (s *Store) GetUserByUsername(username string) (*models.User, error) {
 	row := s.db.QueryRow(`
-		SELECT id, username, email, password_hash, role, tenant_id, created_at, updated_at
+		SELECT id, username, name, email, password_hash, role, tenant_id, created_at, updated_at
 		FROM users WHERE username = ? COLLATE NOCASE`, strings.TrimSpace(username))
 	u, err := scanUser(row)
 	if err == sql.ErrNoRows {
@@ -217,7 +217,7 @@ func (s *Store) GetUserByEmail(email string) (*models.User, error) {
 		return nil, nil
 	}
 	row := s.db.QueryRow(`
-		SELECT id, username, email, password_hash, role, tenant_id, created_at, updated_at
+		SELECT id, username, name, email, password_hash, role, tenant_id, created_at, updated_at
 		FROM users WHERE email = ? COLLATE NOCASE`, email)
 	u, err := scanUser(row)
 	if err == sql.ErrNoRows {
@@ -260,9 +260,9 @@ func (s *Store) CreateUser(username, email, password string, role models.UserRol
 	now := time.Now().UTC()
 	id := newID()
 	_, err = s.db.Exec(`
-		INSERT INTO users (id, username, email, password_hash, role, tenant_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, username, email, hash, role, nullString(tenantID), formatTime(now), formatTime(now),
+		INSERT INTO users (id, username, name, email, password_hash, role, tenant_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, username, "", email, hash, role, nullString(tenantID), formatTime(now), formatTime(now),
 	)
 	if err != nil {
 		return nil, err
@@ -315,9 +315,49 @@ func (s *Store) UpdateUser(id, username, email string, role models.UserRole, pas
 
 	now := time.Now().UTC()
 	_, err = s.db.Exec(`
-		UPDATE users SET username = ?, email = ?, password_hash = ?, role = ?, tenant_id = ?, updated_at = ?
+		UPDATE users SET username = ?, name = ?, email = ?, password_hash = ?, role = ?, tenant_id = ?, updated_at = ?
 		WHERE id = ?`,
-		existing.Username, existing.Email, existing.PasswordHash, existing.Role, nullString(existing.TenantID), formatTime(now), id,
+		existing.Username, existing.Name, existing.Email, existing.PasswordHash, existing.Role, nullString(existing.TenantID), formatTime(now), id,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return s.GetUserByID(id)
+}
+
+func (s *Store) UpdateOwnProfile(id, username, name, email, password string) (*models.User, error) {
+	existing, err := s.GetUserByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	username = strings.TrimSpace(username)
+	if username == "" {
+		username = existing.Username
+	}
+	existing.Username = username
+	existing.Name = strings.TrimSpace(name)
+	existing.Email = strings.TrimSpace(email)
+
+	if password != "" {
+		if err := ValidatePassword(password); err != nil {
+			return nil, err
+		}
+		hash, err := HashPassword(password)
+		if err != nil {
+			return nil, err
+		}
+		existing.PasswordHash = hash
+	}
+
+	now := time.Now().UTC()
+	_, err = s.db.Exec(`
+		UPDATE users SET username = ?, name = ?, email = ?, password_hash = ?, updated_at = ?
+		WHERE id = ?`,
+		existing.Username, existing.Name, existing.Email, existing.PasswordHash, formatTime(now), id,
 	)
 	if err != nil {
 		return nil, err
@@ -360,7 +400,7 @@ func scanUser(row scannable) (models.User, error) {
 	var u models.User
 	var createdAt, updatedAt string
 	var tenantID sql.NullString
-	if err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &tenantID, &createdAt, &updatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.Name, &u.Email, &u.PasswordHash, &u.Role, &tenantID, &createdAt, &updatedAt); err != nil {
 		return u, err
 	}
 	u.TenantID = nullableString(tenantID)

@@ -146,8 +146,14 @@ export default function Performance() {
                     </span>
                   </div>
                   <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 6 }}>{t.url}</div>
-                  <div style={{ color: colors.textDim, fontSize: 11, marginTop: 8 }}>
-                    Every {t.interval_seconds}s · SLA {t.slow_threshold_ms}ms
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                    color: colors.textDim, fontSize: 11, marginTop: 8,
+                  }}>
+                    <span>Every {t.interval_seconds}s · SLA {t.slow_threshold_ms}ms</span>
+                    {t.last_status !== 'up' && t.last_status !== 'unknown' && (
+                      <span style={styles.slowBadge}>Slow</span>
+                    )}
                   </div>
                 </Link>
               ))}
@@ -257,6 +263,15 @@ const styles: Record<string, React.CSSProperties> = {
   topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16, flexWrap: 'wrap' },
   searchRow: { marginBottom: 20 },
   searchInput: { maxWidth: 420, width: '100%' },
+  slowBadge: {
+    color: colors.yellow,
+    background: colors.yellowDim,
+    padding: '2px 8px',
+    borderRadius: 999,
+    fontWeight: 600,
+    fontSize: 10,
+    letterSpacing: '0.02em',
+  },
   targetGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14, marginBottom: 28 },
   targetCard: {
     display: 'block', padding: '18px 20px', borderRadius: 12,

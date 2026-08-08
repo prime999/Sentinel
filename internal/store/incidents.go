@@ -145,6 +145,57 @@ func (s *Store) ListIncidentsScoped(limit int, openOnly bool, tenantID string) (
 	return out, rows.Err()
 }
 
+func (s *Store) ListIncidentsByMonitor(monitorID string, limit, offset int) ([]models.IncidentListItem, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := s.db.Query(`
+		SELECT i.id, i.monitor_id, i.type, i.message, i.started_at, i.resolved_at,
+			COALESCE(m.name, '') AS monitor_name
+		FROM incidents i
+		LEFT JOIN monitors m ON m.id = i.monitor_id
+		WHERE i.monitor_id = ?
+		ORDER BY i.started_at DESC
+		LIMIT ? OFFSET ?`,
+		monitorID, limit, offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []models.IncidentListItem
+	for rows.Next() {
+		var item models.IncidentListItem
+		var incType string
+		var startedAt string
+		var resolvedAt sql.NullString
+		if err := rows.Scan(
+			&item.ID, &item.MonitorID, &incType, &item.Message, &startedAt, &resolvedAt, &item.MonitorName,
+		); err != nil {
+			return nil, err
+		}
+		item.Type = models.IncidentType(incType)
+		item.StartedAt, _ = parseTime(startedAt)
+		if resolvedAt.Valid && resolvedAt.String != "" {
+			if t, err := parseTime(resolvedAt.String); err == nil {
+				item.ResolvedAt = &t
+			}
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) CountIncidentsByMonitor(monitorID string) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM incidents WHERE monitor_id = ?`, monitorID).Scan(&n)
+	return n, err
+}
+
 func (s *Store) GetLastSlowAlertAt(monitorID string) (*time.Time, error) {
 	var startedAt string
 	err := s.db.QueryRow(`

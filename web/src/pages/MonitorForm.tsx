@@ -269,17 +269,7 @@ export default function MonitorForm() {
           <Field label="Timeout (ms)">
             <input type="number" value={form.timeout_ms ?? 10000} onChange={e => set('timeout_ms', +e.target.value)} className="input" />
           </Field>
-          {monitorType !== 'dns' && (
-            <Field label="Slow threshold (ms)">
-              <input type="number" value={form.slow_threshold_ms ?? 3000} onChange={e => set('slow_threshold_ms', +e.target.value)} className="input" />
-            </Field>
-          )}
         </div>
-        {monitorType !== 'dns' && (
-          <p style={{ color: colors.textMuted, fontSize: 13, margin: '-8px 0 0' }}>
-            Slow threshold marks the monitor as warning in the UI only. Latency emails require a Performance target.
-          </p>
-        )}
         <Field label="Alert after consecutive failures">
           <input
             type="number"
@@ -289,7 +279,7 @@ export default function MonitorForm() {
             onChange={e => set('alert_after_failures', Math.max(1, +e.target.value || 1))}
           />
           <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
-            Send a DOWN alert only after this many failed checks in a row (default 2).
+            Send a DOWN alert after this many failed checks in a row, and wait for the same number of successful checks before RECOVERY (default 2). Only one DOWN email per outage.
           </p>
         </Field>
         <Field label="Alert emails (comma-separated)">

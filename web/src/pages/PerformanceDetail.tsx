@@ -52,7 +52,17 @@ export default function PerformanceDetail() {
       <div style={styles.header}>
         <div>
           <Link to="/performance" style={styles.back}>← Performance</Link>
-          <h1 style={{ margin: '8px 0 4px', fontSize: 22, fontWeight: 700 }}>{target.name}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 4px' }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{target.name}</h1>
+            {target.last_status !== 'up' && target.last_status !== 'unknown' && (
+              <span style={{
+                color: colors.yellow, background: colors.yellowDim,
+                padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+              }}>
+                Slow
+              </span>
+            )}
+          </div>
           <div style={{ color: colors.textMuted, fontSize: 14 }}>{target.url}</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -131,6 +141,7 @@ export default function PerformanceDetail() {
             <thead>
               <tr>
                 <th style={styles.th}>Time</th>
+                <th style={styles.th}>Status</th>
                 <th style={styles.th}>Total</th>
                 <th style={styles.th}>TTFB</th>
                 <th style={styles.th}>DNS</th>
@@ -140,6 +151,13 @@ export default function PerformanceDetail() {
               {results.map(r => (
                 <tr key={r.id}>
                   <td style={styles.td}>{new Date(r.checked_at).toLocaleString()}</td>
+                  <td style={{
+                    ...styles.td,
+                    color: (r.status === 'degraded' || r.status === 'down') ? colors.yellow : colors.green,
+                    fontWeight: 600,
+                  }}>
+                    {r.status === 'degraded' || r.status === 'down' ? 'Slow' : 'OK'}
+                  </td>
                   <td style={{ ...styles.td, color: (r.status === 'degraded' || r.status === 'down') ? colors.yellow : colors.text }}>{r.response_time_ms} ms</td>
                   <td style={styles.td}>{r.ttfb_ms != null ? `${r.ttfb_ms} ms` : '—'}</td>
                   <td style={styles.td}>{r.dns_ms != null ? `${r.dns_ms} ms` : '—'}</td>
