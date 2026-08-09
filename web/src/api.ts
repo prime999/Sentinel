@@ -317,6 +317,12 @@ export interface AuditEntry {
   created_at: string
 }
 
+export interface AuditMeta {
+  actors: string[]
+  resources: string[]
+  actions: string[]
+}
+
 export interface APIToken {
   id: string
   user_id: string
@@ -483,7 +489,28 @@ export const api = {
   getStatusPageConfig: () => request<StatusPageConfig>('/api/settings/status-page'),
   putStatusPageConfig: (cfg: StatusPageConfig) =>
     request<StatusPageConfig>('/api/settings/status-page', { method: 'PUT', body: JSON.stringify(cfg) }),
-  listAudit: () => request<AuditEntry[]>('/api/settings/audit'),
+  listAudit: (opts?: {
+    limit?: number
+    offset?: number
+    actor?: string
+    action?: string
+    resource?: string
+    date?: string
+  }) => {
+    const params = new URLSearchParams()
+    params.set('limit', String(opts?.limit ?? 20))
+    params.set('offset', String(opts?.offset ?? 0))
+    if (opts?.actor) params.set('actor', opts.actor)
+    if (opts?.action) params.set('action', opts.action)
+    if (opts?.resource) params.set('resource', opts.resource)
+    if (opts?.date) {
+      const { from, to } = localDayBounds(opts.date)
+      params.set('from', from)
+      params.set('to', to)
+    }
+    return request<PaginatedResults<AuditEntry>>(`/api/settings/audit?${params}`)
+  },
+  listAuditMeta: () => request<AuditMeta>('/api/settings/audit/meta'),
   listTokens: () => request<APIToken[]>('/api/settings/tokens'),
   createToken: (name: string) =>
     request<APITokenCreated>('/api/settings/tokens', { method: 'POST', body: JSON.stringify({ name }) }),

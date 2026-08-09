@@ -213,13 +213,37 @@ func (s *Store) InsertAudit(actor, action, resource, detail string) error {
 	return err
 }
 
+// AuditQuery filters audit log listings.
+type AuditQuery struct {
+	Actor    string
+	Action   string
+	Resource string
+	From     *time.Time
+	To       *time.Time
+	Limit    int
+	Offset   int
+}
+
 func (s *Store) ListAuditLog(limit int) ([]models.AuditEntry, error) {
-	if limit <= 0 {
-		limit = 100
+	return s.QueryAuditLog(AuditQuery{Limit: limit})
+}
+
+func (s *Store) QueryAuditLog(q AuditQuery) ([]models.AuditEntry, error) {
+	if q.Limit <= 0 {
+		q.Limit = 100
 	}
-	rows, err := s.db.Query(`
-		SELECT id, actor, action, resource, detail, created_at
-		FROM audit_log ORDER BY created_at DESC LIMIT ?`, limit)
+	if q.Offset < 0 {
+		q.Offset = 0
+	}
+	sqlQ := `SELECT id, actor, action, resource, detail, created_at FROM audit_log`
+	conds, args := auditConds(q)
+	if len(conds) > 0 {
+		sqlQ += ` WHERE ` + strings.Join(conds, ` AND `)
+	}
+	sqlQ += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	args = append(args, q.Limit, q.Offset)
+
+	rows, err := s.db.Query(sqlQ, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -237,6 +261,77 @@ func (s *Store) ListAuditLog(limit int) ([]models.AuditEntry, error) {
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) CountAuditLog(q AuditQuery) (int, error) {
+	sqlQ := `SELECT COUNT(*) FROM audit_log`
+	conds, args := auditConds(q)
+	if len(conds) > 0 {
+		sqlQ += ` WHERE ` + strings.Join(conds, ` AND `)
+	}
+	var n int
+	err := s.db.QueryRow(sqlQ, args...).Scan(&n)
+	return n, err
+}
+
+func (s *Store) ListAuditActors() ([]string, error) {
+	rows, err := s.db.Query(`SELECT DISTINCT actor FROM audit_log WHERE actor != '' ORDER BY actor ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var a string
+		if err := rows.Scan(&a); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ListAuditResources() ([]string, error) {
+	rows, err := s.db.Query(`SELECT DISTINCT resource FROM audit_log WHERE resource != '' ORDER BY resource ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var r string
+		if err := rows.Scan(&r); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func auditConds(q AuditQuery) ([]string, []any) {
+	var conds []string
+	var args []any
+	if a := strings.TrimSpace(q.Actor); a != "" {
+		conds = append(conds, `actor = ?`)
+		args = append(args, a)
+	}
+	if a := strings.TrimSpace(q.Action); a != "" {
+		conds = append(conds, `action = ?`)
+		args = append(args, a)
+	}
+	if r := strings.TrimSpace(q.Resource); r != "" {
+		conds = append(conds, `resource = ?`)
+		args = append(args, r)
+	}
+	if q.From != nil {
+		conds = append(conds, `created_at >= ?`)
+		args = append(args, formatTime(*q.From))
+	}
+	if q.To != nil {
+		conds = append(conds, `created_at < ?`)
+		args = append(args, formatTime(*q.To))
+	}
+	return conds, args
 }
 
 func hashAPIToken(token string) string {
