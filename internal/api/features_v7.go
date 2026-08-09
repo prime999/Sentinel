@@ -229,8 +229,32 @@ func (s *Server) handlePublicStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
-	limit := queryInt(r, "limit", 100)
-	items, err := s.store.ListAuditLog(limit)
+	limit := queryInt(r, "limit", 20)
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := queryInt(r, "offset", 0)
+	if offset < 0 {
+		offset = 0
+	}
+	from, to, err := parseIncidentDayRange(r)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	q := store.AuditQuery{
+		Actor:    strings.TrimSpace(r.URL.Query().Get("actor")),
+		Action:   strings.TrimSpace(r.URL.Query().Get("action")),
+		Resource: strings.TrimSpace(r.URL.Query().Get("resource")),
+		From:     from,
+		To:       to,
+		Limit:    limit,
+		Offset:   offset,
+	}
+	items, err := s.store.QueryAuditLog(q)
 	if err != nil {
 		jsonInternal(w, err)
 		return
@@ -238,7 +262,41 @@ func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
 	if items == nil {
 		items = []models.AuditEntry{}
 	}
-	jsonOK(w, items)
+	total, err := s.store.CountAuditLog(q)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	jsonOK(w, map[string]any{
+		"items":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+func (s *Server) handleListAuditMeta(w http.ResponseWriter, r *http.Request) {
+	actors, err := s.store.ListAuditActors()
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	resources, err := s.store.ListAuditResources()
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	if actors == nil {
+		actors = []string{}
+	}
+	if resources == nil {
+		resources = []string{}
+	}
+	jsonOK(w, map[string]any{
+		"actors":    actors,
+		"resources": resources,
+		"actions":   []string{"create", "update", "delete"},
+	})
 }
 
 func (s *Server) handleListAPITokens(w http.ResponseWriter, r *http.Request) {

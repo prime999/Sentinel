@@ -100,6 +100,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/settings/status-page", s.platformAdminRequired(s.handleGetStatusPageConfig))
 	s.mux.HandleFunc("PUT /api/settings/status-page", s.platformAdminRequired(s.handlePutStatusPageConfig))
 	s.mux.HandleFunc("GET /api/settings/audit", s.platformAdminRequired(s.handleListAudit))
+	s.mux.HandleFunc("GET /api/settings/audit/meta", s.platformAdminRequired(s.handleListAuditMeta))
 	s.mux.HandleFunc("GET /api/settings/tokens", s.authRequired(s.handleListAPITokens))
 	s.mux.HandleFunc("POST /api/settings/tokens", s.authRequired(s.handleCreateAPIToken))
 	s.mux.HandleFunc("DELETE /api/settings/tokens/{id}", s.authRequired(s.handleDeleteAPIToken))
