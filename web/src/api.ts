@@ -62,6 +62,7 @@ export interface SSLDetails {
   days_remaining: number
   issuer: string
   subject: string
+  sans?: string[]
   fingerprint: string
   issues?: string[]
 }

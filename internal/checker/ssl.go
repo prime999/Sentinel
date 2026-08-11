@@ -70,6 +70,7 @@ func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.Check
 	daysRemaining := int(cert.NotAfter.Sub(now).Hours() / 24)
 	fp := sha256.Sum256(cert.Raw)
 	fingerprint := hex.EncodeToString(fp[:])
+	sans := append([]string(nil), cert.DNSNames...)
 
 	var issues []string
 	if now.After(cert.NotAfter) {
@@ -78,6 +79,7 @@ func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.Check
 	if cert.Issuer.String() == cert.Subject.String() {
 		issues = append(issues, "self_signed")
 	}
+	// VerifyHostname checks CN and SANs (e.g. CN=nxcli.io, SAN includes teqtivity.com).
 	if err := cert.VerifyHostname(host); err != nil {
 		issues = append(issues, "wrong_hostname")
 	}
@@ -87,25 +89,21 @@ func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.Check
 			issues = append(issues, "weak_cipher")
 		}
 	}
+	if !sslChainOK(cert, state, host) && !containsIssue(issues, "self_signed") {
+		issues = append(issues, "chain_error")
+	}
 
 	details := models.SSLDetails{
 		ExpiresAt:     cert.NotAfter.UTC().Format(time.RFC3339),
 		DaysRemaining: daysRemaining,
 		Issuer:        cert.Issuer.CommonName,
 		Subject:       cert.Subject.CommonName,
+		SANs:          sans,
 		Fingerprint:   fingerprint,
 		Issues:        issues,
 	}
 	if b, e := json.Marshal(details); e == nil {
 		result.Details = string(b)
-	}
-
-	if _, err := cert.Verify(x509.VerifyOptions{DNSName: host}); err != nil && !containsIssue(issues, "self_signed") {
-		issues = append(issues, "chain_error")
-		details.Issues = issues
-		if b, e := json.Marshal(details); e == nil {
-			result.Details = string(b)
-		}
 	}
 
 	if containsIssue(issues, "expired") {
@@ -126,6 +124,29 @@ func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.Check
 	tlsMs := result.ResponseTimeMs
 	result.TLSMs = &tlsMs
 	return result
+}
+
+// sslChainOK validates the leaf using intermediates from the handshake.
+// A successful TLS handshake already populates VerifiedChains when the OS trust
+// store accepted the chain; that counts as OK even if a redundant Verify fails
+// on incomplete options (common false positive on shared-hosting certs).
+func sslChainOK(leaf *x509.Certificate, state tls.ConnectionState, host string) bool {
+	if len(state.VerifiedChains) > 0 {
+		return true
+	}
+	opts := x509.VerifyOptions{
+		DNSName:       host,
+		Intermediates: x509.NewCertPool(),
+		CurrentTime:   time.Now(),
+	}
+	for _, ic := range state.PeerCertificates[1:] {
+		opts.Intermediates.AddCert(ic)
+	}
+	if roots, err := x509.SystemCertPool(); err == nil && roots != nil {
+		opts.Roots = roots
+	}
+	_, err := leaf.Verify(opts)
+	return err == nil
 }
 
 func containsIssue(issues []string, target string) bool {
