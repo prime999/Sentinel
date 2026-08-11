@@ -200,7 +200,11 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
     if (!ssl) return <Panel title="Certificate Details"><Empty /></Panel>
     return (
       <Panel title="Certificate Details">
-        <Row label="Subject" value={ssl.subject} />
+        <Row label="Subject (CN)" value={ssl.subject || '—'} />
+        <Row
+          label="SANs"
+          value={ssl.sans && ssl.sans.length > 0 ? ssl.sans.join(', ') : '—'}
+        />
         <Row label="Issuer" value={ssl.issuer} />
         <Row label="Expires" value={`${formatDate(ssl.expires_at)} (${ssl.days_remaining} days)`} />
         <Row label="Fingerprint" value={ssl.fingerprint} mono />

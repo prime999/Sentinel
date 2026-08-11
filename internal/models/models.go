@@ -272,12 +272,13 @@ type MonitorListItem struct {
 // Probe detail structs (serialized into CheckResult.Details)
 
 type SSLDetails struct {
-	ExpiresAt      string   `json:"expires_at"`
-	DaysRemaining  int      `json:"days_remaining"`
-	Issuer         string   `json:"issuer"`
-	Subject        string   `json:"subject"`
-	Fingerprint    string   `json:"fingerprint"`
-	Issues         []string `json:"issues,omitempty"`
+	ExpiresAt     string   `json:"expires_at"`
+	DaysRemaining int      `json:"days_remaining"`
+	Issuer        string   `json:"issuer"`
+	Subject       string   `json:"subject"`
+	SANs          []string `json:"sans,omitempty"`
+	Fingerprint   string   `json:"fingerprint"`
+	Issues        []string `json:"issues,omitempty"`
 }
 
 type DNSRecordChange struct {

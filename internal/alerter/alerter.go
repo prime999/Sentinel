@@ -438,48 +438,66 @@ func (a *Alerter) sendSMTPSImplicitTLS(addr string, auth smtp.Auth, from, to str
 
 var emailTmpl = template.Must(template.New("email").Parse(`<!DOCTYPE html>
 <html>
-<body style="margin:0;padding:0;background:#0f1419;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <div style="max-width:560px;margin:24px auto;padding:0 16px;">
-    <div style="background:#1a1f26;border-radius:12px;overflow:hidden;border:1px solid #2a313c;">
-      <div style="border-left:4px solid {{.Color}};">
-        <div style="padding:20px 24px 8px;">
-          <div style="font-size:11px;letter-spacing:0.08em;color:#8b95a5;text-transform:uppercase;margin-bottom:8px;">Sentinel</div>
-          <div style="font-size:20px;font-weight:700;color:#f4f7fb;letter-spacing:0.02em;">{{.Title}}</div>
-        </div>
-        <div style="padding:8px 24px 20px;">
-          <div style="font-size:16px;font-weight:600;color:#ffffff;margin-bottom:4px;">{{.Name}}</div>
-          {{if .URL}}<div style="margin-bottom:16px;"><a href="{{.URL}}" style="color:#5b9fd4;text-decoration:none;font-size:13px;word-break:break-all;">{{.URL}}</a></div>{{end}}
-          {{if .ShowMessage}}<div style="color:#a8b3c2;font-size:13px;margin-bottom:16px;">{{.Message}}</div>{{end}}
-          <table style="width:100%;border-collapse:collapse;background:#12171e;border-radius:8px;">
-            <tr>
-              <td style="padding:12px 14px;width:50%;vertical-align:top;border-bottom:1px solid #243041;">
-                <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">{{.Field1Label}}</div>
-                <div style="font-size:14px;font-weight:600;color:{{.Field1Color}};">{{.Field1Value}}</div>
-              </td>
-              <td style="padding:12px 14px;width:50%;vertical-align:top;border-bottom:1px solid #243041;">
-                <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">Response</div>
-                <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.Response}}</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:12px 14px;width:50%;vertical-align:top;">
-                <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">{{.TimeLabel}}</div>
-                <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.TimeValue}}</div>
-              </td>
-              <td style="padding:12px 14px;width:50%;vertical-align:top;">
-                <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">Incident</div>
-                <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.Incident}}</div>
-              </td>
-            </tr>
-          </table>
-          <div style="margin-top:20px;">
-            <a href="{{.DashboardURL}}" style="display:inline-block;background:#2B7A78;color:#ffffff;padding:10px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">Open in Sentinel →</a>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div style="text-align:center;color:#667084;font-size:11px;margin-top:14px;">Sentinel Infrastructure Monitoring</div>
-  </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#eef0f3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef0f3;border-collapse:collapse;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;border-collapse:collapse;">
+          <tr>
+            <td style="background:#1a1f26;border-radius:12px;border:1px solid #2a313c;overflow:hidden;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+                <tr>
+                  <td style="border-left:4px solid {{.Color}};padding:0;">
+                    <div style="padding:20px 24px 8px;">
+                      <div style="font-size:11px;letter-spacing:0.08em;color:#8b95a5;text-transform:uppercase;margin-bottom:8px;">Sentinel</div>
+                      <div style="font-size:20px;font-weight:700;color:#f4f7fb;letter-spacing:0.02em;">{{.Title}}</div>
+                    </div>
+                    <div style="padding:8px 24px 20px;">
+                      <div style="font-size:16px;font-weight:600;color:#ffffff;margin-bottom:4px;">{{.Name}}</div>
+                      {{if .URL}}<div style="margin-bottom:16px;"><a href="{{.URL}}" style="color:#5b9fd4;text-decoration:none;font-size:13px;word-break:break-all;">{{.URL}}</a></div>{{end}}
+                      {{if .ShowMessage}}<div style="color:#a8b3c2;font-size:13px;margin-bottom:16px;">{{.Message}}</div>{{end}}
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;background:#12171e;border-radius:8px;">
+                        <tr>
+                          <td style="padding:12px 14px;width:50%;vertical-align:top;border-bottom:1px solid #243041;">
+                            <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">{{.Field1Label}}</div>
+                            <div style="font-size:14px;font-weight:600;color:{{.Field1Color}};">{{.Field1Value}}</div>
+                          </td>
+                          <td style="padding:12px 14px;width:50%;vertical-align:top;border-bottom:1px solid #243041;">
+                            <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">Response</div>
+                            <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.Response}}</div>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding:12px 14px;width:50%;vertical-align:top;">
+                            <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">{{.TimeLabel}}</div>
+                            <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.TimeValue}}</div>
+                          </td>
+                          <td style="padding:12px 14px;width:50%;vertical-align:top;">
+                            <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">Incident</div>
+                            <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.Incident}}</div>
+                          </td>
+                        </tr>
+                      </table>
+                      <div style="margin-top:20px;">
+                        <a href="{{.DashboardURL}}" style="display:inline-block;background:#2B7A78;color:#ffffff;padding:10px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">Open in Sentinel →</a>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align:center;color:#6b7280;font-size:11px;padding-top:14px;">Sentinel Infrastructure Monitoring</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`))
 
