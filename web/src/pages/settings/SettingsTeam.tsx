@@ -6,6 +6,7 @@ import { colors } from '../../theme'
 
 type RoleFilter = 'all' | UserRole
 type CustomerFilterId = 'all' | 'platform' | string
+type StatusFilter = 'all' | 'locked' | 'active'
 
 export default function SettingsTeam() {
   const { user: currentUser, isPlatformAdmin } = useAuth()
@@ -21,7 +22,13 @@ export default function SettingsTeam() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [customerFilter, setCustomerFilter] = useState<CustomerFilterId>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [resetId, setResetId] = useState<string | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetPassword2, setResetPassword2] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+  const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function load() {
@@ -46,6 +53,8 @@ export default function SettingsTeam() {
     const q = search.trim().toLowerCase()
     return members.filter(m => {
       if (roleFilter !== 'all' && m.role !== roleFilter) return false
+      if (statusFilter === 'locked' && !m.locked) return false
+      if (statusFilter === 'active' && m.locked) return false
       if (isPlatformAdmin) {
         if (customerFilter === 'platform' && m.tenant_id) return false
         if (customerFilter !== 'all' && customerFilter !== 'platform' && m.tenant_id !== customerFilter) {
@@ -56,12 +65,29 @@ export default function SettingsTeam() {
       const hay = [m.username, m.email || '', customerName(m.tenant_id)].join(' ').toLowerCase()
       return hay.includes(q)
     })
-  }, [members, search, roleFilter, customerFilter, isPlatformAdmin, customers])
+  }, [members, search, roleFilter, customerFilter, statusFilter, isPlatformAdmin, customers])
+
+  function openAdd() {
+    setUsername('')
+    setEmail('')
+    setPassword('')
+    setRole('viewer')
+    setTenantId('')
+    setFormError('')
+    setShowAdd(true)
+  }
+
+  function closeAdd() {
+    if (busy) return
+    setShowAdd(false)
+    setFormError('')
+  }
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
-    setError('')
+    setFormError('')
     setMessage('')
+    setBusy(true)
     try {
       await api.createTeamMember({
         username,
@@ -70,6 +96,7 @@ export default function SettingsTeam() {
         role,
         tenant_id: isPlatformAdmin ? (tenantId || undefined) : undefined,
       })
+      setShowAdd(false)
       setUsername('')
       setEmail('')
       setPassword('')
@@ -78,7 +105,9 @@ export default function SettingsTeam() {
       setMessage('User added')
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add user')
+      setFormError(err instanceof Error ? err.message : 'Failed to add user')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -106,6 +135,18 @@ export default function SettingsTeam() {
     }
   }
 
+  async function handleUnlock(id: string) {
+    setError('')
+    setMessage('')
+    try {
+      await api.unlockTeamMember(id)
+      setMessage('User unlocked')
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unlock failed')
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteId) return
     setBusy(true)
@@ -123,7 +164,31 @@ export default function SettingsTeam() {
     }
   }
 
+  async function confirmResetPassword() {
+    if (!resetId) return
+    if (resetPassword !== resetPassword2) {
+      setError('Passwords do not match')
+      return
+    }
+    setBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      await api.resetTeamMemberPassword(resetId, resetPassword)
+      setResetId(null)
+      setResetPassword('')
+      setResetPassword2('')
+      setMessage('Password reset')
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Password reset failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const deleteTarget = members.find(m => m.id === deleteId)
+  const resetTarget = members.find(m => m.id === resetId)
 
   const adminRoleLabel = isPlatformAdmin ? 'Admin - Full Access' : 'Admin - Customer Access'
   const viewerRoleLabel = 'User - Read Only Access'
@@ -133,198 +198,180 @@ export default function SettingsTeam() {
       <h1 className="page-title">Users</h1>
       <p className="page-subtitle">
         {isPlatformAdmin
-          ? 'Manage platform and customer users.'
-          : 'Manage users for your customer account.'}
+          ? 'Manage platform and customer users. Unlock lockouts and reset passwords when needed.'
+          : 'Manage users for your customer account. Unlock lockouts and reset passwords when needed.'}
       </p>
 
       {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error}>{error}</div>}
 
-      <div className="split-panels">
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>All users</h3>
-          <p style={{ color: colors.textMuted, fontSize: 14, margin: '0 0 16px' }}>
-            {isPlatformAdmin
-              ? 'Platform admins have full access. Assign a customer for customer admins and users.'
-              : 'Admins can manage this customer’s monitors. Users can view only.'}
-          </p>
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <div>
+            <h3 style={{ ...styles.cardTitle, marginBottom: 6 }}>All users</h3>
+            <p style={{ color: colors.textMuted, fontSize: 14, margin: 0 }}>
+              {isPlatformAdmin
+                ? 'Platform admins have full access. Assign a customer for customer admins and users.'
+                : 'Admins can manage this customer’s monitors. Users can view only.'}
+            </p>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={openAdd}>
+            Add user
+          </button>
+        </div>
 
-          {members.length > 0 && (
-            <div style={styles.filters}>
-              <input
-                className="input"
-                style={styles.search}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search username or email…"
-                autoComplete="off"
-              />
+        {members.length > 0 && (
+          <div style={styles.filters}>
+            <input
+              className="input"
+              style={styles.search}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search username or email…"
+              autoComplete="off"
+            />
+            <select
+              className="input"
+              style={styles.filterSelect}
+              value={roleFilter}
+              onChange={e => setRoleFilter(e.target.value as RoleFilter)}
+            >
+              <option value="all">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="viewer">User</option>
+            </select>
+            <select
+              className="input"
+              style={styles.filterSelect}
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+            >
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="locked">Locked</option>
+            </select>
+            {isPlatformAdmin && (
               <select
                 className="input"
                 style={styles.filterSelect}
-                value={roleFilter}
-                onChange={e => setRoleFilter(e.target.value as RoleFilter)}
+                value={customerFilter}
+                onChange={e => setCustomerFilter(e.target.value)}
               >
-                <option value="all">All roles</option>
-                <option value="admin">Admin</option>
-                <option value="viewer">User</option>
-              </select>
-              {isPlatformAdmin && (
-                <select
-                  className="input"
-                  style={styles.filterSelect}
-                  value={customerFilter}
-                  onChange={e => setCustomerFilter(e.target.value)}
-                >
-                  <option value="all">All customers</option>
-                  <option value="platform">Platform</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {members.length === 0 ? (
-            <p style={{ color: colors.textMuted }}>No users yet.</p>
-          ) : filtered.length === 0 ? (
-            <p style={{ color: colors.textMuted }}>No users match the current filters.</p>
-          ) : (
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Username</th>
-                    <th style={styles.th}>Role</th>
-                    {isPlatformAdmin && <th style={styles.th}>Customer</th>}
-                    <th style={{ ...styles.th, width: 96, textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(m => (
-                    <tr key={m.id}>
-                      <td style={styles.td}>
-                        <span style={styles.username}>
-                          {m.username}
-                          {m.id === currentUser?.id && <span style={styles.youBadge}>You</span>}
-                        </span>
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          className="input input-compact"
-                          value={m.role}
-                          disabled={m.id === currentUser?.id}
-                          onChange={e => handleRoleChange(m.id, e.target.value as UserRole)}
-                        >
-                          <option value="admin">{adminRoleLabel}</option>
-                          <option value="viewer">{viewerRoleLabel}</option>
-                        </select>
-                      </td>
-                      {isPlatformAdmin && (
-                        <td style={styles.td}>
-                          <select
-                            className="input input-compact"
-                            value={m.tenant_id || ''}
-                            disabled={m.id === currentUser?.id}
-                            onChange={e => handleTenantChange(m.id, e.target.value)}
-                          >
-                            <option value="">Platform</option>
-                            {customers.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                      )}
-                      <td style={{ ...styles.td, textAlign: 'right' }}>
-                        {m.id !== currentUser?.id ? (
-                          <button type="button" className="btn" onClick={() => setDeleteId(m.id)} style={styles.deleteBtn}>
-                            Remove
-                          </button>
-                        ) : (
-                          <span style={styles.roleBadge}>{roleLabel(m.role)}</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {members.length > 0 && (
-            <p style={{ color: colors.textDim, fontSize: 12, margin: '14px 0 0' }}>
-              Showing {filtered.length} of {members.length} users
-            </p>
-          )}
-        </div>
-
-        <form
-          onSubmit={handleAdd}
-          style={styles.card}
-          autoComplete="off"
-          data-lpignore="true"
-          data-1p-ignore="true"
-          data-bwignore="true"
-        >
-          {/* Decoy fields: stop browsers from treating this as a login form */}
-          <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden style={styles.honeypot} />
-          <input type="password" name="password" autoComplete="current-password" tabIndex={-1} aria-hidden style={styles.honeypot} />
-
-          <h3 style={styles.cardTitle}>Add user</h3>
-          <Field label="Username" htmlFor="user-username">
-            <CleanInput
-              id="user-username"
-              name="sentinel_username_new"
-              value={username}
-              onChange={setUsername}
-              required
-              autoComplete="off"
-            />
-          </Field>
-          <Field label="Email (optional)" htmlFor="user-email">
-            <CleanInput
-              id="user-email"
-              type="email"
-              name="sentinel_email_new"
-              value={email}
-              onChange={setEmail}
-              placeholder="For password reset"
-              autoComplete="off"
-            />
-          </Field>
-          <Field label="Password" htmlFor="user-password">
-            <CleanInput
-              id="user-password"
-              type="password"
-              name="sentinel_password_new"
-              value={password}
-              onChange={setPassword}
-              required
-              minLength={8}
-              autoComplete="new-password"
-            />
-            <p style={{ color: colors.textMuted, fontSize: 12, margin: '8px 0 0' }}>
-              At least 8 characters, with a letter and a number.
-            </p>
-          </Field>
-          <Field label="Role" htmlFor="user-role">
-            <select id="user-role" className="input" value={role} onChange={e => setRole(e.target.value as UserRole)}>
-              <option value="admin">{adminRoleLabel}</option>
-              <option value="viewer">{viewerRoleLabel}</option>
-            </select>
-          </Field>
-          {isPlatformAdmin && (
-            <Field label="Customer" htmlFor="user-customer">
-              <select id="user-customer" className="input" value={tenantId} onChange={e => setTenantId(e.target.value)}>
-                <option value="">Platform (no customer)</option>
+                <option value="all">All customers</option>
+                <option value="platform">Platform</option>
                 {customers.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-            </Field>
-          )}
-          <button type="submit" className="btn btn-primary" style={{ marginTop: 8 }}>Add user</button>
-        </form>
+            )}
+          </div>
+        )}
+
+        {members.length === 0 ? (
+          <p style={{ color: colors.textMuted }}>No users yet. Click “Add user” to create one.</p>
+        ) : filtered.length === 0 ? (
+          <p style={{ color: colors.textMuted }}>No users match the current filters.</p>
+        ) : (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <colgroup>
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '14%' }} />
+                {isPlatformAdmin && <col style={{ width: '18%' }} />}
+                <col style={{ width: '12%' }} />
+                <col style={{ width: isPlatformAdmin ? '38%' : '56%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Username</th>
+                  <th style={styles.th}>Role</th>
+                  {isPlatformAdmin && <th style={styles.th}>Customer</th>}
+                  <th style={styles.th}>Status</th>
+                  <th style={{ ...styles.th, textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(m => (
+                  <tr key={m.id}>
+                    <td style={styles.td}>
+                      <span style={styles.username}>
+                        {m.username}
+                        {m.id === currentUser?.id && <span style={styles.youBadge}>You</span>}
+                      </span>
+                    </td>
+                    <td style={styles.td}>
+                      <select
+                        className="input input-compact"
+                        style={styles.tableSelect}
+                        value={m.role}
+                        disabled={m.id === currentUser?.id}
+                        onChange={e => handleRoleChange(m.id, e.target.value as UserRole)}
+                        title={m.role === 'admin' ? adminRoleLabel : viewerRoleLabel}
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="viewer">User</option>
+                      </select>
+                    </td>
+                    {isPlatformAdmin && (
+                      <td style={styles.td}>
+                        <select
+                          className="input input-compact"
+                          style={styles.tableSelect}
+                          value={m.tenant_id || ''}
+                          disabled={m.id === currentUser?.id}
+                          onChange={e => handleTenantChange(m.id, e.target.value)}
+                        >
+                          <option value="">Platform</option>
+                          {customers.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                    )}
+                    <td style={styles.td}>
+                      {m.locked ? (
+                        <span style={styles.lockedBadge}>Locked</span>
+                      ) : (
+                        <span style={styles.activeBadge}>Active</span>
+                      )}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}>
+                      <div style={styles.actionRow}>
+                        {m.locked && (
+                          <button type="button" className="btn" onClick={() => handleUnlock(m.id)} style={styles.actionBtn}>
+                            Unlock
+                          </button>
+                        )}
+                        {m.id !== currentUser?.id ? (
+                          <>
+                            <button type="button" className="btn" onClick={() => {
+                              setResetId(m.id)
+                              setResetPassword('')
+                              setResetPassword2('')
+                              setError('')
+                            }} style={styles.actionBtn}>
+                              Reset password
+                            </button>
+                            <button type="button" className="btn" onClick={() => setDeleteId(m.id)} style={styles.deleteBtn}>
+                              Remove
+                            </button>
+                          </>
+                        ) : (
+                          !m.locked && <span style={styles.roleBadge}>{roleLabel(m.role)}</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {members.length > 0 && (
+          <p style={{ color: colors.textDim, fontSize: 12, margin: '14px 0 0' }}>
+            Showing {filtered.length} of {members.length} users
+          </p>
+        )}
       </div>
 
       <ConfirmDialog
@@ -341,11 +388,136 @@ export default function SettingsTeam() {
         onConfirm={confirmDelete}
         onCancel={() => { if (!busy) setDeleteId(null) }}
       />
+
+      {showAdd && (
+        <div style={styles.modalBackdrop} onClick={closeAdd}>
+          <form
+            onSubmit={handleAdd}
+            style={styles.modal}
+            onClick={e => e.stopPropagation()}
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore="true"
+            data-bwignore="true"
+          >
+            <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden style={styles.honeypot} />
+            <input type="password" name="password" autoComplete="current-password" tabIndex={-1} aria-hidden style={styles.honeypot} />
+
+            <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Add user</h3>
+            <p style={{ margin: '0 0 16px', color: colors.textMuted, fontSize: 14 }}>
+              Create a new account
+              {isPlatformAdmin ? ' for the platform or a customer.' : ' for your customer account.'}
+            </p>
+            {formError && <div style={{ ...styles.error, marginBottom: 16 }}>{formError}</div>}
+            <Field label="Username" htmlFor="user-username">
+              <CleanInput
+                id="user-username"
+                name="sentinel_username_new"
+                value={username}
+                onChange={setUsername}
+                required
+                autoComplete="off"
+              />
+            </Field>
+            <Field label="Email (optional)" htmlFor="user-email">
+              <CleanInput
+                id="user-email"
+                type="email"
+                name="sentinel_email_new"
+                value={email}
+                onChange={setEmail}
+                placeholder="For password reset"
+                autoComplete="off"
+              />
+            </Field>
+            <Field label="Password" htmlFor="user-password">
+              <CleanInput
+                id="user-password"
+                type="password"
+                name="sentinel_password_new"
+                value={password}
+                onChange={setPassword}
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+              <p style={{ color: colors.textMuted, fontSize: 12, margin: '8px 0 0' }}>
+                At least 8 characters, with a letter and a number.
+              </p>
+            </Field>
+            <Field label="Role" htmlFor="user-role">
+              <select id="user-role" className="input" value={role} onChange={e => setRole(e.target.value as UserRole)}>
+                <option value="admin">{adminRoleLabel}</option>
+                <option value="viewer">{viewerRoleLabel}</option>
+              </select>
+            </Field>
+            {isPlatformAdmin && (
+              <Field label="Customer" htmlFor="user-customer">
+                <select id="user-customer" className="input" value={tenantId} onChange={e => setTenantId(e.target.value)}>
+                  <option value="">Platform (no customer)</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button type="button" className="btn" disabled={busy} onClick={closeAdd}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={busy}>
+                {busy ? 'Adding…' : 'Add user'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {resetId && (
+        <div style={styles.modalBackdrop} onClick={() => { if (!busy) setResetId(null) }}>
+          <div style={styles.modal} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Reset password</h3>
+            <p style={{ margin: '0 0 16px', color: colors.textMuted, fontSize: 14 }}>
+              Set a new password for {resetTarget?.username || 'this user'}. This also clears any login lockout.
+            </p>
+            <Field label="New password" htmlFor="reset-password">
+              <input
+                id="reset-password"
+                className="input"
+                type="password"
+                value={resetPassword}
+                onChange={e => setResetPassword(e.target.value)}
+                minLength={8}
+                autoComplete="new-password"
+              />
+            </Field>
+            <Field label="Confirm password" htmlFor="reset-password2">
+              <input
+                id="reset-password2"
+                className="input"
+                type="password"
+                value={resetPassword2}
+                onChange={e => setResetPassword2(e.target.value)}
+                minLength={8}
+                autoComplete="new-password"
+              />
+            </Field>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button type="button" className="btn" disabled={busy} onClick={() => setResetId(null)}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={busy || resetPassword.length < 8 || resetPassword !== resetPassword2}
+                onClick={confirmResetPassword}
+              >
+                {busy ? 'Saving…' : 'Reset password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-/** Clipped shell + readonly-until-focus to avoid misaligned browser password UI. */
 function CleanInput({
   id,
   name,
@@ -416,6 +588,13 @@ const styles: Record<string, React.CSSProperties> = {
     background: colors.card, border: `1px solid ${colors.border}`,
     borderRadius: 12, padding: '24px 28px', minWidth: 0,
   },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginBottom: 20,
+  },
   cardTitle: { margin: '0 0 20px', fontSize: 16, fontWeight: 600 },
   filters: {
     display: 'flex',
@@ -424,16 +603,22 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 16,
   },
   search: {
-    flex: '1 1 200px',
+    flex: '1 1 220px',
     minWidth: 180,
   },
   filterSelect: {
-    flex: '1 1 140px',
-    minWidth: 140,
-    maxWidth: 200,
+    flex: '0 1 150px',
+    minWidth: 130,
   },
-  tableWrap: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' },
+  tableWrap: { overflowX: 'auto', width: '100%' },
+  table: {
+    width: '100%',
+    minWidth: 760,
+    borderCollapse: 'separate',
+    borderSpacing: 0,
+    tableLayout: 'fixed',
+    fontSize: 14,
+  },
   th: {
     textAlign: 'left',
     fontSize: 11,
@@ -441,21 +626,50 @@ const styles: Record<string, React.CSSProperties> = {
     color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
-    padding: '0 8px 10px',
+    padding: '0 12px 12px',
     borderBottom: `1px solid ${colors.border}`,
+    whiteSpace: 'nowrap',
   },
   td: {
-    padding: '12px 8px',
+    padding: '14px 12px',
     borderBottom: `1px solid ${colors.border}`,
     verticalAlign: 'middle',
+    overflow: 'hidden',
+  },
+  tableSelect: {
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    boxSizing: 'border-box',
   },
   username: { fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 },
   youBadge: {
     fontSize: 10, fontWeight: 600, color: colors.brand,
     background: 'rgba(20,184,166,0.15)', padding: '2px 6px', borderRadius: 4,
+    flexShrink: 0,
+  },
+  lockedBadge: {
+    display: 'inline-block',
+    fontSize: 11, fontWeight: 600, color: colors.red,
+    background: colors.redDim, padding: '3px 8px', borderRadius: 4,
+    whiteSpace: 'nowrap',
+  },
+  activeBadge: {
+    display: 'inline-block',
+    fontSize: 11, fontWeight: 600, color: colors.green,
+    background: colors.greenDim, padding: '3px 8px', borderRadius: 4,
+    whiteSpace: 'nowrap',
   },
   roleBadge: { fontSize: 12, color: colors.textMuted },
-  deleteBtn: { fontSize: 12, padding: '6px 10px', minHeight: 32, color: colors.red },
+  actionRow: {
+    display: 'inline-flex',
+    flexWrap: 'nowrap',
+    gap: 8,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  actionBtn: { fontSize: 12, padding: '6px 10px', minHeight: 32, whiteSpace: 'nowrap' },
+  deleteBtn: { fontSize: 12, padding: '6px 10px', minHeight: 32, color: colors.red, whiteSpace: 'nowrap' },
   honeypot: {
     position: 'absolute',
     left: -9999,
@@ -463,6 +677,15 @@ const styles: Record<string, React.CSSProperties> = {
     height: 1,
     opacity: 0,
     pointerEvents: 'none',
+  },
+  modalBackdrop: {
+    position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16,
+  },
+  modal: {
+    background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12,
+    padding: 24, width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto',
+    boxShadow: '0 16px 40px rgba(15,23,42,0.18)',
   },
   ok: {
     background: colors.greenDim, color: colors.green, padding: 12,

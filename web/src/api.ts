@@ -206,6 +206,7 @@ export interface TeamMember {
   email: string
   role: UserRole
   tenant_id?: string
+  locked?: boolean
   created_at: string
 }
 
@@ -247,12 +248,25 @@ export interface SMTPConfig {
   from: string
   alert_emails: string
   tls: boolean
+  enabled: boolean
 }
 
 export interface WebhookConfig {
   url: string
   enabled: boolean
   events: string[]
+}
+
+export interface SlackConfig {
+  webhook_url: string
+  enabled: boolean
+  events: string[]
+}
+
+export interface NotificationsSummary {
+  slack: { enabled: boolean; configured: boolean; webhook_url?: string; events?: string[] }
+  email?: { enabled: boolean; configured: boolean }
+  webhooks?: { enabled: boolean; configured: boolean; count?: number }
 }
 
 export interface MaintenanceWindow {
@@ -443,6 +457,13 @@ export const api = {
     request<TeamMember>('/api/settings/team', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamMember: (id: string, data: UpdateTeamMemberRequest) =>
     request<TeamMember>(`/api/settings/team/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  unlockTeamMember: (id: string) =>
+    request<TeamMember>(`/api/settings/team/${id}/unlock`, { method: 'POST' }),
+  resetTeamMemberPassword: (id: string, password: string) =>
+    request<TeamMember>(`/api/settings/team/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
   deleteTeamMember: (id: string) => request(`/api/settings/team/${id}`, { method: 'DELETE' }),
   getGeneral: () => request<OrgSettings>('/api/settings/general'),
   putGeneral: (cfg: OrgSettings) =>
@@ -453,6 +474,11 @@ export const api = {
     request<SMTPConfig>('/api/settings/smtp', { method: 'PUT', body: JSON.stringify(cfg) }),
   testSMTP: (to: string) =>
     request('/api/settings/smtp/test', { method: 'POST', body: JSON.stringify({ to }) }),
+  getNotificationsSummary: () => request<NotificationsSummary>('/api/settings/notifications'),
+  getSlack: () => request<SlackConfig>('/api/settings/slack'),
+  putSlack: (cfg: SlackConfig) =>
+    request<SlackConfig>('/api/settings/slack', { method: 'PUT', body: JSON.stringify(cfg) }),
+  testSlack: () => request('/api/settings/slack/test', { method: 'POST', body: '{}' }),
   incidents: (opts?: {
     openOnly?: boolean
     date?: string

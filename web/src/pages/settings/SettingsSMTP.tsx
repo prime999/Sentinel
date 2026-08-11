@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, SMTPConfig } from '../../api'
 import { colors } from '../../theme'
 
 export default function SettingsSMTP() {
   const [cfg, setCfg] = useState<SMTPConfig>({
-    host: '', port: 587, username: '', password: '', from: '', alert_emails: '', tls: true,
+    host: '', port: 587, username: '', password: '', from: '', alert_emails: '', tls: true, enabled: true,
   })
   const [testTo, setTestTo] = useState('')
   const [message, setMessage] = useState('')
@@ -23,7 +24,7 @@ export default function SettingsSMTP() {
     try {
       const saved = await api.putSMTP(cfg)
       setCfg(saved)
-      setMessage('SMTP settings saved')
+      setMessage('Email settings saved')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     }
@@ -36,18 +37,24 @@ export default function SettingsSMTP() {
       await api.testSMTP(testTo)
       setMessage('Test email sent')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Test failed')
+      const msg = err instanceof Error ? err.message : 'Test failed'
+      setError(/too many requests/i.test(msg) ? 'Too many requests — wait a minute and try again.' : msg)
     }
   }
 
   return (
     <>
+      <div style={{ marginBottom: 16 }}>
+        <Link to="/settings/notifications" style={{ color: colors.textMuted, fontSize: 13, textDecoration: 'none' }}>
+          ← Notifications
+        </Link>
+      </div>
       {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error}>{error}</div>}
 
       <div className="split-panels">
         <form onSubmit={handleSave} style={styles.card}>
-          <h3 style={styles.cardTitle}>SMTP Configuration</h3>
+          <h3 style={styles.cardTitle}>Email (SMTP)</h3>
           <p style={{ color: colors.textMuted, fontSize: 14, margin: '0 0 20px' }}>
             Configure email delivery for down, slow, and recovery alerts.
           </p>
@@ -67,7 +74,11 @@ export default function SettingsSMTP() {
             <input type="checkbox" checked={cfg.tls} onChange={e => set('tls', e.target.checked)} />
             <span>Use TLS</span>
           </label>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: 8 }}>Save Settings</button>
+          <label style={{ ...styles.checkbox, marginTop: 10 }}>
+            <input type="checkbox" checked={!!cfg.enabled} onChange={e => set('enabled', e.target.checked)} />
+            <span>Enable email alerts</span>
+          </label>
+          <button type="submit" className="btn btn-primary" style={{ marginTop: 16 }}>Save Settings</button>
         </form>
 
         <div style={styles.card}>

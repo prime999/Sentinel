@@ -4,8 +4,7 @@ import { colors } from '../../theme'
 
 const allTabs = [
   { path: '/settings/general', label: 'General', platformOnly: true },
-  { path: '/settings/smtp', label: 'SMTP', platformOnly: true },
-  { path: '/settings/webhooks', label: 'Webhooks', platformOnly: true },
+  { path: '/settings/notifications', label: 'Notifications', platformOnly: false, adminOnly: true },
   { path: '/settings/maintenance', label: 'Maintenance', platformOnly: true },
   { path: '/settings/server', label: 'Server', platformOnly: true },
   { path: '/settings/status-page', label: 'Status Page', platformOnly: true },
@@ -15,12 +14,24 @@ const allTabs = [
 
 export default function SettingsLayout() {
   const location = useLocation()
-  const { isPlatformAdmin } = useAuth()
-  const tabs = allTabs.filter(t => !t.platformOnly || isPlatformAdmin)
-  const defaultPath = isPlatformAdmin ? '/settings/general' : '/settings/tokens'
+  const { isPlatformAdmin, isAdmin } = useAuth()
+  const tabs = allTabs.filter(t => {
+    if (t.platformOnly && !isPlatformAdmin) return false
+    if (t.adminOnly && !isAdmin) return false
+    return true
+  })
+  const defaultPath = isPlatformAdmin ? '/settings/general' : (isAdmin ? '/settings/notifications' : '/settings/tokens')
 
   if (location.pathname === '/settings') {
     return <Navigate to={defaultPath} replace />
+  }
+
+  // Legacy redirects
+  if (location.pathname === '/settings/smtp') {
+    return <Navigate to="/settings/notifications/email" replace />
+  }
+  if (location.pathname === '/settings/webhooks') {
+    return <Navigate to="/settings/notifications/webhooks" replace />
   }
 
   const allowed = tabs.some(t => location.pathname === t.path || location.pathname.startsWith(t.path + '/'))
@@ -34,7 +45,9 @@ export default function SettingsLayout() {
       <p className="page-subtitle">
         {isPlatformAdmin
           ? 'Configure organization details and alert delivery.'
-          : 'Manage API tokens for this account.'}
+          : isAdmin
+            ? 'Manage notifications and API tokens for your account.'
+            : 'Manage API tokens for this account.'}
       </p>
 
       <nav style={styles.tabs}>
@@ -42,9 +55,12 @@ export default function SettingsLayout() {
           <NavLink
             key={tab.path}
             to={tab.path}
+            end={tab.path !== '/settings/notifications'}
             style={({ isActive }) => ({
               ...styles.tab,
-              ...(isActive ? styles.tabActive : {}),
+              ...(isActive || (tab.path === '/settings/notifications' && location.pathname.startsWith('/settings/notifications'))
+                ? styles.tabActive
+                : {}),
             })}
           >
             {tab.label}

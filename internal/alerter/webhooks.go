@@ -62,25 +62,53 @@ func webhookMatchesEvent(events []string, event string) bool {
 }
 
 func (a *Alerter) NotifyMonitor(m *models.Monitor, alertType, message string, responseMs int) error {
+	return a.NotifyMonitorMeta(m, AlertMeta{
+		Event:      alertType,
+		Message:    message,
+		ResponseMs: responseMs,
+		EventAt:    time.Now().UTC(),
+	})
+}
+
+func (a *Alerter) NotifyMonitorMeta(m *models.Monitor, meta AlertMeta) error {
 	if a.inMaintenance(m.ID) {
-		log.Printf("alerter: %s alert skipped for %s: in maintenance", alertType, m.Name)
+		log.Printf("alerter: %s alert skipped for %s: in maintenance", meta.Event, m.Name)
 		return nil
 	}
-	if err := a.sendAlert(m, alertType, message, responseMs); err != nil {
-		return err
+	meta.Name = m.Name
+	meta.URL = m.URL
+	if meta.DashboardURL == "" {
+		meta.DashboardURL = strings.TrimRight(a.dashboardURL, "/") + "/monitors/" + m.ID
 	}
-	a.fireWebhooks(alertType, map[string]any{
-		"event":            alertType,
+	if meta.EventAt.IsZero() {
+		meta.EventAt = time.Now().UTC()
+	}
+
+	payload := map[string]any{
+		"event":            meta.Event,
 		"monitor_id":       m.ID,
 		"monitor_name":     m.Name,
 		"monitor_type":     m.Type,
 		"url":              m.URL,
-		"message":          message,
-		"response_time_ms": responseMs,
-		"dashboard_url":    a.dashboardURL + "/monitors/" + m.ID,
-		"timestamp":        time.Now().UTC().Format(time.RFC3339),
-	})
-	return nil
+		"message":          meta.Message,
+		"response_time_ms": meta.ResponseMs,
+		"dashboard_url":    meta.DashboardURL,
+		"timestamp":        meta.EventAt.UTC().Format(time.RFC3339),
+		"incident_id":      meta.IncidentID,
+		"incident_label":   meta.IncidentLabel(),
+	}
+	if dt := meta.DowntimeLabel(); dt != "" {
+		payload["downtime"] = dt
+	}
+
+	var emailErr error
+	if err := a.sendAlertMeta(m, meta); err != nil {
+		emailErr = err
+		log.Printf("alerter: email %s for %s: %v", meta.Event, m.Name, err)
+	}
+	a.fireSlack(m.TenantID, meta)
+	a.fireWebhooks(meta.Event, payload)
+	return emailErr
 }
 
 func (a *Alerter) HandlePerformanceResult(t *models.PerformanceTarget, result *models.PerformanceResult, prevStatus models.MonitorStatus) error {
@@ -124,54 +152,91 @@ func (a *Alerter) HandlePerformanceResult(t *models.PerformanceTarget, result *m
 			slow = 1
 		}
 		msg := fmt.Sprintf("%.1f%% of checks slow (%d of %d in the last hour); %d consecutive slow check(s)", pct, slow, total, consecutive)
-		_ = a.store.CreateIncident(&models.Incident{
+		inc := &models.Incident{
 			MonitorID: t.ID, Type: models.IncidentSlow, Message: msg, StartedAt: result.CheckedAt,
+		}
+		_ = a.store.CreateIncident(inc)
+		return a.sendPerformanceAlert(t, AlertMeta{
+			Event:      "SLOW",
+			Message:    msg,
+			ResponseMs: result.ResponseTimeMs,
+			IncidentID: inc.ID,
+			EventAt:    result.CheckedAt,
 		})
-		return a.sendPerformanceAlert(t, "SLOW", msg, result.ResponseTimeMs)
 	}
 
 	if !isSlow && wasSlow {
+		openSlow, _ := a.store.GetOpenIncident(t.ID, models.IncidentSlow)
 		hadSlow, _ := a.store.HasOpenIncident(t.ID, models.IncidentSlow)
 		hadDown, _ := a.store.HasOpenIncident(t.ID, models.IncidentDown)
 		if hadSlow || hadDown {
+			meta := AlertMeta{
+				Event:      "NORMAL",
+				Message:    "Back to normal",
+				ResponseMs: result.ResponseTimeMs,
+				EventAt:    result.CheckedAt,
+			}
+			if openSlow != nil {
+				meta.IncidentID = openSlow.ID
+				started := openSlow.StartedAt
+				meta.StartedAt = &started
+			}
 			_ = a.store.ResolveOpenIncidents(t.ID, models.IncidentSlow, result.CheckedAt)
 			_ = a.store.ResolveOpenIncidents(t.ID, models.IncidentDown, result.CheckedAt)
-			return a.sendPerformanceAlert(t, "NORMAL", "Back to normal", result.ResponseTimeMs)
+			return a.sendPerformanceAlert(t, meta)
 		}
 	}
 
 	return nil
 }
 
-func (a *Alerter) sendPerformanceAlert(t *models.PerformanceTarget, alertType, message string, responseMs int) error {
-	a.refreshSMTP()
+func (a *Alerter) sendPerformanceAlert(t *models.PerformanceTarget, meta AlertMeta) error {
+	meta.Name = t.Name
+	meta.URL = t.URL
+	meta.DashboardURL = strings.TrimRight(a.dashboardURL, "/") + "/performance/" + t.ID
+	if meta.EventAt.IsZero() {
+		meta.EventAt = time.Now().UTC()
+	}
+
 	payload := map[string]any{
-		"event":            alertType,
+		"event":            meta.Event,
 		"target_id":        t.ID,
 		"target_name":      t.Name,
 		"url":              t.URL,
-		"message":          message,
-		"response_time_ms": responseMs,
-		"dashboard_url":    a.dashboardURL + "/performance/" + t.ID,
-		"timestamp":        time.Now().UTC().Format(time.RFC3339),
+		"message":          meta.Message,
+		"response_time_ms": meta.ResponseMs,
+		"dashboard_url":    meta.DashboardURL,
+		"timestamp":        meta.EventAt.UTC().Format(time.RFC3339),
+		"incident_id":      meta.IncidentID,
+		"incident_label":   meta.IncidentLabel(),
 	}
-	if a.cfg.Host == "" {
-		a.fireWebhooks(alertType, payload)
-		return fmt.Errorf("SMTP not configured")
+	if dt := meta.DowntimeLabel(); dt != "" {
+		payload["downtime"] = dt
 	}
-	recipients := a.perfRecipients(t)
-	if len(recipients) == 0 {
-		return fmt.Errorf("no alert recipients — set alert emails on the target, SMTP Alert Recipients, or a profile email")
-	}
-	subject := fmt.Sprintf("[Sentinel] %s: %s", alertType, t.Name)
-	body := a.renderEmail(t.Name, t.URL, a.dashboardURL+"/performance/"+t.ID, message, alertType, responseMs)
-	for _, to := range recipients {
-		if err := a.sendSMTP(to, subject, body); err != nil {
-			return err
+
+	var emailErr error
+	a.refreshSMTP()
+	if a.cfg.Enabled && a.cfg.Host != "" {
+		recipients := a.perfRecipients(t)
+		if len(recipients) == 0 {
+			emailErr = fmt.Errorf("no alert recipients — set alert emails on the target, SMTP Alert Recipients, or a profile email")
+			log.Printf("alerter: email %s for %s: %v", meta.Event, t.Name, emailErr)
+		} else {
+			subject := meta.FallbackText()
+			body := a.renderAlertEmail(meta)
+			for _, to := range recipients {
+				if err := a.sendSMTP(to, subject, body); err != nil {
+					emailErr = err
+					log.Printf("alerter: email %s for %s: %v", meta.Event, t.Name, err)
+					break
+				}
+			}
 		}
 	}
-	a.fireWebhooks(alertType, payload)
-	return nil
+
+	a.fireSlack(t.TenantID, meta)
+	a.fireWebhooks(meta.Event, payload)
+	return emailErr
 }
 
 func (a *Alerter) perfRecipients(t *models.PerformanceTarget) []string {
