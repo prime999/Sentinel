@@ -44,15 +44,13 @@ func computePerformance(times []int, slowCount int, total int) models.Performanc
 	return m
 }
 
-func targetHealth(hasData bool, p95, threshold, slowCount, checkCount int) string {
+func targetHealth(hasData bool, p95, threshold int) string {
 	if !hasData {
 		return "collecting"
 	}
-	slowPct := 0.0
-	if checkCount > 0 {
-		slowPct = float64(slowCount) / float64(checkCount) * 100
-	}
-	if slowPct > 0 || (threshold > 0 && p95 >= threshold) {
+	// Slow only when P95 breaches the configured SLA — not merely because any
+	// historical check was tagged degraded (stale/timeout mislabels).
+	if threshold > 0 && p95 >= threshold {
 		return "warning"
 	}
 	return "good"
@@ -129,6 +127,9 @@ func (s *Store) GetMonitorStats(monitorID string, since time.Time) (*models.Moni
 }
 
 func (s *Store) GetPerformanceTargetStats(targetID string, since time.Time) (*models.PerformanceStats, error) {
+	var threshold int
+	_ = s.db.QueryRow(`SELECT slow_threshold_ms FROM performance_targets WHERE id = ?`, targetID).Scan(&threshold)
+
 	rows, err := s.db.Query(`
 		SELECT checked_at, response_time_ms, status, dns_ms, tcp_ms, tls_ms, ttfb_ms
 		FROM performance_results
@@ -167,7 +168,7 @@ func (s *Store) GetPerformanceTargetStats(targetID string, since time.Time) (*mo
 		times = append(times, rt)
 		totalRT += rt
 		total++
-		if status == string(models.StatusDegraded) || status == string(models.StatusDown) {
+		if threshold > 0 && rt > threshold {
 			slowCount++
 		}
 	}
@@ -183,14 +184,16 @@ func (s *Store) GetPerformanceTargetStats(targetID string, since time.Time) (*mo
 }
 
 func (s *Store) GetPerformanceSlowStats(targetID string, since time.Time) (slowPct float64, total, slow int, err error) {
+	var threshold int
+	_ = s.db.QueryRow(`SELECT slow_threshold_ms FROM performance_targets WHERE id = ?`, targetID).Scan(&threshold)
+
 	var slowSum sql.NullInt64
 	err = s.db.QueryRow(`
 		SELECT COUNT(*),
-			SUM(CASE WHEN status IN (?, ?) THEN 1 ELSE 0 END)
+			SUM(CASE WHEN ? > 0 AND response_time_ms > ? THEN 1 ELSE 0 END)
 		FROM performance_results
 		WHERE target_id = ? AND checked_at >= ?`,
-		string(models.StatusDegraded), string(models.StatusDown),
-		targetID, formatTime(since),
+		threshold, threshold, targetID, formatTime(since),
 	).Scan(&total, &slowSum)
 	if err != nil {
 		return 0, 0, 0, err
@@ -279,11 +282,13 @@ func (s *Store) GetFleetPerformanceScoped(since time.Time, tenantID string) (*mo
 	defer resultRows.Close()
 
 	for resultRows.Next() {
-		var targetID, checkedAt, status string
+		var targetID, checkedAt string
 		var rt int
+		var status string
 		if err := resultRows.Scan(&targetID, &checkedAt, &rt, &status); err != nil {
 			return nil, err
 		}
+		_ = status
 		t, err := parseTime(checkedAt)
 		if err != nil {
 			continue
@@ -295,17 +300,16 @@ func (s *Store) GetFleetPerformanceScoped(since time.Time, tenantID string) (*mo
 		}
 		a.times = append(a.times, rt)
 		a.meta.CheckCount++
-		if status == string(models.StatusDegraded) {
-			a.slow++
-		}
-		if status == string(models.StatusDown) {
+		// Count SLA breaches by latency, not by stored status (avoids stale degraded rows).
+		breached := a.meta.SlowThresholdMs > 0 && rt > a.meta.SlowThresholdMs
+		if breached {
 			a.slow++
 		}
 
 		fleetTimes = append(fleetTimes, rt)
 		totalChecks++
 		totalRT += rt
-		if status == string(models.StatusDegraded) || status == string(models.StatusDown) {
+		if breached {
 			totalSlow++
 		}
 
@@ -318,7 +322,7 @@ func (s *Store) GetFleetPerformanceScoped(since time.Time, tenantID string) (*mo
 		}
 		b.totalRT += rt
 		b.count++
-		if status == string(models.StatusDegraded) || status == string(models.StatusDown) {
+		if breached {
 			b.slowCount++
 		}
 	}
@@ -366,7 +370,7 @@ func (s *Store) GetFleetPerformanceScoped(since time.Time, tenantID string) (*mo
 			a.meta.SlowCount = a.slow
 		}
 		a.meta.HasData = hasData
-		a.meta.Health = targetHealth(hasData, a.meta.P95Ms, a.meta.SlowThresholdMs, a.meta.SlowCount, a.meta.CheckCount)
+		a.meta.Health = targetHealth(hasData, a.meta.P95Ms, a.meta.SlowThresholdMs)
 
 		switch a.meta.Health {
 		case "good":

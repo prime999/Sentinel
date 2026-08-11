@@ -442,8 +442,28 @@ export const api = {
   updatePerformanceTarget: (id: string, data: Partial<PerformanceTarget>) =>
     request<PerformanceTarget>(`/api/performance/targets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePerformanceTarget: (id: string) => request(`/api/performance/targets/${id}`, { method: 'DELETE' }),
-  performanceResults: (id: string) =>
-    request<PerformanceResult[]>(`/api/performance/targets/${id}/results?limit=20`),
+  performanceResults: (id: string, opts?: {
+    limit?: number
+    offset?: number
+    date?: string
+    breaches?: boolean
+  }) => {
+    const limit = opts?.limit ?? 20
+    const offset = opts?.offset ?? 0
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+      breaches: opts?.breaches === false ? '0' : '1',
+    })
+    if (opts?.date) {
+      const { from, to } = localDayBounds(opts.date)
+      params.set('from', from)
+      params.set('to', to)
+    }
+    return request<PaginatedResults<PerformanceResult>>(
+      `/api/performance/targets/${id}/results?${params}`,
+    )
+  },
   performanceStats: (id: string, period = '24h') =>
     request<PerformanceStats>(`/api/performance/targets/${id}/stats?period=${period}`),
   listCustomers: () => request<Customer[]>('/api/settings/customers'),

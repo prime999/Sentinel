@@ -1,10 +1,11 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   Area, AreaChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api, PerformanceResult, PerformanceStats, PerformanceTarget } from '../api'
 import { useAuth } from '../context/AuthContext'
+import DatePicker from '../components/DatePicker'
 import MetricCard from '../components/MetricCard'
 import { colors } from '../theme'
 import { useAdaptivePoll } from '../utils/poll'
@@ -14,21 +15,18 @@ export default function PerformanceDetail() {
   const { id } = useParams<{ id: string }>()
   const [target, setTarget] = useState<PerformanceTarget | null>(null)
   const [stats, setStats] = useState<PerformanceStats | null>(null)
-  const [results, setResults] = useState<PerformanceResult[]>([])
   const [period, setPeriod] = useState('24h')
   const periodRef = useRef(period)
   periodRef.current = period
 
   const load = useCallback(async () => {
     if (!id) return null
-    const [t, s, r] = await Promise.all([
+    const [t, s] = await Promise.all([
       api.getPerformanceTarget(id),
       api.performanceStats(id, periodRef.current),
-      api.performanceResults(id),
     ])
     setTarget(t)
     setStats(s)
-    setResults(r)
     return t
   }, [id])
 
@@ -132,41 +130,148 @@ export default function PerformanceDetail() {
         </div>
       )}
 
-      <div style={styles.chartCard}>
-        <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>Latency Log</h3>
-        {results.length === 0 ? (
-          <div style={styles.emptyLog}>Waiting for first probe…</div>
-        ) : (
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Time</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Total</th>
-                <th style={styles.th}>TTFB</th>
-                <th style={styles.th}>DNS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map(r => (
-                <tr key={r.id}>
-                  <td style={styles.td}>{new Date(r.checked_at).toLocaleString()}</td>
-                  <td style={{
-                    ...styles.td,
-                    color: (r.status === 'degraded' || r.status === 'down') ? colors.yellow : colors.green,
-                    fontWeight: 600,
-                  }}>
-                    {r.status === 'degraded' || r.status === 'down' ? 'Slow' : 'OK'}
-                  </td>
-                  <td style={{ ...styles.td, color: (r.status === 'degraded' || r.status === 'down') ? colors.yellow : colors.text }}>{r.response_time_ms} ms</td>
-                  <td style={styles.td}>{r.ttfb_ms != null ? `${r.ttfb_ms} ms` : '—'}</td>
-                  <td style={styles.td}>{r.dns_ms != null ? `${r.dns_ms} ms` : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {id && (
+        <SLABreachLog targetId={id} slaMs={target.slow_threshold_ms} />
+      )}
+    </div>
+  )
+}
+
+const PAGE_SIZE = 20
+
+function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) {
+  const [page, setPage] = useState(0)
+  const [date, setDate] = useState('')
+  const [items, setItems] = useState<PerformanceResult[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setPage(0)
+  }, [targetId, date])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    api.performanceResults(targetId, {
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
+      date: date || undefined,
+      breaches: true,
+    })
+      .then(res => {
+        if (cancelled) return
+        setItems(res.items)
+        setTotal(res.total)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setItems([])
+          setTotal(0)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [targetId, page, date])
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const from = total === 0 ? 0 : page * PAGE_SIZE + 1
+  const to = Math.min(total, (page + 1) * PAGE_SIZE)
+
+  return (
+    <div style={styles.chartCard}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>SLA Breaches</h3>
+          <div style={{ marginTop: 4, fontSize: 13, color: colors.textMuted }}>
+            Probes slower than {slaMs > 0 ? `${slaMs} ms` : 'SLA'}
+          </div>
+        </div>
+        <span style={{ fontSize: 13, color: colors.textMuted }}>
+          {total === 0
+            ? (date ? 'No breaches on this day' : 'No SLA breaches yet')
+            : `Showing ${from}–${to} of ${total}`}
+        </span>
+      </div>
+
+      <div style={styles.filterBar}>
+        <DatePicker value={date} onChange={setDate} />
+        {date && (
+          <button type="button" className="btn" style={styles.resetBtn} onClick={() => setDate('')}>
+            Clear date
+          </button>
         )}
       </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>Time</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}>Total</th>
+              <th style={styles.th}>Over SLA</th>
+              <th style={styles.th}>TTFB</th>
+              <th style={styles.th}>DNS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} style={{ ...styles.td, color: colors.textMuted }}>Loading…</td>
+              </tr>
+            ) : items.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ ...styles.td, color: colors.textMuted }}>
+                  {date ? 'No SLA breaches for this date.' : 'No probes have exceeded the SLA yet.'}
+                </td>
+              </tr>
+            ) : (
+              items.map(r => {
+                const over = Math.max(0, r.response_time_ms - slaMs)
+                return (
+                  <tr key={r.id}>
+                    <td style={styles.td}>{new Date(r.checked_at).toLocaleString()}</td>
+                    <td style={{ ...styles.td, color: colors.yellow, fontWeight: 600 }}>Slow</td>
+                    <td style={{ ...styles.td, color: colors.yellow }}>{r.response_time_ms} ms</td>
+                    <td style={{ ...styles.td, color: colors.yellow }}>+{over} ms</td>
+                    <td style={styles.td}>{r.ttfb_ms != null ? `${r.ttfb_ms} ms` : '—'}</td>
+                    <td style={styles.td}>{r.dns_ms != null ? `${r.dns_ms} ms` : '—'}</td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {total > PAGE_SIZE && (
+        <div style={styles.pager}>
+          <button
+            type="button"
+            className="btn"
+            style={styles.pagerBtn}
+            disabled={page <= 0 || loading}
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+          >
+            Previous
+          </button>
+          <span style={{ fontSize: 13, color: colors.textMuted }}>
+            Page {page + 1} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn"
+            style={styles.pagerBtn}
+            disabled={page + 1 >= totalPages || loading}
+            onClick={() => setPage(p => p + 1)}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -182,11 +287,28 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 12, padding: '20px 24px', marginBottom: 20,
   },
   empty: { color: colors.textMuted, textAlign: 'center', paddingTop: 120 },
-  emptyLog: { color: colors.textMuted, textAlign: 'center', padding: '24px 0', fontSize: 14 },
+  filterBar: {
+    display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16,
+  },
+  resetBtn: { padding: '8px 12px', fontSize: 13 },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: {
     textAlign: 'left', padding: '10px 12px', borderBottom: `1px solid ${colors.border}`,
     color: colors.textMuted, fontWeight: 600, fontSize: 12, textTransform: 'uppercase',
   },
   td: { padding: '12px', borderBottom: `1px solid ${colors.border}` },
+  pager: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTop: `1px solid ${colors.border}`,
+  },
+  pagerBtn: {
+    minHeight: 36,
+    padding: '0 14px',
+    fontSize: 13,
+  },
 }

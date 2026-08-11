@@ -7,6 +7,7 @@ import (
 
 	"github.com/sentinel-monitoring/sentinel/internal/models"
 	"github.com/sentinel-monitoring/sentinel/internal/safehost"
+	"github.com/sentinel-monitoring/sentinel/internal/store"
 )
 
 func (s *Server) handleListPerformanceTargets(w http.ResponseWriter, r *http.Request) {
@@ -195,9 +196,36 @@ func (s *Server) handleListPerformanceResults(w http.ResponseWriter, r *http.Req
 		jsonError(w, http.StatusNotFound, "not found")
 		return
 	}
-	limit := queryInt(r, "limit", 50)
+	limit := queryInt(r, "limit", 20)
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
 	offset := queryInt(r, "offset", 0)
-	results, err := s.store.ListPerformanceResults(id, limit, offset)
+	if offset < 0 {
+		offset = 0
+	}
+	from, to, err := parseIncidentDayRange(r)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	// Default to SLA breaches only; pass breaches=0 to list all probes.
+	breachesOnly := true
+	if raw := strings.TrimSpace(r.URL.Query().Get("breaches")); raw != "" {
+		breachesOnly = raw == "1" || strings.EqualFold(raw, "true")
+	}
+	results, total, err := s.store.QueryPerformanceResults(store.PerformanceResultQuery{
+		TargetID:     id,
+		ThresholdMs:  t.SlowThresholdMs,
+		From:         from,
+		To:           to,
+		Limit:        limit,
+		Offset:       offset,
+		BreachesOnly: breachesOnly,
+	})
 	if err != nil {
 		jsonInternal(w, err)
 		return
@@ -205,7 +233,12 @@ func (s *Server) handleListPerformanceResults(w http.ResponseWriter, r *http.Req
 	if results == nil {
 		results = []models.PerformanceResult{}
 	}
-	jsonOK(w, results)
+	jsonOK(w, map[string]any{
+		"items":  results,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }
 
 func (s *Server) handleGetPerformanceStats(w http.ResponseWriter, r *http.Request) {
