@@ -8,7 +8,7 @@ import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import IncidentStatus, { incidentStatusLabel } from '../components/IncidentStatus'
 import MetricCard from '../components/MetricCard'
-import StatusBadge from '../components/StatusBadge'
+import StatusBadge, { badgeStatusFor } from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
@@ -59,7 +59,7 @@ export default function MonitorDetail() {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{target}</h1>
             <TypeBadge type={type} url={monitor.url} />
-            <StatusBadge status={monitor.last_status} />
+            <StatusBadge status={badgeStatusFor(type, monitor.last_status)} />
             {monitor.invert && <span style={styles.invertBadge}>Inverted</span>}
           </div>
           <div style={{ color: colors.textMuted, fontSize: 14 }}>{monitor.name}</div>
@@ -135,10 +135,18 @@ function TypeMetrics({ monitor, stats, latest }: { monitor: Monitor; stats: Moni
     const ssl = parseSSL(latest?.details)
     return (
       <div className="grid-4" style={{ marginBottom: 24 }}>
-        <MetricCard label="Days Remaining" value={ssl ? String(ssl.days_remaining) : '—'} accent={ssl && ssl.days_remaining <= 30 ? 'yellow' : 'green'} />
+        <MetricCard
+          label="Days Remaining"
+          value={ssl ? String(ssl.days_remaining) : '—'}
+          accent={ssl ? (ssl.days_remaining <= 7 ? 'red' : ssl.days_remaining <= 30 ? 'yellow' : 'green') : 'default'}
+        />
         <MetricCard label="Expires" value={ssl ? formatDate(ssl.expires_at) : '—'} />
         <MetricCard label="Issuer" value={ssl?.issuer || '—'} accent="blue" />
-        <MetricCard label="Certificate" value={ssl?.issues?.length ? `${ssl.issues.length} issue(s)` : 'Valid'} accent={ssl?.issues?.length ? 'red' : 'green'} />
+        <MetricCard
+          label="Certificate"
+          value={ssl ? (ssl.days_remaining <= 7 ? 'Critical' : ssl.days_remaining <= 30 || (ssl.issues?.length ?? 0) > 0 ? 'Warning' : 'Healthy') : '—'}
+          accent={ssl ? (ssl.days_remaining <= 7 ? 'red' : ssl.days_remaining <= 30 || (ssl.issues?.length ?? 0) > 0 ? 'yellow' : 'green') : 'default'}
+        />
       </div>
     )
   }

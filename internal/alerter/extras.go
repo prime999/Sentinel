@@ -9,7 +9,7 @@ import (
 	"github.com/sentinel-monitoring/sentinel/internal/models"
 )
 
-var sslExpiryThresholds = []int{60, 30, 15, 7, 3, 1}
+var sslExpiryThresholds = []int{30, 7, 3, 1}
 
 func (a *Alerter) HandleExtras(m *models.Monitor, result *models.CheckResult) error {
 	switch m.Type {
@@ -30,9 +30,9 @@ func (a *Alerter) handleSSLExtras(m *models.Monitor, result *models.CheckResult)
 		return nil
 	}
 
-	// Successful SSL probe after renewal clears expiry warnings.
-	if result.Status == models.StatusUp || result.Status == models.StatusDegraded {
-		if details.DaysRemaining > 60 {
+	// Clear expiry warnings once the cert is healthy again (>30 days).
+	if result.Status == models.StatusUp || result.Status == models.StatusDegraded || result.Status == models.StatusDown {
+		if details.DaysRemaining > 30 {
 			_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentSSLExpiry, result.CheckedAt)
 			_ = a.store.SaveLastAlertedSSLDays(m.ID, 0)
 		}

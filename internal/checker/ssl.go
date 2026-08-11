@@ -107,23 +107,47 @@ func (c *Checker) probeSSL(ctx context.Context, m *models.Monitor) *models.Check
 	}
 
 	if containsIssue(issues, "expired") {
+		result.Status = models.StatusDown
 		result.Error = fmt.Sprintf("certificate expired on %s", cert.NotAfter.Format("2006-01-02"))
 		return result
 	}
 
-	if len(issues) > 0 {
-		result.Status = models.StatusDegraded
-		result.Error = strings.Join(issues, ", ")
-	} else if daysRemaining <= 30 {
-		result.Status = models.StatusDegraded
+	result.Status = sslExpiryStatus(daysRemaining, issues)
+	switch result.Status {
+	case models.StatusDown:
 		result.Error = fmt.Sprintf("certificate expires in %d days", daysRemaining)
-	} else {
-		result.Status = models.StatusUp
+	case models.StatusDegraded:
+		if len(issues) > 0 {
+			result.Error = strings.Join(issues, ", ")
+		} else {
+			result.Error = fmt.Sprintf("certificate expires in %d days", daysRemaining)
+		}
 	}
 
 	tlsMs := result.ResponseTimeMs
 	result.TLSMs = &tlsMs
 	return result
+}
+
+// sslExpiryStatus applies:
+//
+//	>30 days  → healthy (up)
+//	8–30 days → warning (degraded)
+//	≤7 days   → critical (down)
+//
+// Non-expiry certificate issues are always warning/degraded.
+func sslExpiryStatus(daysRemaining int, issues []string) models.MonitorStatus {
+	if len(issues) > 0 {
+		return models.StatusDegraded
+	}
+	switch {
+	case daysRemaining <= 7:
+		return models.StatusDown
+	case daysRemaining <= 30:
+		return models.StatusDegraded
+	default:
+		return models.StatusUp
+	}
 }
 
 // sslChainOK validates the leaf using intermediates from the handshake.
