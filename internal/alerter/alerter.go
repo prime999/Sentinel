@@ -106,6 +106,17 @@ func (a *Alerter) HandleResult(m *models.Monitor, result *models.CheckResult) er
 		return err
 	}
 
+	// SSL expiry "critical" uses StatusDown for UI, but it is not a connectivity outage.
+	if m.Type == models.MonitorSSL && newStatus == models.StatusDown {
+		a.clearRecoveryStreak(m.ID)
+		if err := a.store.UpdateMonitorState(m.ID, models.StatusDown, 0, result.CheckedAt); err != nil {
+			return err
+		}
+		m.LastStatus = models.StatusDown
+		m.ConsecutiveFailures = 0
+		return nil
+	}
+
 	if newStatus == models.StatusDown {
 		failures++
 		a.clearRecoveryStreak(m.ID)

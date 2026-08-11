@@ -5,7 +5,7 @@ import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFil
 import DashboardRail from '../components/DashboardRail'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import Sparkline from '../components/Sparkline'
-import StatusBadge from '../components/StatusBadge'
+import StatusBadge, { badgeStatusFor } from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
@@ -329,7 +329,7 @@ export default function Monitors() {
                           <TypeBadge type={m.type} url={m.url} />
                         </td>
                         <td style={styles.td}>
-                          <StatusBadge status={m.last_status} />
+                          <StatusBadge status={badgeStatusFor(m.type, m.last_status)} />
                         </td>
                         <td style={styles.td}>
                           <div style={styles.responseCell}>
