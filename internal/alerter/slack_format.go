@@ -1,0 +1,96 @@
+package alerter
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
+
+// buildSlackPayload creates a Block Kit attachment matching the Sentinel alert design.
+func buildSlackPayload(meta AlertMeta) ([]byte, error) {
+	statusEmoji := ":red_circle:"
+	switch meta.StatusLabel() {
+	case "UP", "OK":
+		statusEmoji = ":large_green_circle:"
+	case "SLOW":
+		statusEmoji = ":large_yellow_circle:"
+	}
+
+	var fields []map[string]any
+	if downtime := meta.DowntimeLabel(); downtime != "" {
+		fields = []map[string]any{
+			mrkdwnField("*Downtime*\n" + downtime),
+			mrkdwnField("*Response*\n" + meta.ResponseLabel()),
+			mrkdwnField("*" + meta.TimeFieldLabel() + "*\n" + meta.EventTimeLabel()),
+			mrkdwnField("*Incident*\n`" + meta.IncidentLabel() + "`"),
+		}
+	} else {
+		fields = []map[string]any{
+			mrkdwnField("*Status*\n" + statusEmoji + " `" + meta.StatusLabel() + "`"),
+			mrkdwnField("*Response*\n" + meta.ResponseLabel()),
+			mrkdwnField("*" + meta.TimeFieldLabel() + "*\n" + meta.EventTimeLabel()),
+			mrkdwnField("*Incident*\n`" + meta.IncidentLabel() + "`"),
+		}
+	}
+
+	bodyText := fmt.Sprintf("*%s*", meta.Name)
+	if meta.URL != "" {
+		bodyText += fmt.Sprintf("\n<%s|%s>", meta.URL, meta.URL)
+	}
+	ev := strings.ToUpper(meta.Event)
+	if meta.Message != "" && ev != "RECOVERY" && ev != "NORMAL" {
+		if meta.ResponseLabel() != "Timeout" {
+			bodyText += fmt.Sprintf("\n_%s_", meta.Message)
+		}
+	}
+
+	blocks := []map[string]any{
+		{
+			"type": "header",
+			"text": map[string]any{"type": "plain_text", "text": meta.Title(), "emoji": true},
+		},
+		{
+			"type": "section",
+			"text": map[string]any{"type": "mrkdwn", "text": bodyText},
+		},
+		{
+			"type":   "section",
+			"fields": fields,
+		},
+	}
+	if meta.DashboardURL != "" {
+		blocks = append(blocks, map[string]any{
+			"type": "actions",
+			"elements": []map[string]any{
+				{
+					"type": "button",
+					"text": map[string]any{
+						"type":  "plain_text",
+						"text":  "Open in Sentinel →",
+						"emoji": true,
+					},
+					"url":   meta.DashboardURL,
+					"style": "primary",
+				},
+			},
+		})
+	}
+
+	payload := map[string]any{
+		"text": meta.FallbackText(),
+		"attachments": []map[string]any{
+			{
+				"color":  meta.Color(),
+				"blocks": blocks,
+			},
+		},
+	}
+	return json.Marshal(payload)
+}
+
+func mrkdwnField(text string) map[string]any {
+	return map[string]any{
+		"type": "mrkdwn",
+		"text": text,
+	}
+}

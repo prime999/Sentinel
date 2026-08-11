@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
   Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { api, CheckResult, DNSDetails, Incident, Monitor, MonitorStats, PortDetails, SSLDetails } from '../api'
+import { api, CheckResult, DNSDetails, Incident, Monitor, MonitorStats, NotificationsSummary, PortDetails, SSLDetails } from '../api'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import IncidentStatus, { incidentStatusLabel } from '../components/IncidentStatus'
@@ -310,7 +310,13 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
   incidents: Incident[]
   onCheckDue?: () => void
 }) {
+  const { isPlatformAdmin } = useAuth()
+  const [summary, setSummary] = useState<NotificationsSummary | null>(null)
   const lastIncident = incidents.find(i => i.type !== 'recovery') || incidents[0]
+
+  useEffect(() => {
+    api.getNotificationsSummary().then(setSummary).catch(() => setSummary(null))
+  }, [])
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -327,8 +333,33 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
         )}
       </Panel>
       <Panel title="Notifications">
-        <Row label="Email" value={monitor.alert_emails ? 'Enabled' : 'Default'} />
-        <Row label="Alerts" value="SMTP" />
+        <Row
+          label="Email"
+          value={channelStatusLabel({
+            globalConfigured: !!summary?.email?.configured,
+            globalEnabled: !!summary?.email?.enabled,
+            monitorEnabled: monitor.notify_email !== false,
+            detail: monitor.alert_emails ? 'custom recipients' : 'default recipients',
+          })}
+        />
+        <Row
+          label="Slack"
+          value={channelStatusLabel({
+            globalConfigured: !!summary?.slack?.configured,
+            globalEnabled: !!summary?.slack?.enabled,
+            monitorEnabled: monitor.notify_slack !== false,
+          })}
+        />
+        {isPlatformAdmin && (
+          <Row
+            label="Webhooks"
+            value={channelStatusLabel({
+              globalConfigured: !!summary?.webhooks?.configured,
+              globalEnabled: !!summary?.webhooks?.enabled,
+              monitorEnabled: monitor.notify_webhooks !== false,
+            })}
+          />
+        )}
       </Panel>
       <Panel title="Next Check">
         <div style={{ textAlign: 'center', padding: '12px 0' }}>
@@ -337,6 +368,18 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
       </Panel>
     </div>
   )
+}
+
+function channelStatusLabel(opts: {
+  globalConfigured: boolean
+  globalEnabled: boolean
+  monitorEnabled: boolean
+  detail?: string
+}): string {
+  if (!opts.globalConfigured) return 'Not configured'
+  if (!opts.globalEnabled) return 'Off (global)'
+  if (!opts.monitorEnabled) return 'Off (this monitor)'
+  return opts.detail ? `On (${opts.detail})` : 'On'
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {

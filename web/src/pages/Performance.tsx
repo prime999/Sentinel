@@ -34,7 +34,9 @@ function formatBucket(iso: string, period: string) {
 
 function targetHealth(t: PerformanceTarget, svc?: ServicePerformance): PerformanceHealth {
   if (svc?.has_data) return svc.health
-  if (t.last_status === 'degraded' || t.last_status === 'down') return 'warning'
+  const sla = t.slow_threshold_ms || 0
+  const latest = t.latest_response_time_ms
+  if (sla > 0 && latest != null && latest >= sla) return 'warning'
   if (t.last_checked_at) return 'good'
   return 'collecting'
 }

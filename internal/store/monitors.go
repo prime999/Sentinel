@@ -10,7 +10,8 @@ import (
 
 const monitorColumns = `id, type, name, url, port, config, method, expected_status, expected_status_min, expected_status_max,
 keyword_must_exist, keyword_must_not_exist, request_body, request_headers,
-interval_seconds, timeout_ms, slow_threshold_ms, follow_redirects, alert_emails, enabled, invert,
+interval_seconds, timeout_ms, slow_threshold_ms, follow_redirects, alert_emails, enabled,
+notify_email, notify_slack, notify_webhooks, invert,
 tags, heartbeat_token, tenant_id, alert_after_failures,
 consecutive_failures, last_status, last_checked_at, created_at, updated_at`
 
@@ -19,7 +20,8 @@ type monitorScanRow struct {
 	config, keywordExist, keywordNotExist, requestBody, requestHeaders, alertEmails sql.NullString
 	tagsRaw, heartbeatToken, tenantID                                               sql.NullString
 	port, expectedMin, expectedMax                                                  sql.NullInt64
-	followRedirects, enabled, invert, expectedStatus, intervalSeconds, timeoutMs    int
+	followRedirects, enabled, notifyEmail, notifySlack, notifyWebhooks, invert      int
+	expectedStatus, intervalSeconds, timeoutMs                                      int
 	slowThresholdMs, alertAfterFailures, consecutiveFailures                        int
 	lastCheckedAt, createdAt, updatedAt                                             sql.NullString
 	latestRT                                                                        sql.NullInt64
@@ -31,7 +33,8 @@ func (r *monitorScanRow) scan(row interface{ Scan(dest ...any) error }) error {
 		&r.expectedStatus, &r.expectedMin, &r.expectedMax,
 		&r.keywordExist, &r.keywordNotExist, &r.requestBody, &r.requestHeaders,
 		&r.intervalSeconds, &r.timeoutMs, &r.slowThresholdMs,
-		&r.followRedirects, &r.alertEmails, &r.enabled, &r.invert,
+		&r.followRedirects, &r.alertEmails, &r.enabled,
+		&r.notifyEmail, &r.notifySlack, &r.notifyWebhooks, &r.invert,
 		&r.tagsRaw, &r.heartbeatToken, &r.tenantID, &r.alertAfterFailures,
 		&r.consecutiveFailures, &r.lastStatus, &r.lastCheckedAt,
 		&r.createdAt, &r.updatedAt,
@@ -44,7 +47,8 @@ func (r *monitorScanRow) scanWithLatestRT(row interface{ Scan(dest ...any) error
 		&r.expectedStatus, &r.expectedMin, &r.expectedMax,
 		&r.keywordExist, &r.keywordNotExist, &r.requestBody, &r.requestHeaders,
 		&r.intervalSeconds, &r.timeoutMs, &r.slowThresholdMs,
-		&r.followRedirects, &r.alertEmails, &r.enabled, &r.invert,
+		&r.followRedirects, &r.alertEmails, &r.enabled,
+		&r.notifyEmail, &r.notifySlack, &r.notifyWebhooks, &r.invert,
 		&r.tagsRaw, &r.heartbeatToken, &r.tenantID, &r.alertAfterFailures,
 		&r.consecutiveFailures, &r.lastStatus, &r.lastCheckedAt,
 		&r.createdAt, &r.updatedAt, &r.latestRT,
@@ -73,6 +77,9 @@ func (r *monitorScanRow) toMonitor() models.Monitor {
 		FollowRedirects:     intToBool(r.followRedirects),
 		AlertEmails:         nullableString(r.alertEmails),
 		Enabled:             intToBool(r.enabled),
+		NotifyEmail:         intToBool(r.notifyEmail),
+		NotifySlack:         intToBool(r.notifySlack),
+		NotifyWebhooks:      intToBool(r.notifyWebhooks),
 		Invert:              intToBool(r.invert),
 		Tags:                decodeTags(nullableString(r.tagsRaw)),
 		HeartbeatToken:      nullableString(r.heartbeatToken),
@@ -192,13 +199,14 @@ func (s *Store) CreateMonitor(m *models.Monitor) error {
 
 	_, err := s.db.Exec(`
 		INSERT INTO monitors (`+monitorColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		m.ID, string(m.Type), m.Name, m.URL, m.Port, nullString(m.Config), m.Method,
 		m.ExpectedStatus, m.ExpectedStatusMin, m.ExpectedStatusMax,
 		nullString(m.KeywordMustExist), nullString(m.KeywordMustNotExist),
 		nullString(m.RequestBody), nullString(m.RequestHeaders),
 		m.IntervalSeconds, m.TimeoutMs, m.SlowThresholdMs,
-		boolToInt(m.FollowRedirects), nullString(m.AlertEmails), boolToInt(m.Enabled), boolToInt(m.Invert),
+		boolToInt(m.FollowRedirects), nullString(m.AlertEmails), boolToInt(m.Enabled),
+		boolToInt(m.NotifyEmail), boolToInt(m.NotifySlack), boolToInt(m.NotifyWebhooks), boolToInt(m.Invert),
 		encodeTags(m.Tags), nullString(m.HeartbeatToken), nullString(m.TenantID), m.AlertAfterFailures,
 		m.ConsecutiveFailures, string(m.LastStatus), nil,
 		formatTime(m.CreatedAt), formatTime(m.UpdatedAt),
@@ -234,7 +242,7 @@ func (s *Store) UpdateMonitor(m *models.Monitor) error {
 			type=?, name=?, url=?, port=?, config=?, method=?, expected_status=?, expected_status_min=?, expected_status_max=?,
 			keyword_must_exist=?, keyword_must_not_exist=?, request_body=?, request_headers=?,
 			interval_seconds=?, timeout_ms=?, slow_threshold_ms=?, follow_redirects=?,
-			alert_emails=?, enabled=?, invert=?, tags=?, heartbeat_token=?, tenant_id=?, alert_after_failures=?,
+			alert_emails=?, enabled=?, notify_email=?, notify_slack=?, notify_webhooks=?, invert=?, tags=?, heartbeat_token=?, tenant_id=?, alert_after_failures=?,
 			consecutive_failures=?, last_status=?, last_checked_at=?,
 			updated_at=?
 		WHERE id=?`,
@@ -243,7 +251,8 @@ func (s *Store) UpdateMonitor(m *models.Monitor) error {
 		nullString(m.KeywordMustExist), nullString(m.KeywordMustNotExist),
 		nullString(m.RequestBody), nullString(m.RequestHeaders),
 		m.IntervalSeconds, m.TimeoutMs, m.SlowThresholdMs, boolToInt(m.FollowRedirects),
-		nullString(m.AlertEmails), boolToInt(m.Enabled), boolToInt(m.Invert),
+		nullString(m.AlertEmails), boolToInt(m.Enabled),
+		boolToInt(m.NotifyEmail), boolToInt(m.NotifySlack), boolToInt(m.NotifyWebhooks), boolToInt(m.Invert),
 		encodeTags(m.Tags), nullString(m.HeartbeatToken), nullString(m.TenantID), m.AlertAfterFailures,
 		m.ConsecutiveFailures, string(m.LastStatus), lastChecked,
 		formatTime(m.UpdatedAt), m.ID,

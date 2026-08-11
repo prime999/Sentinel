@@ -21,6 +21,9 @@ export interface Monitor {
   follow_redirects: boolean
   alert_emails: string
   enabled: boolean
+  notify_email?: boolean
+  notify_slack?: boolean
+  notify_webhooks?: boolean
   invert?: boolean
   tags?: string[]
   heartbeat_token?: string
@@ -206,6 +209,7 @@ export interface TeamMember {
   email: string
   role: UserRole
   tenant_id?: string
+  locked?: boolean
   created_at: string
 }
 
@@ -247,12 +251,25 @@ export interface SMTPConfig {
   from: string
   alert_emails: string
   tls: boolean
+  enabled: boolean
 }
 
 export interface WebhookConfig {
   url: string
   enabled: boolean
   events: string[]
+}
+
+export interface SlackConfig {
+  webhook_url: string
+  enabled: boolean
+  events: string[]
+}
+
+export interface NotificationsSummary {
+  slack: { enabled: boolean; configured: boolean; webhook_url?: string; events?: string[] }
+  email?: { enabled: boolean; configured: boolean }
+  webhooks?: { enabled: boolean; configured: boolean; count?: number }
 }
 
 export interface MaintenanceWindow {
@@ -428,8 +445,28 @@ export const api = {
   updatePerformanceTarget: (id: string, data: Partial<PerformanceTarget>) =>
     request<PerformanceTarget>(`/api/performance/targets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePerformanceTarget: (id: string) => request(`/api/performance/targets/${id}`, { method: 'DELETE' }),
-  performanceResults: (id: string) =>
-    request<PerformanceResult[]>(`/api/performance/targets/${id}/results?limit=20`),
+  performanceResults: (id: string, opts?: {
+    limit?: number
+    offset?: number
+    date?: string
+    breaches?: boolean
+  }) => {
+    const limit = opts?.limit ?? 20
+    const offset = opts?.offset ?? 0
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+      breaches: opts?.breaches === false ? '0' : '1',
+    })
+    if (opts?.date) {
+      const { from, to } = localDayBounds(opts.date)
+      params.set('from', from)
+      params.set('to', to)
+    }
+    return request<PaginatedResults<PerformanceResult>>(
+      `/api/performance/targets/${id}/results?${params}`,
+    )
+  },
   performanceStats: (id: string, period = '24h') =>
     request<PerformanceStats>(`/api/performance/targets/${id}/stats?period=${period}`),
   listCustomers: () => request<Customer[]>('/api/settings/customers'),
@@ -443,6 +480,13 @@ export const api = {
     request<TeamMember>('/api/settings/team', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamMember: (id: string, data: UpdateTeamMemberRequest) =>
     request<TeamMember>(`/api/settings/team/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  unlockTeamMember: (id: string) =>
+    request<TeamMember>(`/api/settings/team/${id}/unlock`, { method: 'POST' }),
+  resetTeamMemberPassword: (id: string, password: string) =>
+    request<TeamMember>(`/api/settings/team/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
   deleteTeamMember: (id: string) => request(`/api/settings/team/${id}`, { method: 'DELETE' }),
   getGeneral: () => request<OrgSettings>('/api/settings/general'),
   putGeneral: (cfg: OrgSettings) =>
@@ -453,6 +497,11 @@ export const api = {
     request<SMTPConfig>('/api/settings/smtp', { method: 'PUT', body: JSON.stringify(cfg) }),
   testSMTP: (to: string) =>
     request('/api/settings/smtp/test', { method: 'POST', body: JSON.stringify({ to }) }),
+  getNotificationsSummary: () => request<NotificationsSummary>('/api/settings/notifications'),
+  getSlack: () => request<SlackConfig>('/api/settings/slack'),
+  putSlack: (cfg: SlackConfig) =>
+    request<SlackConfig>('/api/settings/slack', { method: 'PUT', body: JSON.stringify(cfg) }),
+  testSlack: () => request('/api/settings/slack/test', { method: 'POST', body: '{}' }),
   incidents: (opts?: {
     openOnly?: boolean
     date?: string

@@ -76,6 +76,9 @@ type Monitor struct {
 	FollowRedirects     bool          `json:"follow_redirects"`
 	AlertEmails         string        `json:"alert_emails"`
 	Enabled             bool          `json:"enabled"`
+	NotifyEmail         bool          `json:"notify_email"`
+	NotifySlack         bool          `json:"notify_slack"`
+	NotifyWebhooks      bool          `json:"notify_webhooks"`
 	Invert              bool          `json:"invert"`
 	Tags                []string      `json:"tags"`
 	HeartbeatToken      string        `json:"heartbeat_token,omitempty"`
@@ -191,6 +194,7 @@ type SMTPConfig struct {
 	From        string `json:"from"`
 	AlertEmails string `json:"alert_emails"`
 	TLS         bool   `json:"tls"`
+	Enabled     bool   `json:"enabled"`
 }
 
 type StatsPoint struct {

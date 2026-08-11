@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, WebhookConfig } from '../../api'
 import { colors } from '../../theme'
 
@@ -26,6 +27,11 @@ export default function SettingsWebhooks() {
 
   return (
     <>
+      <div style={{ marginBottom: 16 }}>
+        <Link to="/settings/notifications" style={{ color: colors.textMuted, fontSize: 13, textDecoration: 'none' }}>
+          ← Notifications
+        </Link>
+      </div>
       {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error}>{error}</div>}
       <form onSubmit={handleSave} style={styles.card}>

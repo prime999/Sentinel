@@ -16,6 +16,8 @@ import SettingsGeneral from './pages/settings/SettingsGeneral'
 import SettingsSMTP from './pages/settings/SettingsSMTP'
 import SettingsTeam from './pages/settings/SettingsTeam'
 import SettingsWebhooks from './pages/settings/SettingsWebhooks'
+import SettingsNotifications from './pages/settings/SettingsNotifications'
+import SettingsSlack from './pages/settings/SettingsSlack'
 import SettingsMaintenance from './pages/settings/SettingsMaintenance'
 import SettingsServer from './pages/settings/SettingsServer'
 import SettingsStatusPage from './pages/settings/SettingsStatusPage'
@@ -84,8 +86,12 @@ export default function App() {
           <Route path="/settings/team" element={<Navigate to="/users" replace />} />
           <Route path="/settings" element={<AdminRoute><SettingsLayout /></AdminRoute>}>
             <Route path="general" element={<SettingsGeneral />} />
-            <Route path="smtp" element={<SettingsSMTP />} />
-            <Route path="webhooks" element={<SettingsWebhooks />} />
+            <Route path="notifications" element={<SettingsNotifications />} />
+            <Route path="notifications/email" element={<PlatformAdminRoute><SettingsSMTP /></PlatformAdminRoute>} />
+            <Route path="notifications/slack" element={<SettingsSlack />} />
+            <Route path="notifications/webhooks" element={<PlatformAdminRoute><SettingsWebhooks /></PlatformAdminRoute>} />
+            <Route path="smtp" element={<Navigate to="/settings/notifications/email" replace />} />
+            <Route path="webhooks" element={<Navigate to="/settings/notifications/webhooks" replace />} />
             <Route path="maintenance" element={<SettingsMaintenance />} />
             <Route path="server" element={<SettingsServer />} />
             <Route path="status-page" element={<SettingsStatusPage />} />

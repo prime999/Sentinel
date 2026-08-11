@@ -53,11 +53,11 @@ func New(s *store.Store, cfg models.SMTPConfig, fallback models.SMTPConfig, dash
 	return a
 }
 
-func (a *Alerter) notifyMonitorAlert(m *models.Monitor, alertType, message string, responseMs int) error {
+func (a *Alerter) notifyMonitorAlert(m *models.Monitor, meta AlertMeta) error {
 	if a.notifyHook != nil {
-		return a.notifyHook(m, alertType, message, responseMs)
+		return a.notifyHook(m, meta.Event, meta.Message, meta.ResponseMs)
 	}
-	return a.NotifyMonitor(m, alertType, message, responseMs)
+	return a.NotifyMonitorMeta(m, meta)
 }
 
 func (a *Alerter) incRecoveryStreak(monitorID string) int {
@@ -133,7 +133,13 @@ func (a *Alerter) HandleResult(m *models.Monitor, result *models.CheckResult) er
 		if err := a.store.CreateIncident(inc); err != nil {
 			return err
 		}
-		return a.notifyMonitorAlert(m, "DOWN", result.Error, result.ResponseTimeMs)
+		return a.notifyMonitorAlert(m, AlertMeta{
+			Event:      "DOWN",
+			Message:    result.Error,
+			ResponseMs: result.ResponseTimeMs,
+			IncidentID: inc.ID,
+			EventAt:    result.CheckedAt,
+		})
 	}
 
 	// Non-down check
@@ -154,9 +160,18 @@ func (a *Alerter) HandleResult(m *models.Monitor, result *models.CheckResult) er
 		}
 		m.LastStatus = newStatus
 		m.ConsecutiveFailures = 0
+		started := open.StartedAt
+		incidentID := open.ID
 		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentDown, result.CheckedAt)
 		_ = a.store.ResolveOpenIncidents(m.ID, models.IncidentSlow, result.CheckedAt)
-		return a.notifyMonitorAlert(m, "RECOVERY", "Monitor is back online", result.ResponseTimeMs)
+		return a.notifyMonitorAlert(m, AlertMeta{
+			Event:      "RECOVERY",
+			Message:    "Monitor is back online",
+			ResponseMs: result.ResponseTimeMs,
+			IncidentID: incidentID,
+			EventAt:    result.CheckedAt,
+			StartedAt:  &started,
+		})
 	}
 
 	a.clearRecoveryStreak(m.ID)
@@ -202,21 +217,31 @@ func (a *Alerter) SendTestEmail(to string) error {
 		to = a.cfg.From
 	}
 	subject := "[Sentinel] Test Email"
-	body := a.renderEmail("Test Alert", "Sentinel Monitoring", "https://example.com", "This is a test email from Sentinel.", "TEST", 0)
+	body := a.renderAlertEmail(AlertMeta{
+		Event:        "TEST",
+		Name:         "Test Alert",
+		URL:          strings.TrimRight(a.dashboardURL, "/"),
+		Message:      "This is a test email from Sentinel.",
+		DashboardURL: strings.TrimRight(a.dashboardURL, "/"),
+		EventAt:      time.Now().UTC(),
+	})
 	return a.sendSMTP(to, subject, body)
 }
 
-func (a *Alerter) sendAlert(m *models.Monitor, alertType, message string, responseMs int) error {
+func (a *Alerter) sendAlertMeta(m *models.Monitor, meta AlertMeta) error {
 	a.refreshSMTP()
+	if !a.cfg.Enabled {
+		return fmt.Errorf("email alerts disabled")
+	}
 	if a.cfg.Host == "" {
-		return fmt.Errorf("SMTP not configured — set host in Settings → SMTP")
+		return fmt.Errorf("SMTP not configured — set host in Settings → Notifications → Email")
 	}
 	recipients := a.recipients(m)
 	if len(recipients) == 0 {
 		return fmt.Errorf("no alert recipients — set alert emails on the monitor, SMTP Alert Recipients, or a profile email")
 	}
-	subject := fmt.Sprintf("[Sentinel] %s: %s", alertType, m.Name)
-	body := a.renderEmail(m.Name, m.URL, a.dashboardURL+"/monitors/"+m.ID, message, alertType, responseMs)
+	subject := meta.FallbackText()
+	body := a.renderAlertEmail(meta)
 	for _, to := range recipients {
 		if err := a.sendSMTP(to, subject, body); err != nil {
 			return err
@@ -412,22 +437,98 @@ func (a *Alerter) sendSMTPSImplicitTLS(addr string, auth smtp.Auth, from, to str
 }
 
 var emailTmpl = template.Must(template.New("email").Parse(`<!DOCTYPE html>
-<html><body style="font-family:Arial,sans-serif;background:#f4f4f5;padding:20px;">
-<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:24px;border:1px solid #e4e4e7;">
-  <h2 style="margin:0 0 8px;color:#18181b;">Sentinel Alert: {{.Type}}</h2>
-  <p style="color:#71717a;margin:0 0 16px;">{{.Time}}</p>
-  <table style="width:100%;border-collapse:collapse;">
-    <tr><td style="padding:8px 0;color:#71717a;">Monitor</td><td style="padding:8px 0;font-weight:600;">{{.Name}}</td></tr>
-    <tr><td style="padding:8px 0;color:#71717a;">URL</td><td style="padding:8px 0;"><a href="{{.URL}}">{{.URL}}</a></td></tr>
-    {{if .ResponseMs}}<tr><td style="padding:8px 0;color:#71717a;">Response Time</td><td style="padding:8px 0;">{{.ResponseMs}} ms</td></tr>{{end}}
-    <tr><td style="padding:8px 0;color:#71717a;">Message</td><td style="padding:8px 0;">{{.Message}}</td></tr>
-  </table>
-  <p style="margin-top:20px;"><a href="{{.DashboardURL}}" style="background:#2563eb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View Dashboard</a></p>
-</div></body></html>`))
+<html>
+<body style="margin:0;padding:0;background:#0f1419;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:560px;margin:24px auto;padding:0 16px;">
+    <div style="background:#1a1f26;border-radius:12px;overflow:hidden;border:1px solid #2a313c;">
+      <div style="border-left:4px solid {{.Color}};">
+        <div style="padding:20px 24px 8px;">
+          <div style="font-size:11px;letter-spacing:0.08em;color:#8b95a5;text-transform:uppercase;margin-bottom:8px;">Sentinel</div>
+          <div style="font-size:20px;font-weight:700;color:#f4f7fb;letter-spacing:0.02em;">{{.Title}}</div>
+        </div>
+        <div style="padding:8px 24px 20px;">
+          <div style="font-size:16px;font-weight:600;color:#ffffff;margin-bottom:4px;">{{.Name}}</div>
+          {{if .URL}}<div style="margin-bottom:16px;"><a href="{{.URL}}" style="color:#5b9fd4;text-decoration:none;font-size:13px;word-break:break-all;">{{.URL}}</a></div>{{end}}
+          {{if .ShowMessage}}<div style="color:#a8b3c2;font-size:13px;margin-bottom:16px;">{{.Message}}</div>{{end}}
+          <table style="width:100%;border-collapse:collapse;background:#12171e;border-radius:8px;">
+            <tr>
+              <td style="padding:12px 14px;width:50%;vertical-align:top;border-bottom:1px solid #243041;">
+                <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">{{.Field1Label}}</div>
+                <div style="font-size:14px;font-weight:600;color:{{.Field1Color}};">{{.Field1Value}}</div>
+              </td>
+              <td style="padding:12px 14px;width:50%;vertical-align:top;border-bottom:1px solid #243041;">
+                <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">Response</div>
+                <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.Response}}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 14px;width:50%;vertical-align:top;">
+                <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">{{.TimeLabel}}</div>
+                <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.TimeValue}}</div>
+              </td>
+              <td style="padding:12px 14px;width:50%;vertical-align:top;">
+                <div style="font-size:11px;color:#8b95a5;margin-bottom:4px;">Incident</div>
+                <div style="font-size:14px;font-weight:600;color:#f4f7fb;">{{.Incident}}</div>
+              </td>
+            </tr>
+          </table>
+          <div style="margin-top:20px;">
+            <a href="{{.DashboardURL}}" style="display:inline-block;background:#2B7A78;color:#ffffff;padding:10px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">Open in Sentinel →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;color:#667084;font-size:11px;margin-top:14px;">Sentinel Infrastructure Monitoring</div>
+  </div>
+</body>
+</html>`))
 
 type emailData struct {
-	Type, Name, URL, DashboardURL, Message, Time string
-	ResponseMs int
+	Title, Name, URL, Message, DashboardURL string
+	Color, Field1Label, Field1Value, Field1Color string
+	Response, TimeLabel, TimeValue, Incident string
+	ShowMessage bool
+}
+
+func (a *Alerter) renderAlertEmail(meta AlertMeta) string {
+	field1Label, field1Value := "Status", meta.StatusLabel()
+	field1Color := meta.Color()
+	if dt := meta.DowntimeLabel(); dt != "" {
+		field1Label = "Downtime"
+		field1Value = dt
+		field1Color = "#f4f7fb"
+	}
+	showMsg := meta.Message != "" && meta.Event != "RECOVERY" && meta.Event != "NORMAL" && meta.ResponseLabel() != "Timeout"
+	var buf bytes.Buffer
+	_ = emailTmpl.Execute(&buf, emailData{
+		Title:        meta.Title(),
+		Name:         meta.Name,
+		URL:          meta.URL,
+		Message:      meta.Message,
+		ShowMessage:  showMsg,
+		DashboardURL: meta.DashboardURL,
+		Color:        meta.Color(),
+		Field1Label:  field1Label,
+		Field1Value:  field1Value,
+		Field1Color:  field1Color,
+		Response:     meta.ResponseLabel(),
+		TimeLabel:    meta.TimeFieldLabel(),
+		TimeValue:    meta.EventTimeLabel(),
+		Incident:     meta.IncidentLabel(),
+	})
+	return buf.String()
+}
+
+func (a *Alerter) renderEmail(name, url, dashboardURL, message, alertType string, responseMs int) string {
+	return a.renderAlertEmail(AlertMeta{
+		Event:        alertType,
+		Name:         name,
+		URL:          url,
+		Message:      message,
+		DashboardURL: dashboardURL,
+		ResponseMs:   responseMs,
+		EventAt:      time.Now().UTC(),
+	})
 }
 
 var resetEmailTmpl = template.Must(template.New("reset").Parse(`<!DOCTYPE html>
@@ -458,19 +559,9 @@ var passwordChangedTmpl = template.Must(template.New("changed").Parse(`<!DOCTYPE
 func (a *Alerter) renderPasswordChangedEmail(username string) string {
 	var buf bytes.Buffer
 	_ = passwordChangedTmpl.Execute(&buf, map[string]string{
-		"Username":      username,
-		"Time":          time.Now().UTC().Format(time.RFC1123),
-		"DashboardURL":  strings.TrimRight(a.dashboardURL, "/") + "/login",
-	})
-	return buf.String()
-}
-
-func (a *Alerter) renderEmail(name, url, dashboardURL, message, alertType string, responseMs int) string {
-	var buf bytes.Buffer
-	_ = emailTmpl.Execute(&buf, emailData{
-		Type: alertType, Name: name, URL: url, DashboardURL: dashboardURL,
-		Message: message, Time: time.Now().UTC().Format(time.RFC1123),
-		ResponseMs: responseMs,
+		"Username":     username,
+		"Time":         time.Now().UTC().Format(time.RFC1123),
+		"DashboardURL": strings.TrimRight(a.dashboardURL, "/") + "/login",
 	})
 	return buf.String()
 }

@@ -295,7 +295,10 @@ func (s *Server) handleListAuditMeta(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{
 		"actors":    actors,
 		"resources": resources,
-		"actions":   []string{"create", "update", "delete"},
+		"actions": []string{
+			"create", "update", "delete",
+			"lockout", "rate_limit", "unlock", "password_reset",
+		},
 	})
 }
 
