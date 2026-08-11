@@ -8,6 +8,14 @@ type WebhookConfig struct {
 	Events   []string `json:"events"`
 }
 
+// SlackConfig is a tenant-scoped Incoming Webhook integration.
+// Platform config uses an empty tenant ID; customers use their tenant ID.
+type SlackConfig struct {
+	WebhookURL string   `json:"webhook_url"`
+	Enabled    bool     `json:"enabled"`
+	Events     []string `json:"events"`
+}
+
 type MaintenanceWindow struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`

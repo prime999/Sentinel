@@ -162,9 +162,6 @@ func (sch *Scheduler) runPerformanceCheck(ctx context.Context, t *models.Perform
 		return
 	}
 	status := result.Status
-	if status == models.StatusDown {
-		status = models.StatusDegraded
-	}
 	prevStatus := t.LastStatus
 	consecutive := t.ConsecutiveSlow
 	if status == models.StatusDegraded {

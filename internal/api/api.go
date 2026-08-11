@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type Server struct {
 	defaultSMTP  models.SMTPConfig
 	dashboardURL string
 	mux          *http.ServeMux
+	limits       *rateLimiter
 }
 
 func New(s *store.Store, a *alerter.Alerter, cfg *config.Config) *Server {
@@ -34,6 +36,7 @@ func New(s *store.Store, a *alerter.Alerter, cfg *config.Config) *Server {
 		defaultSMTP:  cfg.SMTP,
 		dashboardURL: cfg.Server.DashboardURL,
 		mux:          http.NewServeMux(),
+		limits:       newRateLimiter(),
 	}
 	srv.routes()
 	return srv
@@ -75,9 +78,16 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PUT /api/settings/smtp", s.platformAdminRequired(s.handlePutSMTP))
 	s.mux.HandleFunc("POST /api/settings/smtp/test", s.platformAdminRequired(s.handleTestSMTP))
 
+	s.mux.HandleFunc("GET /api/settings/notifications", s.adminRequired(s.handleNotificationsSummary))
+	s.mux.HandleFunc("GET /api/settings/slack", s.adminRequired(s.handleGetSlack))
+	s.mux.HandleFunc("PUT /api/settings/slack", s.adminRequired(s.handlePutSlack))
+	s.mux.HandleFunc("POST /api/settings/slack/test", s.adminRequired(s.handleTestSlack))
+
 	s.mux.HandleFunc("GET /api/settings/team", s.adminRequired(s.handleListTeam))
 	s.mux.HandleFunc("POST /api/settings/team", s.adminRequired(s.handleCreateTeamMember))
 	s.mux.HandleFunc("PUT /api/settings/team/{id}", s.adminRequired(s.handleUpdateTeamMember))
+	s.mux.HandleFunc("POST /api/settings/team/{id}/unlock", s.adminRequired(s.handleUnlockTeamMember))
+	s.mux.HandleFunc("POST /api/settings/team/{id}/reset-password", s.adminRequired(s.handleResetTeamMemberPassword))
 	s.mux.HandleFunc("DELETE /api/settings/team/{id}", s.adminRequired(s.handleDeleteTeamMember))
 
 	s.mux.HandleFunc("GET /api/settings/customers", s.platformAdminRequired(s.handleListCustomers))
@@ -139,15 +149,47 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
-	user, err := s.store.GetUserByUsername(req.Username)
+	username := strings.TrimSpace(req.Username)
+	ip := clientIP(r)
+	failKey := loginFailKey(username)
+
+	actor := auditActor(username)
+	if s.limits.Count(failKey, loginFailWindow) >= loginFailLimit {
+		if s.limits.Allow("lockout-notice:"+failKey, 1, loginFailWindow) {
+			s.recordSecurityEvent("account lockout", actor, "lockout", "auth",
+				"login username="+username+" ip="+ip,
+				"endpoint", "login", "ip", ip, "username", username, "failures", loginFailLimit)
+		} else {
+			slog.Warn("account lockout",
+				"endpoint", "login", "ip", ip, "username", username, "failures", loginFailLimit)
+		}
+		jsonError(w, http.StatusTooManyRequests, "too many failed attempts, try again later")
+		return
+	}
+
+	user, err := s.store.GetUserByUsername(username)
 	if err != nil {
 		jsonInternal(w, err)
 		return
 	}
 	if user == nil || !store.CheckPassword(user.PasswordHash, req.Password) {
+		count, locked := s.limits.RecordFailure(failKey, loginFailLimit, loginFailWindow)
+		if locked && count == loginFailLimit {
+			s.recordSecurityEvent("account lockout", actor, "lockout", "auth",
+				"login username="+username+" ip="+ip,
+				"endpoint", "login", "ip", ip, "username", username, "failures", count)
+			jsonError(w, http.StatusTooManyRequests, "too many failed attempts, try again later")
+			return
+		}
+		if locked {
+			jsonError(w, http.StatusTooManyRequests, "too many failed attempts, try again later")
+			return
+		}
 		jsonError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
+
+	s.limits.Clear(failKey)
 
 	sessionID, err := randomToken(32)
 	if err != nil {
@@ -604,6 +646,21 @@ type testSMTPRequest struct {
 }
 
 func (s *Server) handleTestSMTP(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	ip := clientIP(r)
+	key := "smtp-test:" + ip
+	actor := "unknown"
+	if user != nil {
+		actor = user.Username
+		key = "smtp-test:" + user.ID
+	}
+	if !s.limits.Allow(key, 3, time.Minute) {
+		s.recordSecurityEvent("rate limit exceeded", actor, "rate_limit", "smtp",
+			"test ip="+ip,
+			"endpoint", "smtp-test", "ip", ip, "user", actor)
+		jsonError(w, http.StatusTooManyRequests, "too many requests, try again later")
+		return
+	}
 	var req testSMTPRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	if err := s.alerter.SendTestEmail(req.To); err != nil {

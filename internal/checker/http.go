@@ -3,10 +3,13 @@ package checker
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptrace"
+	"os"
 	"strings"
 	"time"
 
@@ -19,6 +22,10 @@ type timingInfo struct {
 	connectStart, connectDone time.Time
 	tlsStart, tlsDone         time.Time
 	gotFirstResponseByte      time.Time
+}
+
+func (t timingInfo) reachedHost() bool {
+	return !t.connectDone.IsZero() || !t.tlsDone.IsZero() || !t.gotFirstResponseByte.IsZero()
 }
 
 func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.CheckResult {
@@ -38,13 +45,17 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 				timings.connectStart = time.Now()
 			}
 		},
-		ConnectDone: func(_, _ string, _ error) {
-			if timings.connectDone.IsZero() {
+		ConnectDone: func(_, _ string, err error) {
+			if err == nil && timings.connectDone.IsZero() {
 				timings.connectDone = time.Now()
 			}
 		},
 		TLSHandshakeStart: func() { timings.tlsStart = time.Now() },
-		TLSHandshakeDone:  func(_ tls.ConnectionState, _ error) { timings.tlsDone = time.Now() },
+		TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
+			if err == nil {
+				timings.tlsDone = time.Now()
+			}
+		},
 		GotFirstResponseByte: func() {
 			if timings.gotFirstResponseByte.IsZero() {
 				timings.gotFirstResponseByte = time.Now()
@@ -93,12 +104,14 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 		}
 	}
 
+	// Rely on request context for deadline — Client.Timeout doubles the same budget
+	// and produces opaque "context deadline exceeded" failures on slow-but-up sites.
 	client := &http.Client{
-		Timeout: timeout,
 		Transport: &http.Transport{
-			DialContext:         safehost.ControlDialContext,
-			TLSHandshakeTimeout: timeout,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: false},
+			DialContext:           safehost.ControlDialContext,
+			TLSHandshakeTimeout:   timeout,
+			ResponseHeaderTimeout: timeout,
+			TLSClientConfig:       &tls.Config{InsecureSkipVerify: false},
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if !m.FollowRedirects {
@@ -119,7 +132,7 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	fillTimings(result, timings, start)
 
 	if err != nil {
-		result.Error = err.Error()
+		applyHTTPProbeError(result, err, timings.reachedHost())
 		return result
 	}
 	defer resp.Body.Close()
@@ -134,6 +147,12 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 
 	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
+		// Headers already matched expected status — host is up; slow body is latency, not downtime.
+		if isTimeoutErr(err) {
+			result.Status = models.StatusUp
+			result.Error = ""
+			return result
+		}
 		result.Error = fmt.Sprintf("read body: %v", err)
 		return result
 	}
@@ -151,6 +170,51 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	// Uptime monitors are up/down only. Latency warnings belong to performance targets.
 	result.Status = models.StatusUp
 	return result
+}
+
+// applyHTTPProbeError maps transport errors to uptime status.
+// Timeouts after the host was reached mean the site is slow, not down.
+func applyHTTPProbeError(result *models.CheckResult, err error, reachedHost bool) {
+	if isTimeoutErr(err) && reachedHost {
+		result.Status = models.StatusUp
+		result.Error = ""
+		return
+	}
+	result.Status = models.StatusDown
+	result.Error = formatHTTPProbeError(err)
+}
+
+func isTimeoutErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return true
+	}
+	var ne net.Error
+	if errors.As(err, &ne) && ne.Timeout() {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "deadline exceeded") ||
+		strings.Contains(msg, "client.timeout") ||
+		strings.Contains(msg, "timed out") ||
+		strings.Contains(msg, "i/o timeout")
+}
+
+func formatHTTPProbeError(err error) string {
+	msg := err.Error()
+	// Strip Go's verbose "Get \"url\": " prefix for clearer alerts.
+	if i := strings.Index(msg, ": "); i >= 0 && (strings.HasPrefix(msg, "Get ") || strings.HasPrefix(msg, "Post ") || strings.HasPrefix(msg, "Head ")) {
+		msg = strings.TrimSpace(msg[i+2:])
+	}
+	if isTimeoutErr(err) {
+		return "connection timed out (host unreachable)"
+	}
+	return msg
 }
 
 func fillTimings(result *models.CheckResult, t timingInfo, start time.Time) {

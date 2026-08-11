@@ -52,6 +52,40 @@ func (s *Store) SaveWebhooks(hooks []models.WebhookConfig) error {
 	return s.SetSetting("webhooks", string(raw))
 }
 
+func slackSettingKey(tenantID string) string {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return "slack"
+	}
+	return "slack:" + tenantID
+}
+
+func (s *Store) GetSlackConfig(tenantID string) (models.SlackConfig, error) {
+	raw, err := s.GetSetting(slackSettingKey(tenantID))
+	if err != nil {
+		return models.SlackConfig{Events: []string{"all"}}, nil
+	}
+	var cfg models.SlackConfig
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		return models.SlackConfig{}, fmt.Errorf("parse slack setting: %w", err)
+	}
+	if cfg.Events == nil {
+		cfg.Events = []string{"all"}
+	}
+	return cfg, nil
+}
+
+func (s *Store) SaveSlackConfig(tenantID string, cfg models.SlackConfig) error {
+	if cfg.Events == nil {
+		cfg.Events = []string{"all"}
+	}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return s.SetSetting(slackSettingKey(tenantID), string(raw))
+}
+
 func (s *Store) GetServerSettings(fallback config.ServerConfig) (models.ServerSettings, error) {
 	raw, err := s.GetSetting("server")
 	if err != nil {

@@ -19,15 +19,43 @@ type resetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
+const (
+	forgotPasswordLimit  = 5
+	forgotPasswordWindow = time.Hour
+)
+
 func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req forgotPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
-	email := strings.TrimSpace(req.Email)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
 	if email == "" {
 		jsonError(w, http.StatusBadRequest, "email required")
+		return
+	}
+
+	ip := clientIP(r)
+	ipKey := "forgot-ip:" + ip
+	emailKey := "forgot-email:" + email
+
+	const sentMsg = "Password reset link sent to your email."
+
+	actor := auditActor(email)
+	if !s.limits.Allow(ipKey, forgotPasswordLimit, forgotPasswordWindow) {
+		s.recordSecurityEvent("rate limit exceeded", actor, "rate_limit", "auth",
+			"forgot-password ip="+ip+" email="+email,
+			"endpoint", "forgot-password", "ip", ip, "email", email)
+		jsonError(w, http.StatusTooManyRequests, "too many requests, try again later")
+		return
+	}
+	if !s.limits.Allow(emailKey, forgotPasswordLimit, forgotPasswordWindow) {
+		// Same success body to avoid email enumeration; still log + audit.
+		s.recordSecurityEvent("rate limit exceeded", actor, "rate_limit", "auth",
+			"forgot-password ip="+ip+" email="+email,
+			"endpoint", "forgot-password", "ip", ip, "email", email)
+		jsonOK(w, map[string]string{"message": sentMsg})
 		return
 	}
 
@@ -37,7 +65,6 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const sentMsg = "Password reset link sent to your email."
 	if user == nil {
 		jsonOK(w, map[string]string{"message": sentMsg})
 		return

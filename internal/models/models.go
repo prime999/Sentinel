@@ -191,6 +191,7 @@ type SMTPConfig struct {
 	From        string `json:"from"`
 	AlertEmails string `json:"alert_emails"`
 	TLS         bool   `json:"tls"`
+	Enabled     bool   `json:"enabled"`
 }
 
 type StatsPoint struct {

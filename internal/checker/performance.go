@@ -28,6 +28,8 @@ func (c *Checker) ProbePerformance(ctx context.Context, t *models.PerformanceTar
 	status := cr.Status
 	if status == models.StatusDown {
 		status = models.StatusDegraded
+	} else if status == models.StatusUp && t.SlowThresholdMs > 0 && cr.ResponseTimeMs > t.SlowThresholdMs {
+		status = models.StatusDegraded
 	}
 	return &models.PerformanceResult{
 		TargetID:       t.ID,
