@@ -94,12 +94,17 @@ func (s *Server) handleNotificationsSummary(w http.ResponseWriter, r *http.Reque
 		},
 	}
 
+	smtp, err := s.store.GetSMTPConfig(s.defaultSMTP)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	out["email"] = map[string]any{
+		"enabled":    smtp.Enabled,
+		"configured": strings.TrimSpace(smtp.Host) != "",
+	}
+
 	if isPlatformAdmin(actor) {
-		smtp, err := s.store.GetSMTPConfig(s.defaultSMTP)
-		if err != nil {
-			jsonInternal(w, err)
-			return
-		}
 		hooks, _ := s.store.GetWebhooks()
 		anyHookEnabled := false
 		anyHookConfigured := false
@@ -110,10 +115,6 @@ func (s *Server) handleNotificationsSummary(w http.ResponseWriter, r *http.Reque
 					anyHookEnabled = true
 				}
 			}
-		}
-		out["email"] = map[string]any{
-			"enabled":    smtp.Enabled,
-			"configured": strings.TrimSpace(smtp.Host) != "",
 		}
 		out["webhooks"] = map[string]any{
 			"enabled":    anyHookEnabled,

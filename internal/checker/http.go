@@ -64,7 +64,16 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	}
 
 	timeout := time.Duration(m.TimeoutMs) * time.Millisecond
-	reqCtx, cancel := context.WithTimeout(ctx, timeout)
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	// Keyword rules need the response body. Give slow pages extra budget so we
+	// can report a real keyword match instead of a verification timeout.
+	reqTimeout := timeout
+	if hasKeywordRules(m) && reqTimeout < 30*time.Second {
+		reqTimeout = 30 * time.Second
+	}
+	reqCtx, cancel := context.WithTimeout(ctx, reqTimeout)
 	defer cancel()
 	reqCtx = httptrace.WithClientTrace(reqCtx, trace)
 
@@ -131,8 +140,9 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	result.ResponseTimeMs = int(time.Since(start).Milliseconds())
 	fillTimings(result, timings, start)
 
+	keywordsRequired := hasKeywordRules(m)
 	if err != nil {
-		applyHTTPProbeError(result, err, timings.reachedHost())
+		applyHTTPProbeError(result, err, timings.reachedHost(), m)
 		return result
 	}
 	defer resp.Body.Close()
@@ -145,10 +155,19 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 		return result
 	}
 
-	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	bodyStr, forbiddenHit, err := readBodyForKeywords(resp.Body, m, 1<<20)
+	if forbiddenHit {
+		result.Error = fmt.Sprintf("reported down because keyword matched (must not exist): %q", m.KeywordMustNotExist)
+		return result
+	}
 	if err != nil {
-		// Headers already matched expected status — host is up; slow body is latency, not downtime.
 		if isTimeoutErr(err) {
+			// Host answered, but we couldn't finish the body. Reachability alone is UP unless
+			// keyword rules need a full body — those must not silently pass on timeout.
+			if keywordsRequired {
+				result.Error = keywordTimeoutError(m)
+				return result
+			}
 			result.Status = models.StatusUp
 			result.Error = ""
 			return result
@@ -156,14 +175,8 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 		result.Error = fmt.Sprintf("read body: %v", err)
 		return result
 	}
-	bodyStr := string(bodyBytes)
 
-	if m.KeywordMustExist != "" && !strings.Contains(bodyStr, m.KeywordMustExist) {
-		result.Error = fmt.Sprintf("keyword not found: %q", m.KeywordMustExist)
-		return result
-	}
-	if m.KeywordMustNotExist != "" && strings.Contains(bodyStr, m.KeywordMustNotExist) {
-		result.Error = fmt.Sprintf("forbidden keyword found: %q", m.KeywordMustNotExist)
+	if failed := applyKeywordChecks(result, m, bodyStr); failed {
 		return result
 	}
 
@@ -172,10 +185,95 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	return result
 }
 
+func hasKeywordRules(m *models.Monitor) bool {
+	return m.KeywordMustExist != "" || m.KeywordMustNotExist != ""
+}
+
+func keywordTimeoutError(m *models.Monitor) string {
+	switch {
+	case m.KeywordMustNotExist != "" && m.KeywordMustExist != "":
+		return fmt.Sprintf("timed out before keyword rules could be verified (must exist %q / must not exist %q)", m.KeywordMustExist, m.KeywordMustNotExist)
+	case m.KeywordMustNotExist != "":
+		return fmt.Sprintf("timed out before keyword rules could be verified (must not exist: %q)", m.KeywordMustNotExist)
+	default:
+		return fmt.Sprintf("timed out before keyword rules could be verified (must exist: %q)", m.KeywordMustExist)
+	}
+}
+
+// readBodyForKeywords streams the body and fails early when a must-not-exist keyword appears.
+func readBodyForKeywords(r io.Reader, m *models.Monitor, limit int64) (body string, forbiddenHit bool, err error) {
+	var b strings.Builder
+	buf := make([]byte, 32*1024)
+	var total int64
+	needle := m.KeywordMustNotExist
+	overlap := 0
+	if needle != "" {
+		overlap = len(needle) - 1
+		if overlap < 0 {
+			overlap = 0
+		}
+	}
+	var window string
+
+	for {
+		n, readErr := r.Read(buf)
+		if n > 0 {
+			chunk := buf[:n]
+			if total+int64(n) > limit {
+				chunk = buf[:limit-total]
+				n = len(chunk)
+			}
+			total += int64(n)
+			b.Write(chunk)
+			if needle != "" {
+				search := window + string(chunk)
+				if strings.Contains(search, needle) {
+					return b.String(), true, nil
+				}
+				if overlap > 0 {
+					if len(search) > overlap {
+						window = search[len(search)-overlap:]
+					} else {
+						window = search
+					}
+				}
+			}
+			if total >= limit {
+				return b.String(), false, nil
+			}
+		}
+		if readErr != nil {
+			if readErr == io.EOF {
+				return b.String(), false, nil
+			}
+			return b.String(), false, readErr
+		}
+	}
+}
+
+// applyKeywordChecks returns true when the probe should stay DOWN.
+func applyKeywordChecks(result *models.CheckResult, m *models.Monitor, bodyStr string) bool {
+	if m.KeywordMustExist != "" && !strings.Contains(bodyStr, m.KeywordMustExist) {
+		result.Error = fmt.Sprintf("reported down because required keyword was missing: %q", m.KeywordMustExist)
+		return true
+	}
+	if m.KeywordMustNotExist != "" && strings.Contains(bodyStr, m.KeywordMustNotExist) {
+		result.Error = fmt.Sprintf("reported down because keyword matched (must not exist): %q", m.KeywordMustNotExist)
+		return true
+	}
+	return false
+}
+
 // applyHTTPProbeError maps transport errors to uptime status.
-// Timeouts after the host was reached mean the site is slow, not down.
-func applyHTTPProbeError(result *models.CheckResult, err error, reachedHost bool) {
+// Timeouts after the host was reached mean the site is slow, not down — unless
+// keyword rules were configured and never validated.
+func applyHTTPProbeError(result *models.CheckResult, err error, reachedHost bool, m *models.Monitor) {
 	if isTimeoutErr(err) && reachedHost {
+		if m != nil && hasKeywordRules(m) {
+			result.Status = models.StatusDown
+			result.Error = keywordTimeoutError(m)
+			return
+		}
 		result.Status = models.StatusUp
 		result.Error = ""
 		return

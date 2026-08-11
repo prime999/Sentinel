@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, Customer, Monitor, MonitorType } from '../api'
+import { api, Customer, Monitor, MonitorType, NotificationsSummary } from '../api'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
@@ -26,6 +26,9 @@ const defaults: Partial<Monitor> = {
   enabled: true,
   invert: false,
   alert_after_failures: 2,
+  notify_email: true,
+  notify_slack: true,
+  notify_webhooks: true,
 }
 
 export default function MonitorForm() {
@@ -40,6 +43,7 @@ export default function MonitorForm() {
   const [tagsInput, setTagsInput] = useState('')
   const [enablePerformance, setEnablePerformance] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [summary, setSummary] = useState<NotificationsSummary | null>(null)
 
   const monitorType = (form.type || 'http') as MonitorType
   const showPerformanceToggle = !id && monitorType === 'http'
@@ -52,6 +56,20 @@ export default function MonitorForm() {
     if (!isPlatformAdmin) return
     api.listCustomers().then(setCustomers).catch(() => {})
   }, [isPlatformAdmin])
+
+  useEffect(() => {
+    api.getNotificationsSummary().then(s => {
+      setSummary(s)
+      if (!id) {
+        setForm(prev => ({
+          ...prev,
+          notify_email: !!(s.email?.configured && s.email?.enabled),
+          notify_slack: !!(s.slack?.configured && s.slack?.enabled),
+          notify_webhooks: !!(s.webhooks?.configured && s.webhooks?.enabled),
+        }))
+      }
+    }).catch(() => setSummary(null))
+  }, [id])
 
   useEffect(() => {
     if (id) {
@@ -74,10 +92,26 @@ export default function MonitorForm() {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
+  const emailConfigured = !!summary?.email?.configured
+  const emailGlobalOn = !!(summary?.email?.configured && summary?.email?.enabled)
+  const slackConfigured = !!summary?.slack?.configured
+  const slackGlobalOn = !!(summary?.slack?.configured && summary?.slack?.enabled)
+  const webhooksConfigured = !!summary?.webhooks?.configured
+  const webhooksGlobalOn = !!(summary?.webhooks?.configured && summary?.webhooks?.enabled)
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
-    const payload = { ...form }
+    const payload: Partial<Monitor> = {
+      ...form,
+      notify_email: !!form.notify_email,
+      notify_slack: !!form.notify_slack,
+    }
+    if (isPlatformAdmin) {
+      payload.notify_webhooks = !!form.notify_webhooks
+    } else {
+      delete payload.notify_webhooks
+    }
     payload.tags = tagsInput.split(',').map(s => s.trim()).filter(Boolean)
     if (monitorType === 'dns') {
       payload.config = JSON.stringify({
@@ -282,9 +316,47 @@ export default function MonitorForm() {
             Send a DOWN alert after this many failed checks in a row, and wait for the same number of successful checks before RECOVERY (default 2). Only one DOWN email per outage.
           </p>
         </Field>
-        <Field label="Alert emails (comma-separated)">
-          <input value={form.alert_emails || ''} onChange={e => set('alert_emails', e.target.value)} className="input" />
-        </Field>
+
+        <div style={styles.notifyBox}>
+          <div style={styles.notifyTitle}>Notify via</div>
+          <p style={{ color: colors.textMuted, fontSize: 13, margin: '0 0 12px' }}>
+            Defaults follow Settings → Notifications. Turn a channel off to skip it for this monitor only.
+          </p>
+          <NotifyToggle
+            label="Email"
+            checked={!!form.notify_email}
+            disabled={!emailConfigured || !emailGlobalOn}
+            hint={!emailConfigured ? 'Not configured' : !emailGlobalOn ? 'Disabled globally' : undefined}
+            onChange={v => set('notify_email', v)}
+          />
+          {!!form.notify_email && emailGlobalOn && (
+            <Field label="Alert emails (comma-separated, optional)">
+              <input
+                value={form.alert_emails || ''}
+                onChange={e => set('alert_emails', e.target.value)}
+                className="input"
+                placeholder="Leave blank to use default recipients"
+              />
+            </Field>
+          )}
+          <NotifyToggle
+            label="Slack"
+            checked={!!form.notify_slack}
+            disabled={!slackConfigured || !slackGlobalOn}
+            hint={!slackConfigured ? 'Not configured' : !slackGlobalOn ? 'Disabled globally' : undefined}
+            onChange={v => set('notify_slack', v)}
+          />
+          {isPlatformAdmin && (
+            <NotifyToggle
+              label="Webhooks"
+              checked={!!form.notify_webhooks}
+              disabled={!webhooksConfigured || !webhooksGlobalOn}
+              hint={!webhooksConfigured ? 'Not configured' : !webhooksGlobalOn ? 'Disabled globally' : undefined}
+              onChange={v => set('notify_webhooks', v)}
+            />
+          )}
+        </div>
+
         <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input type="checkbox" checked={form.invert ?? false} onChange={e => set('invert', e.target.checked)} />
           Invert status (treat DOWN as UP — for monitoring unreachable hosts)
@@ -329,6 +401,60 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+function NotifyToggle({
+  label,
+  checked,
+  disabled,
+  hint,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  disabled?: boolean
+  hint?: string
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <label style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      marginBottom: 10,
+      opacity: disabled ? 0.55 : 1,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+    }}>
+      <span style={{ fontSize: 14 }}>
+        {label}
+        {hint && <span style={{ color: colors.textMuted, marginLeft: 8, fontSize: 12 }}>{hint}</span>}
+      </span>
+      <span style={styles.switch}>
+        <input
+          type="checkbox"
+          role="switch"
+          aria-checked={checked}
+          checked={checked}
+          disabled={disabled}
+          onChange={e => onChange(e.target.checked)}
+          style={styles.switchInput}
+        />
+        <span
+          aria-hidden
+          style={{
+            ...styles.switchTrack,
+            background: checked && !disabled ? colors.brand : colors.borderLight,
+          }}
+        >
+          <span style={{
+            ...styles.switchThumb,
+            transform: checked ? 'translateX(18px)' : 'translateX(0)',
+          }} />
+        </span>
+      </span>
+    </label>
+  )
+}
+
 const styles: Record<string, React.CSSProperties> = {
   form: {
     display: 'grid', gap: 20, maxWidth: 720, background: colors.card,
@@ -343,5 +469,41 @@ const styles: Record<string, React.CSSProperties> = {
   preset: {
     padding: '6px 14px', borderRadius: 20, border: `1px solid ${colors.border}`,
     background: colors.bgElevated, color: colors.brand, fontSize: 13,
+  },
+  notifyBox: {
+    border: `1px solid ${colors.border}`,
+    borderRadius: 10,
+    padding: 14,
+    background: colors.bgElevated || colors.card,
+  },
+  notifyTitle: { fontSize: 14, fontWeight: 600, marginBottom: 4 },
+  switch: { position: 'relative', display: 'inline-flex', width: 42, height: 24, flexShrink: 0 },
+  switchInput: {
+    position: 'absolute',
+    inset: 0,
+    margin: 0,
+    opacity: 0,
+    width: '100%',
+    height: '100%',
+    cursor: 'inherit',
+    zIndex: 1,
+  },
+  switchTrack: {
+    display: 'block',
+    width: 42,
+    height: 24,
+    borderRadius: 999,
+    padding: 3,
+    boxSizing: 'border-box',
+    transition: 'background 0.15s ease',
+  },
+  switchThumb: {
+    display: 'block',
+    width: 18,
+    height: 18,
+    borderRadius: '50%',
+    background: '#fff',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.35)',
+    transition: 'transform 0.15s ease',
   },
 }

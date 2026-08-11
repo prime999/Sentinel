@@ -76,6 +76,9 @@ type Monitor struct {
 	FollowRedirects     bool          `json:"follow_redirects"`
 	AlertEmails         string        `json:"alert_emails"`
 	Enabled             bool          `json:"enabled"`
+	NotifyEmail         bool          `json:"notify_email"`
+	NotifySlack         bool          `json:"notify_slack"`
+	NotifyWebhooks      bool          `json:"notify_webhooks"`
 	Invert              bool          `json:"invert"`
 	Tags                []string      `json:"tags"`
 	HeartbeatToken      string        `json:"heartbeat_token,omitempty"`

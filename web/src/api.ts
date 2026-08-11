@@ -21,6 +21,9 @@ export interface Monitor {
   follow_redirects: boolean
   alert_emails: string
   enabled: boolean
+  notify_email?: boolean
+  notify_slack?: boolean
+  notify_webhooks?: boolean
   invert?: boolean
   tags?: string[]
   heartbeat_token?: string

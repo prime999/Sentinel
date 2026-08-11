@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -300,11 +301,17 @@ func (s *Server) handleGetMonitor(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
-	var m models.Monitor
-	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		jsonError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
+	var m models.Monitor
+	if err := json.Unmarshal(body, &m); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	applyNotifyChannelDefaults(&m, body, true)
 	m.Enabled = true
 	if isCustomerAdmin(user) {
 		m.TenantID = user.TenantID
@@ -377,8 +384,13 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
 	var input models.Monitor
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	if err := json.Unmarshal(body, &input); err != nil {
 		jsonError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
@@ -409,6 +421,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	existing.FollowRedirects = input.FollowRedirects
 	existing.AlertEmails = input.AlertEmails
 	existing.Enabled = input.Enabled
+	applyNotifyChannelUpdate(existing, body)
 	existing.Invert = input.Invert
 	if input.AlertAfterFailures > 0 {
 		existing.AlertAfterFailures = input.AlertAfterFailures
@@ -737,4 +750,44 @@ func parseIncidentDayRange(r *http.Request) (from, to *time.Time, err error) {
 		return &start, &end, nil
 	}
 	return nil, nil, nil
+}
+
+type notifyChannelFlags struct {
+	NotifyEmail    *bool `json:"notify_email"`
+	NotifySlack    *bool `json:"notify_slack"`
+	NotifyWebhooks *bool `json:"notify_webhooks"`
+}
+
+func applyNotifyChannelDefaults(m *models.Monitor, body []byte, create bool) {
+	var flags notifyChannelFlags
+	_ = json.Unmarshal(body, &flags)
+	if flags.NotifyEmail != nil {
+		m.NotifyEmail = *flags.NotifyEmail
+	} else if create {
+		m.NotifyEmail = true
+	}
+	if flags.NotifySlack != nil {
+		m.NotifySlack = *flags.NotifySlack
+	} else if create {
+		m.NotifySlack = true
+	}
+	if flags.NotifyWebhooks != nil {
+		m.NotifyWebhooks = *flags.NotifyWebhooks
+	} else if create {
+		m.NotifyWebhooks = true
+	}
+}
+
+func applyNotifyChannelUpdate(existing *models.Monitor, body []byte) {
+	var flags notifyChannelFlags
+	_ = json.Unmarshal(body, &flags)
+	if flags.NotifyEmail != nil {
+		existing.NotifyEmail = *flags.NotifyEmail
+	}
+	if flags.NotifySlack != nil {
+		existing.NotifySlack = *flags.NotifySlack
+	}
+	if flags.NotifyWebhooks != nil {
+		existing.NotifyWebhooks = *flags.NotifyWebhooks
+	}
 }

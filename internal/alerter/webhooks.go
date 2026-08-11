@@ -102,12 +102,18 @@ func (a *Alerter) NotifyMonitorMeta(m *models.Monitor, meta AlertMeta) error {
 	}
 
 	var emailErr error
-	if err := a.sendAlertMeta(m, meta); err != nil {
-		emailErr = err
-		log.Printf("alerter: email %s for %s: %v", meta.Event, m.Name, err)
+	if m.NotifyEmail {
+		if err := a.sendAlertMeta(m, meta); err != nil {
+			emailErr = err
+			log.Printf("alerter: email %s for %s: %v", meta.Event, m.Name, err)
+		}
 	}
-	a.fireSlack(m.TenantID, meta)
-	a.fireWebhooks(meta.Event, payload)
+	if m.NotifySlack {
+		a.fireSlack(m.TenantID, meta)
+	}
+	if m.NotifyWebhooks {
+		a.fireWebhooks(meta.Event, payload)
+	}
 	return emailErr
 }
 

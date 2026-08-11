@@ -155,14 +155,35 @@ function EndpointCard({
           <h4 style={styles.endpointTitle}>{title}</h4>
           <p style={styles.endpointDesc}>{description}</p>
         </div>
-        <label style={styles.toggle}>
-          <input
-            type="checkbox"
-            checked={enabled}
-            disabled={busy || !configured}
-            onChange={e => onToggle(e.target.checked)}
-          />
-          <span>{enabled ? 'On' : 'Off'}</span>
+        <label style={{
+          ...styles.toggle,
+          opacity: busy || !configured ? 0.5 : 1,
+          cursor: busy || !configured ? 'not-allowed' : 'pointer',
+        }}>
+          <span style={styles.toggleLabel}>{enabled ? 'On' : 'Off'}</span>
+          <span style={styles.switch}>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-checked={enabled}
+              checked={enabled}
+              disabled={busy || !configured}
+              onChange={e => onToggle(e.target.checked)}
+              style={styles.switchInput}
+            />
+            <span
+              aria-hidden
+              style={{
+                ...styles.switchTrack,
+                background: enabled ? colors.brand : colors.borderLight,
+              }}
+            >
+              <span style={{
+                ...styles.switchThumb,
+                transform: enabled ? 'translateX(18px)' : 'translateX(0)',
+              }} />
+            </span>
+          </span>
         </label>
       </div>
       <div style={styles.endpointFooter}>
@@ -200,7 +221,37 @@ const styles: Record<string, React.CSSProperties> = {
   },
   endpointTitle: { margin: '0 0 6px', fontSize: 15, fontWeight: 600 },
   endpointDesc: { margin: 0, color: colors.textMuted, fontSize: 13, lineHeight: 1.45 },
-  toggle: { display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, whiteSpace: 'nowrap' },
+  toggle: { display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 13, whiteSpace: 'nowrap', userSelect: 'none' },
+  toggleLabel: { color: colors.textMuted, fontWeight: 500, minWidth: 22 },
+  switch: { position: 'relative', display: 'inline-flex', width: 42, height: 24, flexShrink: 0 },
+  switchInput: {
+    position: 'absolute',
+    inset: 0,
+    margin: 0,
+    opacity: 0,
+    width: '100%',
+    height: '100%',
+    cursor: 'inherit',
+    zIndex: 1,
+  },
+  switchTrack: {
+    display: 'block',
+    width: 42,
+    height: 24,
+    borderRadius: 999,
+    padding: 3,
+    boxSizing: 'border-box',
+    transition: 'background 0.15s ease',
+  },
+  switchThumb: {
+    display: 'block',
+    width: 18,
+    height: 18,
+    borderRadius: '50%',
+    background: '#fff',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.35)',
+    transition: 'transform 0.15s ease',
+  },
   endpointFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   badgeOk: {
     fontSize: 11, fontWeight: 600, color: colors.green,
