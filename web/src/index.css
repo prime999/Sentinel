@@ -338,8 +338,17 @@ select.input option {
   }
 }
 
-@media (max-width: 960px) {
-  .split-panels {
+/* Performance page: table + side rail */
+.performance-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  width: 100%;
+  align-items: start;
+}
+
+@media (max-width: 1280px) {
+  .performance-layout {
     grid-template-columns: 1fr;
   }
 }
