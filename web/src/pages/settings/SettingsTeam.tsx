@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { api, Customer, TeamMember, UserRole } from '../../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { roleLabel, useAuth } from '../../context/AuthContext'
 import { colors } from '../../theme'
@@ -10,6 +11,9 @@ type StatusFilter = 'all' | 'locked' | 'active'
 
 export default function SettingsTeam() {
   const { user: currentUser, isPlatformAdmin } = useAuth()
+  const colCount = isPlatformAdmin ? 5 : 4
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize(isPlatformAdmin ? 'team-5' : 'team-4', colCount)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [username, setUsername] = useState('')
@@ -272,22 +276,18 @@ export default function SettingsTeam() {
         ) : filtered.length === 0 ? (
           <p style={{ color: colors.textMuted }}>No users match the current filters.</p>
         ) : (
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
-              <colgroup>
-                <col style={{ width: '18%' }} />
-                <col style={{ width: '14%' }} />
-                {isPlatformAdmin && <col style={{ width: '18%' }} />}
-                <col style={{ width: '12%' }} />
-                <col style={{ width: isPlatformAdmin ? '38%' : '56%' }} />
-              </colgroup>
+          <div className="data-table-wrap" style={styles.tableWrap}>
+            <table ref={tableRef} className="data-table" style={styles.table}>
+              <ColGroup widths={widths} />
               <thead>
                 <tr>
-                  <th style={styles.th}>Username</th>
-                  <th style={styles.th}>Role</th>
-                  {isPlatformAdmin && <th style={styles.th}>Customer</th>}
-                  <th style={styles.th}>Status</th>
-                  <th style={{ ...styles.th, textAlign: 'right' }}>Actions</th>
+                  <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Username</ResizableTh>
+                  <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Role</ResizableTh>
+                  {isPlatformAdmin && (
+                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Customer</ResizableTh>
+                  )}
+                  <ResizableTh index={isPlatformAdmin ? 3 : 2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+                  <ResizableTh index={isPlatformAdmin ? 4 : 3} style={{ ...styles.th, textAlign: 'right' }} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Actions</ResizableTh>
                 </tr>
               </thead>
               <tbody>
@@ -610,13 +610,12 @@ const styles: Record<string, React.CSSProperties> = {
     flex: '0 1 150px',
     minWidth: 130,
   },
-  tableWrap: { overflowX: 'auto', width: '100%' },
+  tableWrap: { width: '100%' },
   table: {
     width: '100%',
     minWidth: 760,
     borderCollapse: 'separate',
     borderSpacing: 0,
-    tableLayout: 'fixed',
     fontSize: 14,
   },
   th: {
@@ -634,7 +633,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '14px 12px',
     borderBottom: `1px solid ${colors.border}`,
     verticalAlign: 'middle',
-    overflow: 'hidden',
   },
   tableSelect: {
     width: '100%',

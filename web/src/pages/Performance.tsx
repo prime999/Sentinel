@@ -4,6 +4,7 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api, FleetPerformance, PerformanceHealth, PerformanceTarget, ServicePerformance } from '../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
@@ -61,6 +62,8 @@ export default function Performance() {
   const [deleteTargetRow, setDeleteTargetRow] = useState<PerformanceTarget | null>(null)
   const [deleting, setDeleting] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('performance', 7)
 
   useEffect(() => {
     if (!isPlatformAdmin) return
@@ -280,26 +283,18 @@ export default function Performance() {
               </div>
             </div>
           ) : (
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
-                <colgroup>
-                  <col />
-                  <col style={{ width: 140 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 120 }} />
-                  <col style={{ width: 52 }} />
-                </colgroup>
+            <div className="data-table-wrap" style={styles.tableWrap}>
+              <table ref={tableRef} className="data-table" style={styles.table}>
+                <ColGroup widths={widths} />
                 <thead>
                   <tr>
-                    <th style={styles.th}>Target</th>
-                    <th style={styles.th}>Status</th>
-                    <th style={styles.th}>Latency</th>
-                    <th style={styles.th}>P95</th>
-                    <th style={styles.th}>SLA</th>
-                    <th style={styles.th}>Last Checked</th>
-                    <th style={{ ...styles.th, width: 52, paddingRight: 8 }} />
+                    <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Target</ResizableTh>
+                    <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Latency</ResizableTh>
+                    <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>P95</ResizableTh>
+                    <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>SLA</ResizableTh>
+                    <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Last Checked</ResizableTh>
+                    <ResizableTh index={6} style={{ ...styles.th, width: 52, paddingRight: 8 }} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                   </tr>
                 </thead>
                 <tbody>
@@ -548,10 +543,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: colors.card,
     border: `1px solid ${colors.border}`,
     borderRadius: colors.radius,
-    overflowX: 'auto',
-    overflowY: 'visible',
   },
-  table: { width: '100%', minWidth: 760, borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
   th: {
     textAlign: 'left',
     padding: '12px 16px',
@@ -581,8 +574,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tr: {},
   targetLink: { display: 'flex', flexDirection: 'column', gap: 2, textDecoration: 'none', color: colors.text, minWidth: 0 },
-  targetName: { fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  targetUrl: { fontSize: 12, color: colors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  targetName: { fontWeight: 600 },
+  targetUrl: { fontSize: 12, color: colors.textMuted },
   healthBadge: {
     display: 'inline-flex',
     alignItems: 'center',
