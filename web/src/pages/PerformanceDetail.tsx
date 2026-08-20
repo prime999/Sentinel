@@ -4,6 +4,7 @@ import {
   Area, AreaChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api, PerformanceResult, PerformanceStats, PerformanceTarget } from '../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
 import { useAuth } from '../context/AuthContext'
 import DatePicker from '../components/DatePicker'
 import MetricCard from '../components/MetricCard'
@@ -145,6 +146,8 @@ function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) 
   const [items, setItems] = useState<PerformanceResult[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('sla-log', 6)
 
   useEffect(() => {
     setPage(0)
@@ -205,16 +208,17 @@ function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) 
         )}
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={styles.table}>
+      <div className="data-table-wrap">
+        <table ref={tableRef} className="data-table" style={styles.table}>
+          <ColGroup widths={widths} />
           <thead>
             <tr>
-              <th style={styles.th}>Time</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Total</th>
-              <th style={styles.th}>Over SLA</th>
-              <th style={styles.th}>TTFB</th>
-              <th style={styles.th}>DNS</th>
+              <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Time</ResizableTh>
+              <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+              <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Total</ResizableTh>
+              <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Over SLA</ResizableTh>
+              <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>TTFB</ResizableTh>
+              <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>DNS</ResizableTh>
             </tr>
           </thead>
           <tbody>

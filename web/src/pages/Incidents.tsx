@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Incident, Monitor } from '../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
 import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import IncidentStatus from '../components/IncidentStatus'
 import { colors } from '../theme'
@@ -23,6 +24,8 @@ export default function Incidents() {
   const [openCount, setOpenCount] = useState(0)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('incidents', 6)
 
   useEffect(() => {
     api.monitors().then(setMonitors).catch(() => {})
@@ -104,23 +107,17 @@ export default function Incidents() {
         </div>
       ) : (
         <div style={styles.tableWrap}>
-          <table style={styles.table}>
-            <colgroup>
-              <col style={{ width: '18%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '28%' }} />
-              <col style={{ width: '16%' }} />
-              <col style={{ width: '16%' }} />
-              <col style={{ width: '12%' }} />
-            </colgroup>
+          <div className="data-table-wrap">
+          <table ref={tableRef} className="data-table" style={styles.table}>
+            <ColGroup widths={widths} />
             <thead>
               <tr>
-                <th style={styles.th}>Monitor</th>
-                <th style={styles.th}>Type</th>
-                <th style={styles.th}>Message</th>
-                <th style={styles.th}>Started</th>
-                <th style={styles.th}>Resolved</th>
-                <th style={styles.th}>Status</th>
+                <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Monitor</ResizableTh>
+                <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Type</ResizableTh>
+                <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Message</ResizableTh>
+                <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Started</ResizableTh>
+                <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Resolved</ResizableTh>
+                <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
               </tr>
             </thead>
             <tbody>
@@ -150,6 +147,7 @@ export default function Incidents() {
               )}
             </tbody>
           </table>
+          </div>
           {total > PAGE_SIZE && (
             <div style={styles.pager}>
               <button
@@ -190,8 +188,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '14px 16px',
     marginBottom: 20,
   },
-  tableWrap: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, overflow: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 },
+  tableWrap: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12 },
+  table: { width: '100%', fontSize: 14 },
   th: {
     textAlign: 'left',
     padding: '12px 16px',
@@ -208,9 +206,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '12px 16px',
     borderBottom: `1px solid ${colors.border}`,
     verticalAlign: 'middle',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
   },
   link: { color: colors.brand, textDecoration: 'none', fontWeight: 500 },
   type: { textTransform: 'uppercase', fontSize: 11, fontWeight: 700, color: colors.textMuted },

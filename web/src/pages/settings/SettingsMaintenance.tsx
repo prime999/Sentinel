@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import { api, MaintenanceWindow, Monitor } from '../../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { colors } from '../../theme'
 
@@ -13,6 +14,8 @@ export default function SettingsMaintenance() {
   const [error, setError] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('maintenance', 4)
 
   async function load() {
     const [w, m] = await Promise.all([api.listMaintenance(), api.monitors()])
@@ -86,8 +89,15 @@ export default function SettingsMaintenance() {
         {windows.length === 0 ? (
           <p style={styles.desc}>No maintenance windows scheduled.</p>
         ) : (
-          <table style={styles.table}>
-            <thead><tr><th>Name</th><th>Scope</th><th>Period</th><th></th></tr></thead>
+          <div className="data-table-wrap">
+          <table ref={tableRef} className="data-table" style={styles.table}>
+            <ColGroup widths={widths} />
+            <thead><tr>
+              <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Name</ResizableTh>
+              <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Scope</ResizableTh>
+              <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Period</ResizableTh>
+              <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
+            </tr></thead>
             <tbody>
               {windows.map(w => (
                 <tr key={w.id}>
@@ -99,6 +109,7 @@ export default function SettingsMaintenance() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

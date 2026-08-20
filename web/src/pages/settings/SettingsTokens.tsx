@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import { api, APIToken, APITokenCreated } from '../../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { colors } from '../../theme'
 
@@ -10,6 +11,8 @@ export default function SettingsTokens() {
   const [error, setError] = useState('')
   const [revokeId, setRevokeId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('tokens', 5)
 
   async function load() {
     setTokens(await api.listTokens())
@@ -69,15 +72,16 @@ export default function SettingsTokens() {
         {tokens.length === 0 ? (
           <p style={{ ...styles.desc, marginBottom: 0 }}>No API tokens yet.</p>
         ) : (
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
+          <div className="data-table-wrap" style={styles.tableWrap}>
+            <table ref={tableRef} className="data-table" style={styles.table}>
+              <ColGroup widths={widths} />
               <thead>
                 <tr>
-                  <th style={{ ...styles.th, width: '22%' }}>Name</th>
-                  <th style={{ ...styles.th, width: '18%' }}>Prefix</th>
-                  <th style={{ ...styles.th, width: '24%' }}>Created</th>
-                  <th style={{ ...styles.th, width: '24%' }}>Last used</th>
-                  <th style={{ ...styles.th, width: '12%', textAlign: 'right' }}>Actions</th>
+                  <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Name</ResizableTh>
+                  <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Prefix</ResizableTh>
+                  <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Created</ResizableTh>
+                  <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Last used</ResizableTh>
+                  <ResizableTh index={4} style={{ ...styles.th, textAlign: 'right' }} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Actions</ResizableTh>
                 </tr>
               </thead>
               <tbody>
@@ -129,8 +133,8 @@ const styles: Record<string, React.CSSProperties> = {
   card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 28 },
   title: { margin: '0 0 8px' },
   desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },
-  tableWrap: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 },
+  tableWrap: {},
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
   th: {
     textAlign: 'left',
     padding: '0 12px 12px',
@@ -145,9 +149,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '14px 12px',
     borderBottom: `1px solid ${colors.border}`,
     verticalAlign: 'middle',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
   },
   revokeBtn: {
     minHeight: 36,

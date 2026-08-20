@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, AuditEntry, AuditMeta } from '../../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import DatePicker from '../../components/DatePicker'
 import { colors } from '../../theme'
 
@@ -27,6 +28,8 @@ export default function SettingsAudit() {
   const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('audit', 5)
 
   useEffect(() => {
     api.listAuditMeta().then(setMeta).catch(() => {})
@@ -146,22 +149,16 @@ export default function SettingsAudit() {
         </p>
       ) : (
         <>
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
-              <colgroup>
-                <col style={{ width: '18%' }} />
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '16%' }} />
-                <col style={{ width: '42%' }} />
-              </colgroup>
+          <div className="data-table-wrap" style={styles.tableWrap}>
+            <table ref={tableRef} className="data-table" style={styles.table}>
+              <ColGroup widths={widths} />
               <thead>
                 <tr>
-                  <th style={styles.th}>Time</th>
-                  <th style={styles.th}>Actor</th>
-                  <th style={styles.th}>Action</th>
-                  <th style={styles.th}>Resource</th>
-                  <th style={styles.th}>Detail</th>
+                  <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Time</ResizableTh>
+                  <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Actor</ResizableTh>
+                  <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Action</ResizableTh>
+                  <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Resource</ResizableTh>
+                  <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Detail</ResizableTh>
                 </tr>
               </thead>
               <tbody>
@@ -252,11 +249,10 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   reset: { padding: '8px 12px', fontSize: 13 },
-  tableWrap: { overflowX: 'auto' },
+  tableWrap: {},
   table: {
     width: '100%',
     borderCollapse: 'collapse',
-    tableLayout: 'fixed',
     fontSize: 14,
   },
   th: {
@@ -275,9 +271,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '12px 14px',
     borderBottom: `1px solid ${colors.border}`,
     verticalAlign: 'middle',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
   },
   action: {
     textTransform: 'uppercase',

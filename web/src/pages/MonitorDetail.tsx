@@ -4,6 +4,7 @@ import {
   Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { api, CheckResult, DNSDetails, Incident, Monitor, MonitorStats, NotificationsSummary, PortDetails, SSLDetails } from '../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import IncidentStatus, { incidentStatusLabel } from '../components/IncidentStatus'
@@ -428,6 +429,8 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
   const [items, setItems] = useState<Incident[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('monitor-incidents', 5)
 
   useEffect(() => {
     setPage(0)
@@ -482,15 +485,16 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
           showMonitor={false}
         />
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={styles.table}>
+      <div className="data-table-wrap">
+        <table ref={tableRef} className="data-table" style={styles.table}>
+          <ColGroup widths={widths} />
           <thead>
             <tr>
-              <th style={styles.th}>Started</th>
-              <th style={styles.th}>Type</th>
-              <th style={styles.th}>Message</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Resolved</th>
+              <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Started</ResizableTh>
+              <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Type</ResizableTh>
+              <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Message</ResizableTh>
+              <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+              <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Resolved</ResizableTh>
             </tr>
           </thead>
           <tbody>

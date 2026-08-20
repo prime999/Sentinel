@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Incident, Monitor, MonitorStats } from '../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import DashboardRail from '../components/DashboardRail'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
@@ -63,6 +64,8 @@ export default function Monitors() {
   const [error, setError] = useState('')
   const [menuId, setMenuId] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('monitors', 7)
 
   async function load() {
     try {
@@ -295,17 +298,18 @@ export default function Monitors() {
               </div>
             </div>
           ) : (
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
+            <div className="data-table-wrap" style={styles.tableWrap}>
+              <table ref={tableRef} className="data-table" style={styles.table}>
+                <ColGroup widths={widths} />
                 <thead>
                   <tr>
-                    <th style={styles.th}>Monitor</th>
-                    <th style={styles.th}>Type</th>
-                    <th style={styles.th}>Status</th>
-                    <th style={styles.th}>Response Time</th>
-                    <th style={styles.th}>Uptime (30d)</th>
-                    <th style={styles.th}>Last Checked</th>
-                    <th style={{ ...styles.th, width: 48 }} />
+                    <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Monitor</ResizableTh>
+                    <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Type</ResizableTh>
+                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+                    <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Response Time</ResizableTh>
+                    <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Uptime (30d)</ResizableTh>
+                    <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Last Checked</ResizableTh>
+                    <ResizableTh index={6} style={{ ...styles.th, width: 48 }} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                   </tr>
                 </thead>
                 <tbody>
@@ -523,7 +527,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: colors.card,
     border: `1px solid ${colors.border}`,
     borderRadius: colors.radius,
-    overflow: 'auto',
   },
   table: {
     width: '100%',
@@ -560,10 +563,6 @@ const styles: Record<string, React.CSSProperties> = {
   monitorUrl: {
     fontSize: 12,
     color: colors.textMuted,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    maxWidth: 280,
   },
   responseCell: {
     display: 'flex',
