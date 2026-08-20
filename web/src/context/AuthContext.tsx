@@ -8,6 +8,7 @@ export interface AuthUser {
   name?: string
   role: UserRole
   email?: string
+  mfa_enabled?: boolean
   tenant_id?: string
 }
 

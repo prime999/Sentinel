@@ -220,6 +220,18 @@ func (a *Alerter) SendPasswordChangedEmail(to, username string) error {
 	return a.sendSMTP(to, subject, body)
 }
 
+func (a *Alerter) SendMFACodeEmail(to, username, code string) error {
+	if a.cfg.Host == "" {
+		return fmt.Errorf("SMTP not configured — configure email in Settings")
+	}
+	if to == "" {
+		return fmt.Errorf("no email address")
+	}
+	subject := "[Sentinel] Your Verification Code"
+	body := a.renderMFACodeEmail(username, code)
+	return a.sendSMTP(to, subject, body)
+}
+
 func (a *Alerter) SendTestEmail(to string) error {
 	if a.cfg.Host == "" {
 		return fmt.Errorf("SMTP not configured")
@@ -513,10 +525,10 @@ var emailTmpl = template.Must(template.New("email").Parse(`<!DOCTYPE html>
 </html>`))
 
 type emailData struct {
-	Title, Name, URL, Message, DashboardURL string
+	Title, Name, URL, Message, DashboardURL      string
 	Color, Field1Label, Field1Value, Field1Color string
-	Response, TimeLabel, TimeValue, Incident string
-	ShowMessage bool
+	Response, TimeLabel, TimeValue, Incident     string
+	ShowMessage                                  bool
 }
 
 func (a *Alerter) renderAlertEmail(meta AlertMeta) string {
@@ -591,6 +603,24 @@ func (a *Alerter) renderPasswordChangedEmail(username string) string {
 		"Username":     username,
 		"Time":         time.Now().UTC().Format(time.RFC1123),
 		"DashboardURL": strings.TrimRight(a.dashboardURL, "/") + "/login",
+	})
+	return buf.String()
+}
+
+var mfaCodeTmpl = template.Must(template.New("mfa").Parse(`<!DOCTYPE html>
+<html><body style="font-family:Arial,sans-serif;background:#f4f4f5;padding:20px;">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:24px;border:1px solid #e4e4e7;">
+  <h2 style="margin:0 0 8px;color:#18181b;">Your sign-in verification code</h2>
+  <p style="color:#71717a;">Hi {{.Username}}, use the code below to finish signing in to Sentinel. This code expires in 10 minutes.</p>
+  <div style="margin:24px 0;padding:16px 20px;border-radius:8px;background:#0f172a;color:#f8fafc;font-size:28px;font-weight:700;letter-spacing:0.3em;text-align:center;">{{.Code}}</div>
+  <p style="color:#71717a;">If you did not try to sign in, you can ignore this email.</p>
+</div></body></html>`))
+
+func (a *Alerter) renderMFACodeEmail(username, code string) string {
+	var buf bytes.Buffer
+	_ = mfaCodeTmpl.Execute(&buf, map[string]string{
+		"Username": username,
+		"Code":     code,
 	})
 	return buf.String()
 }

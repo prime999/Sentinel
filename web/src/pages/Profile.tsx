@@ -17,6 +17,7 @@ export default function Profile() {
   const [username, setUsername] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [mfaEnabled, setMFAEnabled] = useState(false)
   const [role, setRole] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -29,6 +30,7 @@ export default function Profile() {
       setUsername(p.username)
       setName(p.name || '')
       setEmail(p.email || '')
+      setMFAEnabled(!!p.mfa_enabled)
       setRole(p.role)
     }).catch(() => {})
   }, [])
@@ -46,6 +48,10 @@ export default function Profile() {
       setError('New password must be at least 8 characters and include a letter and a number')
       return
     }
+    if (mfaEnabled && !email.trim()) {
+      setError('Email is required to enable two-factor authentication')
+      return
+    }
 
     try {
       const updated = await api.updateProfile({
@@ -54,10 +60,12 @@ export default function Profile() {
         name: name.trim(),
         email: email.trim(),
         new_password: newPassword || undefined,
+        mfa_enabled: mfaEnabled,
       })
       setUsername(updated.username)
       setName(updated.name || '')
       setEmail(updated.email || '')
+      setMFAEnabled(!!updated.mfa_enabled)
       setRole(updated.role)
       setCurrentPassword('')
       setNewPassword('')
@@ -75,7 +83,7 @@ export default function Profile() {
   return (
     <div className="page">
       <h1 className="page-title">Profile</h1>
-      <p className="page-subtitle">Manage your account credentials and email for password recovery.</p>
+      <p className="page-subtitle">Manage your account credentials, recovery email, and sign-in security.</p>
 
       <div style={styles.headerCard}>
         <span style={styles.avatar}>{initials}</span>
@@ -128,7 +136,25 @@ export default function Profile() {
             placeholder="Used for password reset"
             autoComplete="email"
           />
+          <p style={{ color: colors.textMuted, fontSize: 12, margin: '8px 0 0' }}>
+            Required for password reset and email verification codes.
+          </p>
         </div>
+
+        <h3 style={{ ...styles.sectionTitle, marginTop: 28 }}>Two-Factor Authentication</h3>
+        <label style={styles.toggleRow}>
+          <input
+            type="checkbox"
+            checked={mfaEnabled}
+            onChange={e => setMFAEnabled(e.target.checked)}
+          />
+          <span>
+            <div style={{ fontWeight: 600 }}>Require an email verification code at sign-in</div>
+            <div style={{ color: colors.textMuted, fontSize: 13, marginTop: 4 }}>
+              Each login will require your password plus a one-time code sent to your account email.
+            </div>
+          </span>
+        </label>
 
         <h3 style={{ ...styles.sectionTitle, marginTop: 28 }}>Change Password</h3>
         <p style={{ color: colors.textMuted, fontSize: 13, margin: '0 0 16px' }}>
@@ -195,6 +221,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 12, padding: '28px 32px',
   },
   sectionTitle: { margin: '0 0 16px', fontSize: 15, fontWeight: 600 },
+  toggleRow: {
+    display: 'flex', alignItems: 'flex-start', gap: 12,
+    padding: '14px 0 4px',
+  },
   ok: {
     background: colors.greenDim, color: colors.green, padding: 12,
     borderRadius: 8, marginBottom: 16, maxWidth: 480,

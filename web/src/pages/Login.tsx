@@ -4,12 +4,17 @@ import { api } from '../api'
 import { colors } from '../theme'
 
 type Mode = 'login' | 'forgot'
+type LoginStep = 'credentials' | 'code'
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
   const [mode, setMode] = useState<Mode>('login')
+  const [step, setStep] = useState<LoginStep>('credentials')
   const [username, setUsername] = useState('admin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [challengeId, setChallengeId] = useState('')
+  const [emailHint, setEmailHint] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
@@ -19,10 +24,44 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     setError('')
     setMessage('')
     try {
-      await api.login(username, password)
+      const res = await api.login(username, password)
+      if (res.mfa_required && res.challenge_id) {
+        setChallengeId(res.challenge_id)
+        setEmailHint(res.email_hint || '')
+        setCode('')
+        setStep('code')
+        setMessage(res.message || 'Verification code sent to your email.')
+        return
+      }
       onLogin()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
+    }
+  }
+
+  async function handleVerifyCode(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    try {
+      const res = await api.verifyMFALogin(challengeId, code.trim())
+      if (res.ok) {
+        onLogin()
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification failed')
+    }
+  }
+
+  async function handleResendCode() {
+    setError('')
+    try {
+      const res = await api.resendMFALogin(challengeId)
+      if (res.challenge_id) setChallengeId(res.challenge_id)
+      if (res.email_hint) setEmailHint(res.email_hint)
+      setCode('')
+      setMessage(res.message || 'A new verification code was sent.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend code')
     }
   }
 
@@ -48,17 +87,21 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         <h1 style={styles.hero}>Sentinel</h1>
         <p style={styles.tagline}>Self-hosted infrastructure monitoring for websites, ports, SSL, and DNS.</p>
       </div>
-      <form onSubmit={mode === 'login' ? handleLogin : handleForgot} style={styles.card}>
+      <form onSubmit={mode === 'login' ? (step === 'credentials' ? handleLogin : handleVerifyCode) : handleForgot} style={styles.card}>
         <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>
-          {mode === 'login' ? 'Sign in' : 'Reset password'}
+          {mode === 'login' ? (step === 'credentials' ? 'Sign in' : 'Verify sign-in') : 'Reset password'}
         </h2>
         <p style={{ color: colors.textMuted, margin: '0 0 24px', fontSize: 14 }}>
-          {mode === 'login'
+          {mode === 'login' && step === 'code'
+            ? `Enter the verification code sent to ${emailHint || 'your email address'}.`
+            : mode === 'login'
             ? 'Access your monitoring dashboard'
             : 'Enter your email address and we will send you a reset link.'}
         </p>
+        {message && <div style={styles.ok}>{message}</div>}
         {error && <div style={styles.error}>{error}</div>}
         {mode === 'login' ? (
+          step === 'credentials' ? (
           <>
             <label className="field">
               <span className="field-label">Username</span>
@@ -72,6 +115,41 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
               Sign in
             </button>
           </>
+          ) : (
+          <>
+            <label className="field">
+              <span className="field-label">Verification Code</span>
+              <input
+                className="input"
+                value={code}
+                onChange={e => setCode(e.target.value.toUpperCase())}
+                required
+                autoFocus
+                placeholder="Enter 8-character code"
+              />
+            </label>
+            <button type="submit" className="btn btn-primary" style={{ marginTop: 24, width: '100%', justifyContent: 'center', padding: 12 }}>
+              Verify and sign in
+            </button>
+            <button type="button" className="btn" style={{ marginTop: 12, width: '100%', justifyContent: 'center' }} onClick={handleResendCode}>
+              Resend code
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={{ marginTop: 12, width: '100%', justifyContent: 'center', fontSize: 13 }}
+              onClick={() => {
+                setStep('credentials')
+                setChallengeId('')
+                setCode('')
+                setMessage('')
+                setError('')
+              }}
+            >
+              Back to password
+            </button>
+          </>
+          )
         ) : message ? (
           <div style={styles.ok}>{message}</div>
         ) : (
@@ -91,9 +169,12 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
           style={{ marginTop: 12, width: '100%', justifyContent: 'center', fontSize: 13 }}
           onClick={() => {
             setMode(mode === 'login' ? 'forgot' : 'login')
+            setStep('credentials')
             setError('')
             setMessage('')
             setSent(false)
+            setCode('')
+            setChallengeId('')
           }}
         >
           {mode === 'login' ? 'Forgot password?' : 'Back to sign in'}
