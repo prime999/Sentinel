@@ -109,12 +109,45 @@ func roleLabel(role models.UserRole) string {
 }
 
 func redactMonitor(m *models.Monitor, u *models.User) {
-	if m == nil || isPlatformAdmin(u) {
+	if m == nil {
+		return
+	}
+	sanitizeMonitorHTTPAuth(m, u)
+	if isPlatformAdmin(u) {
 		return
 	}
 	m.HeartbeatToken = ""
 	m.RequestHeaders = ""
 	m.RequestBody = ""
+}
+
+func sanitizeMonitorHTTPAuth(m *models.Monitor, u *models.User) {
+	if m == nil {
+		return
+	}
+	m.HTTPAuthSet = strings.TrimSpace(m.HTTPUsername) != "" || m.HTTPPassword != ""
+	m.HTTPPassword = ""
+	if u != nil && u.Role == models.RoleViewer {
+		m.HTTPUsername = ""
+	}
+}
+
+func applyHTTPAuthUpdate(existing, input *models.Monitor) {
+	if existing == nil || input == nil {
+		return
+	}
+	user := strings.TrimSpace(input.HTTPUsername)
+	pass := input.HTTPPassword
+	if user == "" {
+		existing.HTTPUsername = ""
+		existing.HTTPPassword = ""
+		return
+	}
+	existing.HTTPUsername = user
+	if pass == "" || strings.HasPrefix(pass, "****") {
+		return
+	}
+	existing.HTTPPassword = pass
 }
 
 func redactPerformanceTarget(t *models.PerformanceTarget, u *models.User) {

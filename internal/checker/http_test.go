@@ -5,12 +5,56 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/sentinel-monitoring/sentinel/internal/models"
 )
+
+func TestApplyHTTPRequestHeadersDefaultUserAgent(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "https://example.com/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyHTTPRequestHeaders(req, "")
+	if got := req.Header.Get("User-Agent"); got != defaultHTTPUserAgent {
+		t.Fatalf("User-Agent=%q want %q", got, defaultHTTPUserAgent)
+	}
+}
+
+func TestApplyHTTPRequestHeadersCustomUserAgentOverrides(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "https://example.com/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyHTTPRequestHeaders(req, "User-Agent: CustomBot/9.9\nX-Test: 1")
+	if got := req.Header.Get("User-Agent"); got != "CustomBot/9.9" {
+		t.Fatalf("User-Agent=%q want CustomBot/9.9", got)
+	}
+	if got := req.Header.Get("X-Test"); got != "1" {
+		t.Fatalf("X-Test=%q", got)
+	}
+}
+
+func TestDefaultHTTPUserAgentIsProductionShaped(t *testing.T) {
+	if defaultHTTPUserAgent != "Sentinel/1.0 (compatible; Health-Check)" {
+		t.Fatalf("UA=%q", defaultHTTPUserAgent)
+	}
+	if !strings.HasPrefix(defaultHTTPUserAgent, "Sentinel/") {
+		t.Fatalf("UA should start with Sentinel/: %q", defaultHTTPUserAgent)
+	}
+	if !strings.Contains(defaultHTTPUserAgent, "compatible") {
+		t.Fatalf("UA should include compatible token: %q", defaultHTTPUserAgent)
+	}
+	if !strings.Contains(defaultHTTPUserAgent, "Health-Check") {
+		t.Fatalf("UA should include Health-Check purpose: %q", defaultHTTPUserAgent)
+	}
+	if strings.Contains(defaultHTTPUserAgent, "github.com") {
+		t.Fatalf("UA must not include github URL: %q", defaultHTTPUserAgent)
+	}
+}
 
 func TestIsTimeoutErr(t *testing.T) {
 	if !isTimeoutErr(context.DeadlineExceeded) {
@@ -133,6 +177,32 @@ func TestTimingInfoReachedHost(t *testing.T) {
 	connected := timingInfo{connectDone: time.Now()}
 	if !connected.reachedHost() {
 		t.Fatal("connectDone should count as reached")
+	}
+}
+
+func TestApplyHTTPBasicAuth(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "https://example.com/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyHTTPRequestHeaders(req, "")
+	applyHTTPBasicAuth(req, &models.Monitor{HTTPUsername: "alice", HTTPPassword: "s3cret"})
+	user, pass, ok := req.BasicAuth()
+	if !ok || user != "alice" || pass != "s3cret" {
+		t.Fatalf("basic auth user=%q pass=%q ok=%v", user, pass, ok)
+	}
+}
+
+func TestApplyHTTPBasicAuthOverridesCustomAuthorizationHeader(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "https://example.com/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyHTTPRequestHeaders(req, "Authorization: Bearer skip-me")
+	applyHTTPBasicAuth(req, &models.Monitor{HTTPUsername: "bob", HTTPPassword: "pw"})
+	user, pass, ok := req.BasicAuth()
+	if !ok || user != "bob" || pass != "pw" {
+		t.Fatalf("basic auth user=%q pass=%q ok=%v", user, pass, ok)
 	}
 }
 

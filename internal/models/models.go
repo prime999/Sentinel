@@ -70,6 +70,9 @@ type Monitor struct {
 	KeywordMustNotExist string        `json:"keyword_must_not_exist"`
 	RequestBody         string        `json:"request_body"`
 	RequestHeaders      string        `json:"request_headers"`
+	HTTPUsername        string        `json:"http_username,omitempty"`
+	HTTPPassword        string        `json:"http_password,omitempty"`
+	HTTPAuthSet         bool          `json:"http_auth_set,omitempty"`
 	IntervalSeconds     int           `json:"interval_seconds"`
 	TimeoutMs           int           `json:"timeout_ms"`
 	SlowThresholdMs     int           `json:"slow_threshold_ms"`
