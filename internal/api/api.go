@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -21,6 +22,7 @@ import (
 type Server struct {
 	store        *store.Store
 	alerter      *alerter.Alerter
+	sendMFACode  func(to, username, code string) error
 	defaultSMTP  models.SMTPConfig
 	dashboardURL string
 	mux          *http.ServeMux
@@ -34,6 +36,7 @@ func New(s *store.Store, a *alerter.Alerter, cfg *config.Config) *Server {
 	srv := &Server{
 		store:        s,
 		alerter:      a,
+		sendMFACode:  a.SendMFACodeEmail,
 		defaultSMTP:  cfg.SMTP,
 		dashboardURL: cfg.Server.DashboardURL,
 		mux:          http.NewServeMux(),
@@ -51,6 +54,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
 	s.mux.HandleFunc("POST /api/auth/login", s.handleLogin)
 	s.mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
+	s.mux.HandleFunc("POST /api/auth/mfa/verify", s.handleVerifyMFALogin)
+	s.mux.HandleFunc("POST /api/auth/mfa/resend", s.handleResendMFALogin)
 	s.mux.HandleFunc("POST /api/auth/forgot-password", s.handleForgotPassword)
 	s.mux.HandleFunc("POST /api/auth/reset-password", s.handleResetPassword)
 
@@ -192,15 +197,36 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	s.limits.Clear(failKey)
 
-	sessionID, err := randomToken(32)
-	if err != nil {
+	if user.MFAEnabled {
+		if err := s.beginMFALogin(w, r, user); err != nil {
+			switch {
+			case errors.Is(err, errMFATooManyIssues):
+				jsonError(w, http.StatusTooManyRequests, err.Error())
+			case errors.Is(err, errMFAEmailRequired), errors.Is(err, errMFADeliveryUnavailable):
+				jsonError(w, http.StatusBadRequest, err.Error())
+			default:
+				jsonError(w, http.StatusInternalServerError, "could not start verification")
+			}
+			return
+		}
+		return
+	}
+
+	if err := s.completeLogin(w, r, user); err != nil {
 		jsonError(w, http.StatusInternalServerError, "session error")
 		return
 	}
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, user *models.User) error {
+	sessionID, err := randomToken(32)
+	if err != nil {
+		return err
+	}
 	expires := time.Now().UTC().Add(24 * time.Hour)
 	if err := s.store.CreateSession(sessionID, user.ID, expires); err != nil {
-		jsonError(w, http.StatusInternalServerError, "session error")
-		return
+		return err
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -212,7 +238,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expires,
 	})
-	jsonOK(w, map[string]bool{"ok": true})
+	return nil
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {

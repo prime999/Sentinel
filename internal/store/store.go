@@ -98,6 +98,9 @@ func (s *Store) migrate() error {
 	if err := s.migrateV16(); err != nil {
 		return fmt.Errorf("run v16 migrations: %w", err)
 	}
+	if err := s.migrateV17(); err != nil {
+		return fmt.Errorf("run v17 migrations: %w", err)
+	}
 	return nil
 }
 

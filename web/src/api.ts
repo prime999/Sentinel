@@ -195,8 +195,17 @@ export interface Profile {
   username: string
   name: string
   email: string
+  mfa_enabled: boolean
   role: UserRole
   tenant_id?: string
+}
+
+export interface LoginResponse {
+  ok: boolean
+  mfa_required?: boolean
+  challenge_id?: string
+  email_hint?: string
+  message?: string
 }
 
 export interface Customer {
@@ -239,6 +248,7 @@ export interface UpdateProfileRequest {
   name?: string
   email?: string
   new_password?: string
+  mfa_enabled?: boolean
 }
 
 export interface OrgSettings {
@@ -373,9 +383,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   login: (username: string, password: string) =>
-    request<{ ok: boolean }>('/api/auth/login', {
+    request<LoginResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
+    }),
+  verifyMFALogin: (challenge_id: string, code: string) =>
+    request<LoginResponse>('/api/auth/mfa/verify', {
+      method: 'POST',
+      body: JSON.stringify({ challenge_id, code }),
+    }),
+  resendMFALogin: (challenge_id: string) =>
+    request<LoginResponse>('/api/auth/mfa/resend', {
+      method: 'POST',
+      body: JSON.stringify({ challenge_id }),
     }),
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   forgotPassword: (email: string) =>
