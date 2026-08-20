@@ -6,6 +6,7 @@ Sentinel is a lightweight, self-hosted monitoring tool for Linux servers. Monito
 
 ### HTTP/HTTPS
 - GET, POST, HEAD checks with status code and keyword validation
+- HTTP Basic Auth (htpasswd) for protected sites
 - Response time with DNS, TCP, TLS, and TTFB breakdown
 - Slowness detection and SMTP alerts (down, slow, recovery)
 

@@ -17,6 +17,9 @@ import (
 	"github.com/sentinel-monitoring/sentinel/internal/safehost"
 )
 
+// defaultHTTPUserAgent identifies Sentinel probes in customer access logs.
+const defaultHTTPUserAgent = "Sentinel/1.0 (compatible; Health-Check)"
+
 type timingInfo struct {
 	dnsStart, dnsDone         time.Time
 	connectStart, connectDone time.Time
@@ -100,18 +103,8 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 		return result
 	}
 
-	if m.RequestHeaders != "" {
-		for _, line := range strings.Split(m.RequestHeaders, "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) == 2 {
-				req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
-			}
-		}
-	}
+	applyHTTPRequestHeaders(req, m.RequestHeaders)
+	applyHTTPBasicAuth(req, m)
 
 	// Rely on request context for deadline — Client.Timeout doubles the same budget
 	// and produces opaque "context deadline exceeded" failures on slow-but-up sites.
@@ -132,6 +125,7 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 			if err := safehost.ValidateHTTPURL(req.URL.String()); err != nil {
 				return err
 			}
+			applyHTTPBasicAuth(req, m)
 			return nil
 		},
 	}
@@ -151,6 +145,10 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	result.StatusCode = &code
 
 	if !statusMatches(m, code) {
+		if hasHTTPBasicAuth(m) && code == http.StatusUnauthorized {
+			result.Error = "HTTP basic authentication failed (401 Unauthorized)"
+			return result
+		}
 		result.Error = fmt.Sprintf("expected status %s, got %d", expectedStatusLabel(m), code)
 		return result
 	}
@@ -183,6 +181,36 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	// Uptime monitors are up/down only. Latency warnings belong to performance targets.
 	result.Status = models.StatusUp
 	return result
+}
+
+// applyHTTPRequestHeaders sets the branded default User-Agent, then applies
+// optional monitor custom headers (which may override User-Agent).
+func applyHTTPRequestHeaders(req *http.Request, custom string) {
+	req.Header.Set("User-Agent", defaultHTTPUserAgent)
+	if custom == "" {
+		return
+	}
+	for _, line := range strings.Split(custom, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) == 2 {
+			req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+}
+
+func hasHTTPBasicAuth(m *models.Monitor) bool {
+	return m != nil && strings.TrimSpace(m.HTTPUsername) != ""
+}
+
+func applyHTTPBasicAuth(req *http.Request, m *models.Monitor) {
+	if req == nil || !hasHTTPBasicAuth(m) {
+		return
+	}
+	req.SetBasicAuth(m.HTTPUsername, m.HTTPPassword)
 }
 
 func hasKeywordRules(m *models.Monitor) bool {

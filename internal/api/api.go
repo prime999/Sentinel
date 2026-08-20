@@ -359,6 +359,7 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.store.InsertAudit(user.Username, "create", "monitor", m.Name)
 	w.WriteHeader(http.StatusCreated)
+	redactMonitor(&m, user)
 	jsonOK(w, m)
 }
 
@@ -411,6 +412,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 	existing.KeywordMustNotExist = input.KeywordMustNotExist
 	existing.RequestBody = input.RequestBody
 	existing.RequestHeaders = input.RequestHeaders
+	applyHTTPAuthUpdate(existing, &input)
 	if input.IntervalSeconds < 30 {
 		existing.IntervalSeconds = 30
 	} else {
@@ -457,6 +459,7 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.store.InsertAudit(user.Username, "update", "monitor", existing.Name)
+	redactMonitor(existing, user)
 	jsonOK(w, existing)
 }
 

@@ -15,6 +15,9 @@ export interface Monitor {
   keyword_must_not_exist: string
   request_body: string
   request_headers: string
+  http_username?: string
+  http_password?: string
+  http_auth_set?: boolean
   interval_seconds: number
   timeout_ms: number
   slow_threshold_ms: number

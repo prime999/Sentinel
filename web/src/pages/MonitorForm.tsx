@@ -225,6 +225,30 @@ export default function MonitorForm() {
             <Field label="Keyword must not exist">
               <input value={form.keyword_must_not_exist || ''} onChange={e => set('keyword_must_not_exist', e.target.value)} className="input" />
             </Field>
+            <div style={styles.row}>
+              <Field label="HTTP Basic Auth username">
+                <input
+                  autoComplete="off"
+                  value={form.http_username || ''}
+                  onChange={e => set('http_username', e.target.value)}
+                  className="input"
+                  placeholder="Optional — htpasswd user"
+                />
+              </Field>
+              <Field label="HTTP Basic Auth password">
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={form.http_password || ''}
+                  onChange={e => set('http_password', e.target.value)}
+                  className="input"
+                  placeholder={form.http_auth_set ? 'Leave blank to keep current password' : 'Optional'}
+                />
+              </Field>
+            </div>
+            <p style={{ color: colors.textMuted, fontSize: 13, margin: '-8px 0 12px' }}>
+              Sent as an Authorization header for htpasswd-protected sites. Clear the username to disable.
+            </p>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <input type="checkbox" checked={form.follow_redirects ?? true} onChange={e => set('follow_redirects', e.target.checked)} />
               Follow redirects
