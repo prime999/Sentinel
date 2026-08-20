@@ -167,7 +167,7 @@ export default function Performance() {
         onConfirm={confirmDelete}
         onCancel={() => { if (!deleting) setDeleteTargetRow(null) }}
       />
-      <div style={styles.layout}>
+          <div className="performance-layout">
         <div style={styles.main}>
           <div style={styles.topBar}>
             <div>
@@ -283,13 +283,13 @@ export default function Performance() {
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <colgroup>
-                  <col style={{ width: '28%' }} />
-                  <col style={{ width: '14%' }} />
-                  <col style={{ width: '14%' }} />
-                  <col style={{ width: '12%' }} />
-                  <col style={{ width: '12%' }} />
-                  <col style={{ width: '14%' }} />
-                  <col style={{ width: '48px' }} />
+                  <col />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 120 }} />
+                  <col style={{ width: 52 }} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -299,7 +299,7 @@ export default function Performance() {
                     <th style={styles.th}>P95</th>
                     <th style={styles.th}>SLA</th>
                     <th style={styles.th}>Last Checked</th>
-                    <th style={{ ...styles.th, width: 48 }} />
+                    <th style={{ ...styles.th, width: 52, paddingRight: 8 }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -324,7 +324,7 @@ export default function Performance() {
                             {healthLabel(health)}
                           </span>
                         </td>
-                        <td style={styles.td}>
+                        <td style={{ ...styles.td, ...styles.numTd }}>
                           <span style={{
                             fontWeight: 600,
                             color: health === 'good' || health === 'collecting' ? colors.text : colors.yellow,
@@ -332,16 +332,16 @@ export default function Performance() {
                             {typeof ms === 'number' ? `${ms} ms` : '—'}
                           </span>
                         </td>
-                        <td style={styles.td}>
+                        <td style={{ ...styles.td, ...styles.numTd }}>
                           {svc?.has_data ? `${svc.p95_ms} ms` : '—'}
                         </td>
-                        <td style={{ ...styles.td, color: colors.textMuted }}>
+                        <td style={{ ...styles.td, ...styles.numTd, color: colors.textMuted }}>
                           {t.slow_threshold_ms} ms
                         </td>
-                        <td style={{ ...styles.td, color: colors.textMuted }}>
+                        <td style={{ ...styles.td, ...styles.numTd, color: colors.textMuted }}>
                           {t.last_checked_at ? timeAgo(t.last_checked_at) : 'Waiting'}
                         </td>
-                        <td style={styles.td}>
+                        <td style={{ ...styles.td, ...styles.actionsTd }}>
                           <div style={{ position: 'relative' }} ref={menuId === t.id ? menuRef : undefined}>
                             <button
                               type="button"
@@ -469,13 +469,7 @@ export default function Performance() {
 
 const styles: Record<string, React.CSSProperties> = {
   page: { maxWidth: '100%' },
-  layout: {
-    display: 'flex',
-    gap: 24,
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
-  },
-  main: { flex: '1 1 560px', minWidth: 0 },
+  main: { minWidth: 0 },
   topBar: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -554,9 +548,10 @@ const styles: Record<string, React.CSSProperties> = {
     background: colors.card,
     border: `1px solid ${colors.border}`,
     borderRadius: colors.radius,
-    overflow: 'auto',
+    overflowX: 'auto',
+    overflowY: 'visible',
   },
-  table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 },
+  table: { width: '100%', minWidth: 760, borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 },
   th: {
     textAlign: 'left',
     padding: '12px 16px',
@@ -573,6 +568,16 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '14px 16px',
     borderBottom: `1px solid ${colors.border}`,
     verticalAlign: 'middle',
+  },
+  numTd: {
+    whiteSpace: 'nowrap',
+  },
+  actionsTd: {
+    width: 52,
+    paddingLeft: 4,
+    paddingRight: 8,
+    whiteSpace: 'nowrap',
+    overflow: 'visible',
   },
   tr: {},
   targetLink: { display: 'flex', flexDirection: 'column', gap: 2, textDecoration: 'none', color: colors.text, minWidth: 0 },
@@ -638,7 +643,7 @@ const styles: Record<string, React.CSSProperties> = {
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
   rail: {
     width: 300,
-    flex: '0 0 300px',
+    minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
     gap: 16,
