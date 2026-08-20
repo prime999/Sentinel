@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -25,9 +26,8 @@ const (
 )
 
 var (
-	errMFAEmailRequired       = errors.New("mfa email required")
-	errMFADeliveryUnavailable = errors.New("mfa delivery unavailable")
-	errMFATooManyIssues       = errors.New("too many verification emails, try again later")
+	errMFAEmailRequired = errors.New("mfa email required")
+	errMFATooManyIssues = errors.New("too many verification emails, try again later")
 )
 
 type loginResponse struct {
@@ -86,6 +86,17 @@ func max(a, b int) int {
 	return b
 }
 
+func (s *Server) dispatchMFACode(to, username, code string) {
+	if s.sendMFACode == nil {
+		return
+	}
+	go func() {
+		if err := s.sendMFACode(to, username, code); err != nil {
+			log.Printf("mfa code email: %v", err)
+		}
+	}()
+}
+
 func generateMFACode(n int) (string, error) {
 	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	if n <= 0 {
@@ -106,9 +117,6 @@ func (s *Server) beginMFALogin(w http.ResponseWriter, r *http.Request, user *mod
 	if strings.TrimSpace(user.Email) == "" {
 		return errMFAEmailRequired
 	}
-	if s.sendMFACode == nil {
-		return errMFADeliveryUnavailable
-	}
 	if !s.limits.Allow(mfaIssueKey(user.Username), mfaIssueLimit, mfaIssueWindow) {
 		return errMFATooManyIssues
 	}
@@ -123,16 +131,13 @@ func (s *Server) beginMFALogin(w http.ResponseWriter, r *http.Request, user *mod
 	if err := s.store.CreateMFALoginChallenge(user.ID, challengeID, hashMFACode(code), time.Now().UTC().Add(mfaCodeTTL), mfaCodeMaxAttempts); err != nil {
 		return err
 	}
-	if err := s.sendMFACode(user.Email, user.Username, code); err != nil {
-		_ = s.store.DeleteMFALoginChallenge(challengeID)
-		return errMFADeliveryUnavailable
-	}
+	s.dispatchMFACode(user.Email, user.Username, code)
 	jsonOK(w, loginResponse{
 		OK:          false,
 		MFARequired: true,
 		ChallengeID: challengeID,
 		EmailHint:   maskEmail(user.Email),
-		Message:     "Verification code sent to your email.",
+		Message:     "Check your email for a verification code.",
 	})
 	return nil
 }
@@ -243,16 +248,12 @@ func (s *Server) handleResendMFALogin(w http.ResponseWriter, r *http.Request) {
 		jsonInternal(w, err)
 		return
 	}
-	if err := s.sendMFACode(user.Email, user.Username, code); err != nil {
-		_ = s.store.DeleteMFALoginChallenge(newID)
-		jsonError(w, http.StatusBadRequest, "mfa delivery unavailable")
-		return
-	}
+	s.dispatchMFACode(user.Email, user.Username, code)
 	jsonOK(w, loginResponse{
 		OK:          false,
 		MFARequired: true,
 		ChallengeID: newID,
 		EmailHint:   maskEmail(user.Email),
-		Message:     "A new verification code was sent.",
+		Message:     "A new verification code is on its way.",
 	})
 }
