@@ -10,12 +10,13 @@ import (
 )
 
 type profileResponse struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
-	TenantID string `json:"tenant_id,omitempty"`
+	ID         string `json:"id"`
+	Username   string `json:"username"`
+	Name       string `json:"name"`
+	Email      string `json:"email"`
+	MFAEnabled bool   `json:"mfa_enabled"`
+	Role       string `json:"role"`
+	TenantID   string `json:"tenant_id,omitempty"`
 }
 
 type updateProfileRequest struct {
@@ -24,17 +25,19 @@ type updateProfileRequest struct {
 	Name            string `json:"name"`
 	Email           string `json:"email"`
 	NewPassword     string `json:"new_password"`
+	MFAEnabled      *bool  `json:"mfa_enabled"`
 }
 
 func (s *Server) handleGetProfile(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	jsonOK(w, profileResponse{
-		ID:       user.ID,
-		Username: user.Username,
-		Name:     user.Name,
-		Email:    user.Email,
-		Role:     string(user.Role),
-		TenantID: user.TenantID,
+		ID:         user.ID,
+		Username:   user.Username,
+		Name:       user.Name,
+		Email:      user.Email,
+		MFAEnabled: user.MFAEnabled,
+		Role:       string(user.Role),
+		TenantID:   user.TenantID,
 	})
 }
 
@@ -67,10 +70,17 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(req.Name)
 	email := strings.TrimSpace(req.Email)
 
-	updated, err := s.store.UpdateOwnProfile(fresh.ID, username, name, email, req.NewPassword)
+	updated, err := s.store.UpdateOwnProfile(fresh.ID, username, name, email, req.NewPassword, req.MFAEnabled)
 	if err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+	if req.MFAEnabled != nil && fresh.MFAEnabled != updated.MFAEnabled {
+		action := "disable"
+		if updated.MFAEnabled {
+			action = "enable"
+		}
+		_ = s.store.InsertAudit(updated.Username, action, "mfa", "profile")
 	}
 	if req.NewPassword != "" {
 		to, uname := updated.Email, updated.Username
@@ -82,11 +92,12 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonOK(w, profileResponse{
-		ID:       updated.ID,
-		Username: updated.Username,
-		Name:     updated.Name,
-		Email:    updated.Email,
-		Role:     string(updated.Role),
-		TenantID: updated.TenantID,
+		ID:         updated.ID,
+		Username:   updated.Username,
+		Name:       updated.Name,
+		Email:      updated.Email,
+		MFAEnabled: updated.MFAEnabled,
+		Role:       string(updated.Role),
+		TenantID:   updated.TenantID,
 	})
 }

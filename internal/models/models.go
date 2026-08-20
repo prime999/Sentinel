@@ -39,11 +39,11 @@ const (
 type IncidentType string
 
 const (
-	IncidentDown      IncidentType = "down"
-	IncidentSlow      IncidentType = "slow"
-	IncidentRecovery  IncidentType = "recovery"
-	IncidentSSLExpiry IncidentType = "ssl_expiry"
-	IncidentDNSChange IncidentType = "dns_change"
+	IncidentDown       IncidentType = "down"
+	IncidentSlow       IncidentType = "slow"
+	IncidentRecovery   IncidentType = "recovery"
+	IncidentSSLExpiry  IncidentType = "ssl_expiry"
+	IncidentDNSChange  IncidentType = "dns_change"
 	IncidentCertChange IncidentType = "cert_change"
 )
 
@@ -95,23 +95,23 @@ type Monitor struct {
 }
 
 type PerformanceTarget struct {
-	ID               string        `json:"id"`
-	Name             string        `json:"name"`
-	URL              string        `json:"url"`
-	Method           string        `json:"method"`
-	IntervalSeconds  int           `json:"interval_seconds"`
-	TimeoutMs        int           `json:"timeout_ms"`
-	SlowThresholdMs  int           `json:"slow_threshold_ms"`
-	FollowRedirects  bool          `json:"follow_redirects"`
-	Enabled          bool          `json:"enabled"`
-	AlertEmails      string        `json:"alert_emails"`
-	TenantID         string        `json:"tenant_id,omitempty"`
-	AlertAfterSlow   int           `json:"alert_after_slow"`
-	ConsecutiveSlow  int           `json:"consecutive_slow"`
-	LastStatus       MonitorStatus `json:"last_status"`
-	LastCheckedAt    *time.Time    `json:"last_checked_at,omitempty"`
-	CreatedAt        time.Time     `json:"created_at"`
-	UpdatedAt        time.Time     `json:"updated_at"`
+	ID              string        `json:"id"`
+	Name            string        `json:"name"`
+	URL             string        `json:"url"`
+	Method          string        `json:"method"`
+	IntervalSeconds int           `json:"interval_seconds"`
+	TimeoutMs       int           `json:"timeout_ms"`
+	SlowThresholdMs int           `json:"slow_threshold_ms"`
+	FollowRedirects bool          `json:"follow_redirects"`
+	Enabled         bool          `json:"enabled"`
+	AlertEmails     string        `json:"alert_emails"`
+	TenantID        string        `json:"tenant_id,omitempty"`
+	AlertAfterSlow  int           `json:"alert_after_slow"`
+	ConsecutiveSlow int           `json:"consecutive_slow"`
+	LastStatus      MonitorStatus `json:"last_status"`
+	LastCheckedAt   *time.Time    `json:"last_checked_at,omitempty"`
+	CreatedAt       time.Time     `json:"created_at"`
+	UpdatedAt       time.Time     `json:"updated_at"`
 }
 
 type PerformanceResult struct {
@@ -177,10 +177,20 @@ type User struct {
 	Name         string    `json:"name"`
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"-"`
+	MFAEnabled   bool      `json:"mfa_enabled"`
 	Role         UserRole  `json:"role"`
 	TenantID     string    `json:"tenant_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type LoginMFAChallenge struct {
+	ID                string
+	UserID            string
+	CodeHash          string
+	ExpiresAt         time.Time
+	AttemptsRemaining int
+	CreatedAt         time.Time
 }
 
 type OrgSettings struct {
@@ -296,7 +306,7 @@ type DNSDetails struct {
 }
 
 type PortDetails struct {
-	Host   string `json:"host"`
-	Port   int    `json:"port"`
-	Open   bool   `json:"open"`
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	Open bool   `json:"open"`
 }
