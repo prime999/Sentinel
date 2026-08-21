@@ -163,6 +163,30 @@ func (s *Store) listMonitorsQuery(tenantID string) ([]models.MonitorListItem, er
 	return items, rows.Err()
 }
 
+func (s *Store) ListMonitorTenants(ids []string) (map[string]string, error) {
+	out := make(map[string]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := s.db.Query(`SELECT id, COALESCE(tenant_id, '') FROM monitors WHERE id IN (`+sqlPlaceholders(len(ids))+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, tenantID string
+		if err := rows.Scan(&id, &tenantID); err != nil {
+			return nil, err
+		}
+		out[id] = tenantID
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) GetMonitor(id string) (*models.Monitor, error) {
 	row := s.db.QueryRow(`SELECT `+monitorColumns+` FROM monitors WHERE id = ?`, id)
 	m, err := s.scanMonitorRow(row)

@@ -108,6 +108,11 @@ export interface MonitorStats {
   performance: PerformanceMetrics
 }
 
+export interface MonitorRowStats {
+  uptime_pct: number
+  points: number[]
+}
+
 export type PerformanceHealth = 'good' | 'warning' | 'critical' | 'collecting'
 
 export interface ServicePerformance {
@@ -454,6 +459,11 @@ export const api = {
   },
   stats: (id: string, period = '24h') =>
     request<MonitorStats>(`/api/monitors/${id}/stats?period=${period}`),
+  monitorStatsSummary: (period = '24h', ids: string[] = []) =>
+    request<Record<string, MonitorRowStats>>('/api/monitors/stats', {
+      method: 'POST',
+      body: JSON.stringify({ period, ids }),
+    }),
   performance: (period = '24h', customer?: string) => {
     const params = new URLSearchParams({ period })
     if (customer) params.set('customer', customer)

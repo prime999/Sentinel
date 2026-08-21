@@ -66,6 +66,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/monitors/{id}", s.adminRequired(s.handleDeleteMonitor))
 	s.mux.HandleFunc("GET /api/monitors/{id}/results", s.authRequired(s.handleListResults))
 	s.mux.HandleFunc("GET /api/monitors/{id}/incidents", s.authRequired(s.handleListMonitorIncidents))
+	s.mux.HandleFunc("POST /api/monitors/stats", s.authRequired(s.handleListMonitorStats))
 	s.mux.HandleFunc("GET /api/monitors/{id}/stats", s.authRequired(s.handleGetStats))
 	s.mux.HandleFunc("GET /api/performance", s.authRequired(s.handleGetFleetPerformance))
 	s.mux.HandleFunc("GET /api/performance/targets", s.authRequired(s.handleListPerformanceTargets))
@@ -621,6 +622,119 @@ func (s *Server) handleListMonitorIncidents(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+const maxMonitorStatsIDs = 200
+
+func statsSince(period string) time.Time {
+	switch period {
+	case "7d":
+		return time.Now().AddDate(0, 0, -7)
+	case "30d":
+		return time.Now().AddDate(0, 0, -30)
+	default:
+		return time.Now().Add(-24 * time.Hour)
+	}
+}
+
+func uniqueIDs(ids []string) []string {
+	out := make([]string, 0, len(ids))
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
+}
+
+func (s *Server) handleListMonitorStats(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	var req struct {
+		Period   string   `json:"period"`
+		IDs      []string `json:"ids"`
+		Customer string   `json:"customer"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	since := statsSince(req.Period)
+	customerFilter := strings.TrimSpace(req.Customer)
+	ids := uniqueIDs(req.IDs)
+
+	var err error
+	if len(ids) == 0 {
+		ids, err = s.accessibleMonitorIDs(user, customerFilter)
+		if err != nil {
+			jsonInternal(w, err)
+			return
+		}
+	} else {
+		if len(ids) > maxMonitorStatsIDs {
+			ids = ids[:maxMonitorStatsIDs]
+		}
+		ids, err = s.filterAccessibleMonitorIDs(user, ids, customerFilter)
+		if err != nil {
+			jsonInternal(w, err)
+			return
+		}
+	}
+
+	stats, err := s.store.ListMonitorRowStats(ids, since)
+	if err != nil {
+		jsonInternal(w, err)
+		return
+	}
+	jsonOK(w, stats)
+}
+
+func (s *Server) accessibleMonitorIDs(user *models.User, customerFilter string) ([]string, error) {
+	var monitors []models.MonitorListItem
+	var err error
+	if isPlatformAdmin(user) {
+		if customerFilter != "" {
+			monitors, err = s.store.ListMonitorsByTenant(customerFilter)
+		} else {
+			monitors, err = s.store.ListMonitors()
+		}
+	} else if user.TenantID != "" {
+		monitors, err = s.store.ListMonitorsByTenant(user.TenantID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(monitors))
+	for _, m := range monitors {
+		ids = append(ids, m.ID)
+	}
+	return ids, nil
+}
+
+func (s *Server) filterAccessibleMonitorIDs(user *models.User, ids []string, customerFilter string) ([]string, error) {
+	tenants, err := s.store.ListMonitorTenants(ids)
+	if err != nil {
+		return nil, err
+	}
+	allowed := make([]string, 0, len(ids))
+	for _, id := range ids {
+		tenantID, ok := tenants[id]
+		if !ok {
+			continue
+		}
+		if !canAccessTenant(user, tenantID) || (!isPlatformAdmin(user) && tenantID == "") {
+			continue
+		}
+		if isPlatformAdmin(user) && customerFilter != "" && tenantID != customerFilter {
+			continue
+		}
+		allowed = append(allowed, id)
+	}
+	return allowed, nil
+}
+
 func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	id := r.PathValue("id")
@@ -633,17 +747,7 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusNotFound, "not found")
 		return
 	}
-	period := r.URL.Query().Get("period")
-	var since time.Time
-	switch period {
-	case "7d":
-		since = time.Now().AddDate(0, 0, -7)
-	case "30d":
-		since = time.Now().AddDate(0, 0, -30)
-	default:
-		since = time.Now().Add(-24 * time.Hour)
-	}
-	stats, err := s.store.GetMonitorStats(id, since)
+	stats, err := s.store.GetMonitorStats(id, statsSince(r.URL.Query().Get("period")))
 	if err != nil {
 		jsonInternal(w, err)
 		return
