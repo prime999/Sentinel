@@ -27,7 +27,7 @@ export default function MetricCard({
       padding: '16px 18px',
     }}>
       <div style={{
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: 600,
         color: colors.textMuted,
         marginBottom: 8,
@@ -37,7 +37,7 @@ export default function MetricCard({
         {label}
       </div>
       <div style={{
-        fontSize: 22,
+        fontSize: 26,
         fontWeight: 600,
         color: accentColor,
         lineHeight: 1.15,
@@ -48,7 +48,7 @@ export default function MetricCard({
         {value}
       </div>
       {sub && (
-        <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 6 }}>
+        <div style={{ fontSize: 14, color: colors.textMuted, marginTop: 6 }}>
           {sub}
         </div>
       )}

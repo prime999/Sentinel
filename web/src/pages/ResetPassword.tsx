@@ -46,8 +46,8 @@ export default function ResetPassword() {
   return (
     <div style={styles.wrap}>
       <form onSubmit={handleSubmit} style={styles.card}>
-        <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>Reset password</h2>
-        <p style={{ color: colors.textMuted, margin: '0 0 24px', fontSize: 14 }}>
+        <h2 style={{ margin: '0 0 4px', fontSize: 22 }}>Reset password</h2>
+        <p style={{ color: colors.textMuted, margin: '0 0 24px', fontSize: 15 }}>
           Enter a new password for your account.
         </p>
         {message && <div className="flash-ok" role="status">{message}</div>}
@@ -87,16 +87,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   ok: {
     background: colors.greenDim, color: colors.green, padding: 10,
-    borderRadius: 8, marginBottom: 16, fontSize: 14,
+    borderRadius: 8, marginBottom: 16, fontSize: 15,
     border: `1px solid rgba(63,185,80,0.3)`,
   },
   error: {
     background: colors.redDim, color: colors.red, padding: 10,
-    borderRadius: 8, marginBottom: 16, fontSize: 14,
+    borderRadius: 8, marginBottom: 16, fontSize: 15,
     border: `1px solid rgba(248,81,73,0.3)`,
   },
   backLink: {
-    display: 'inline-block', marginTop: 20, fontSize: 14,
+    display: 'inline-block', marginTop: 20, fontSize: 15,
     color: colors.brand, textDecoration: 'none',
   },
 }

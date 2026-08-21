@@ -138,7 +138,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 4,
   },
   cardLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 600,
     color: colors.textMuted,
     textTransform: 'uppercase',
@@ -146,7 +146,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 10,
   },
   lastTime: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 600,
     letterSpacing: '-0.02em',
     marginBottom: 8,
@@ -154,35 +154,35 @@ const styles: Record<string, React.CSSProperties> = {
     fontVariantNumeric: 'tabular-nums',
   },
   lastTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 600,
     marginBottom: 6,
   },
   lastMsg: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
     marginBottom: 8,
     lineHeight: 1.4,
   },
   lastMeta: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 600,
     color: colors.textMuted,
     marginBottom: 12,
   },
   link: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 600,
     color: colors.brand,
   },
   linkMuted: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 500,
     color: colors.textMuted,
     marginBottom: 10,
   },
   empty: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textMuted,
   },
   list: {
@@ -206,20 +206,20 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   listTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 600,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
   listMeta: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
     marginTop: 2,
     fontFamily: fonts.mono,
   },
   uptimeValue: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 600,
     letterSpacing: '-0.02em',
     marginBottom: 16,

@@ -262,7 +262,7 @@ export default function Monitors() {
               <button
                 type="button"
                 className="btn"
-                style={{ fontSize: 13, minHeight: 36, ...(tagFilter === '' ? { background: colors.bgElevated } : {}) }}
+                style={{ fontSize: 14, minHeight: 36, ...(tagFilter === '' ? { background: colors.bgElevated } : {}) }}
                 onClick={() => setTagFilter('')}
               >
                 All tags
@@ -272,7 +272,7 @@ export default function Monitors() {
                   key={tag}
                   type="button"
                   className="btn"
-                  style={{ fontSize: 13, minHeight: 36, ...(tagFilter === tag ? { background: colors.bgElevated } : {}) }}
+                  style={{ fontSize: 14, minHeight: 36, ...(tagFilter === tag ? { background: colors.bgElevated } : {}) }}
                   onClick={() => setTagFilter(tag)}
                 >
                   {tag}
@@ -285,7 +285,7 @@ export default function Monitors() {
 
           {monitors.length === 0 ? (
             <div className="empty-state">
-              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8, color: colors.text }}>No monitors yet</div>
+              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: colors.text }}>No monitors yet</div>
               <div style={{ marginBottom: 20 }}>
                 Add your first website, port, SSL, or DNS monitor.
               </div>
@@ -432,7 +432,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
   monitorUrl: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
   },
   responseCell: {

@@ -202,7 +202,7 @@ export default function SettingsAudit() {
               >
                 Previous
               </button>
-              <span style={{ fontSize: 13, color: colors.textMuted }}>
+              <span style={{ fontSize: 14, color: colors.textMuted }}>
                 Page {page + 1} of {totalPages}
               </span>
               <button
@@ -230,8 +230,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 28,
   },
   header: { marginBottom: 16 },
-  title: { margin: '0 0 8px', fontSize: 18, fontWeight: 600 },
-  desc: { color: colors.textMuted, fontSize: 14, margin: 0 },
+  title: { margin: '0 0 8px', fontSize: 19, fontWeight: 600 },
+  desc: { color: colors.textMuted, fontSize: 15, margin: 0 },
   filterBar: {
     display: 'flex',
     alignItems: 'center',
@@ -247,7 +247,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textMuted,
   },
   label: { fontWeight: 500, flexShrink: 0 },
@@ -257,12 +257,12 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '0 12px',
     cursor: 'pointer',
   },
-  reset: { padding: '8px 12px', fontSize: 13 },
+  reset: { padding: '8px 12px', fontSize: 14 },
   tableWrap: {},
   table: {
     width: '100%',
     borderCollapse: 'collapse',
-    fontSize: 14,
+    fontSize: 15,
   },
   th: {
     textAlign: 'left',
@@ -270,7 +270,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: `1px solid ${colors.border}`,
     color: colors.textMuted,
     fontWeight: 600,
-    fontSize: 12,
+    fontSize: 13,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
     whiteSpace: 'nowrap',
@@ -283,12 +283,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   action: {
     textTransform: 'uppercase',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 700,
     color: colors.textMuted,
     letterSpacing: '0.04em',
   },
-  empty: { color: colors.textMuted, fontSize: 14, margin: '12px 0 0' },
+  empty: { color: colors.textMuted, fontSize: 15, margin: '12px 0 0' },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
   pager: {
     display: 'flex',
@@ -298,5 +298,5 @@ const styles: Record<string, React.CSSProperties> = {
     paddingTop: 16,
     marginTop: 4,
   },
-  pagerBtn: { padding: '8px 14px', fontSize: 13 },
+  pagerBtn: { padding: '8px 14px', fontSize: 14 },
 }

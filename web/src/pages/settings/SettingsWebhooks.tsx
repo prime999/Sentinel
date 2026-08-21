@@ -28,7 +28,7 @@ export default function SettingsWebhooks() {
   return (
     <>
       <div style={{ marginBottom: 16 }}>
-        <Link to="/settings/notifications" style={{ color: colors.textMuted, fontSize: 13, textDecoration: 'none' }}>
+        <Link to="/settings/notifications" style={{ color: colors.textMuted, fontSize: 14, textDecoration: 'none' }}>
           ← Notifications
         </Link>
       </div>
@@ -62,9 +62,9 @@ export default function SettingsWebhooks() {
 const styles: Record<string, React.CSSProperties> = {
   card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 28, maxWidth: 800 },
   title: { margin: '0 0 8px' },
-  desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },
+  desc: { color: colors.textMuted, fontSize: 15, margin: '0 0 20px' },
   row: { display: 'grid', gap: 10, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${colors.border}` },
-  check: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 },
+  check: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 15 },
   ok: { background: 'rgba(34,197,94,0.15)', color: colors.green, padding: 12, borderRadius: 8, marginBottom: 16 },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
 }

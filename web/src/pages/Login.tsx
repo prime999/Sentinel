@@ -93,10 +93,10 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         <p style={styles.tagline}>{brand?.tagline || 'Self-hosted infrastructure monitoring for websites, ports, SSL, and DNS.'}</p>
       </div>
       <form onSubmit={mode === 'login' ? (step === 'credentials' ? handleLogin : handleVerifyCode) : handleForgot} className="auth-split-form">
-        <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>
+        <h2 style={{ margin: '0 0 4px', fontSize: 22 }}>
           {mode === 'login' ? (step === 'credentials' ? 'Sign in' : 'Verify sign-in') : 'Reset password'}
         </h2>
-        <p style={{ color: colors.textMuted, margin: '0 0 24px', fontSize: 14 }}>
+        <p style={{ color: colors.textMuted, margin: '0 0 24px', fontSize: 15 }}>
           {mode === 'login' && step === 'code'
             ? `Enter the verification code sent to ${emailHint || 'your email address'}.`
             : mode === 'login'
@@ -144,7 +144,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
             <button
               type="button"
               className="btn"
-              style={{ marginTop: 12, width: '100%', justifyContent: 'center', fontSize: 13 }}
+              style={{ marginTop: 12, width: '100%', justifyContent: 'center', fontSize: 14 }}
               onClick={() => {
                 setStep('credentials')
                 setChallengeId('')
@@ -173,7 +173,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         <button
           type="button"
           className="btn"
-          style={{ marginTop: 12, width: '100%', justifyContent: 'center', fontSize: 13 }}
+          style={{ marginTop: 12, width: '100%', justifyContent: 'center', fontSize: 14 }}
           onClick={() => {
             setMode(mode === 'login' ? 'forgot' : 'login')
             setStep('credentials')
@@ -192,6 +192,6 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  intro: { margin: '16px 0 0', fontSize: 11, fontWeight: 600, letterSpacing: '0.2em', color: colors.brand, textTransform: 'uppercase' as const },
-  tagline: { color: colors.textMuted, fontSize: 15, lineHeight: 1.6, maxWidth: 400 },
+  intro: { margin: '16px 0 0', fontSize: 12, fontWeight: 600, letterSpacing: '0.2em', color: colors.brand, textTransform: 'uppercase' as const },
+  tagline: { color: colors.textMuted, fontSize: 16, lineHeight: 1.6, maxWidth: 400 },
 }

@@ -83,7 +83,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'fixed',
     inset: 0,
     zIndex: 1000,
-    background: 'rgba(0, 0, 0, 0.55)',
+    background: 'var(--overlay)',
     display: 'grid',
     placeItems: 'center',
     padding: 24,
@@ -91,11 +91,11 @@ const styles: Record<string, React.CSSProperties> = {
   dialog: {
     width: '100%',
     maxWidth: 420,
-    background: colors.bgElevated,
+    background: colors.card,
     border: `1px solid ${colors.border}`,
     borderRadius: 10,
     padding: '24px 28px',
-    boxShadow: '0 24px 48px rgba(0,0,0,0.45)',
+    boxShadow: 'var(--shadow)',
   },
   head: {
     display: 'flex',
@@ -106,13 +106,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     margin: 0,
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: 700,
     letterSpacing: '-0.01em',
   },
   message: {
     margin: '0 0 24px',
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 1.5,
     color: colors.textMuted,
   },
