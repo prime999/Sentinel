@@ -513,6 +513,7 @@ export const api = {
     }),
   deleteTeamMember: (id: string) => request(`/api/settings/team/${id}`, { method: 'DELETE' }),
   getGeneral: () => request<OrgSettings>('/api/settings/general'),
+  publicBranding: () => request<OrgSettings>('/api/public/branding'),
   putGeneral: (cfg: OrgSettings) =>
     request<OrgSettings>('/api/settings/general', { method: 'PUT', body: JSON.stringify(cfg) }),
   resetGeneral: () => request<OrgSettings>('/api/settings/general/reset', { method: 'POST' }),

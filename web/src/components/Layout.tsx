@@ -85,9 +85,8 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
   })
 
   useEffect(() => {
-    if (!isPlatformAdmin) return
     api.getGeneral().then(setOrg).catch(() => {})
-  }, [location.pathname, isPlatformAdmin])
+  }, [location.pathname])
 
   const brandName = org?.company_name || 'Sentinel'
   const tagline = org?.tagline || 'Infrastructure Monitoring'
@@ -105,7 +104,7 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
           alignItems: collapsed ? 'center' : 'flex-start',
         }}>
           <Link to="/" style={{ ...styles.logo, padding: collapsed ? '0 0 4px' : '0 0 0 2px' }} title={brandName}>
-            <AppLogo src={org?.logo} size={iconSizes.brandLogo} />
+          <AppLogo src={org?.logo} size={iconSizes.brandLogo} alt={brandName} />
             {!collapsed && (
               <span style={styles.logoText}>
                 <span style={styles.logoName}>{brandName}</span>

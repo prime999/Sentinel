@@ -76,7 +76,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/performance/targets/{id}/results", s.authRequired(s.handleListPerformanceResults))
 	s.mux.HandleFunc("GET /api/performance/targets/{id}/stats", s.authRequired(s.handleGetPerformanceStats))
 
-	s.mux.HandleFunc("GET /api/settings/general", s.platformAdminRequired(s.handleGetGeneral))
+	s.mux.HandleFunc("GET /api/settings/general", s.authRequired(s.handleGetGeneral))
 	s.mux.HandleFunc("PUT /api/settings/general", s.platformAdminRequired(s.handlePutGeneral))
 	s.mux.HandleFunc("POST /api/settings/general/reset", s.platformAdminRequired(s.handleResetGeneral))
 
@@ -122,6 +122,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/settings/tokens/{id}", s.authRequired(s.handleDeleteAPIToken))
 
 	s.mux.HandleFunc("GET /api/public/status", s.handlePublicStatus)
+	s.mux.HandleFunc("GET /api/public/branding", s.handleGetGeneral)
 	s.mux.HandleFunc("POST /api/heartbeat/{token}", s.handleHeartbeatPing)
 	s.mux.HandleFunc("GET /api/heartbeat/{token}", s.handleHeartbeatPing)
 }

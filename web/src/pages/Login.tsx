@@ -1,6 +1,6 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import AppLogo from '../components/AppLogo'
-import { api } from '../api'
+import { api, OrgSettings } from '../api'
 import { colors } from '../theme'
 
 type Mode = 'login' | 'forgot'
@@ -18,6 +18,11 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
+  const [brand, setBrand] = useState<OrgSettings | null>(null)
+
+  useEffect(() => {
+    api.publicBranding().then(setBrand).catch(() => {})
+  }, [])
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault()
@@ -82,10 +87,10 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
   return (
     <div style={styles.wrap}>
       <div style={styles.left}>
-        <AppLogo size={48} />
+        <AppLogo src={brand?.logo} size={48} alt={brand?.company_name || 'Sentinel'} />
         <p style={styles.intro}>INTRODUCING</p>
-        <h1 style={styles.hero}>Sentinel</h1>
-        <p style={styles.tagline}>Self-hosted infrastructure monitoring for websites, ports, SSL, and DNS.</p>
+        <h1 style={styles.hero}>{brand?.company_name || 'Sentinel'}</h1>
+        <p style={styles.tagline}>{brand?.tagline || 'Self-hosted infrastructure monitoring for websites, ports, SSL, and DNS.'}</p>
       </div>
       <form onSubmit={mode === 'login' ? (step === 'credentials' ? handleLogin : handleVerifyCode) : handleForgot} style={styles.card}>
         <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>
