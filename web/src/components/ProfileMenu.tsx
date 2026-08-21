@@ -102,7 +102,7 @@ const styles: Record<string, React.CSSProperties> = {
     placeItems: 'center',
     fontSize: 14,
     fontWeight: 700,
-    border: `1px solid rgba(42, 240, 200, 0.35)`,
+    border: `1px solid color-mix(in srgb, ${colors.brand} 35%, transparent)`,
   },
   avatarCollapsed: {
     width: 36,
@@ -138,11 +138,11 @@ const styles: Record<string, React.CSSProperties> = {
     left: 4,
     right: 4,
     marginBottom: 8,
-    background: colors.bgElevated,
+    background: colors.card,
     border: `1px solid ${colors.border}`,
     borderRadius: 10,
     overflow: 'hidden',
-    boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+    boxShadow: 'var(--shadow)',
     zIndex: 20,
   },
   menuCollapsed: {

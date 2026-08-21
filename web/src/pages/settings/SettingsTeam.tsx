@@ -692,7 +692,7 @@ const styles: Record<string, React.CSSProperties> = {
   username: { fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 },
   youBadge: {
     fontSize: 11, fontWeight: 600, color: colors.brand,
-    background: 'rgba(42, 240, 200, 0.15)', padding: '2px 6px', borderRadius: 4,
+    background: colors.brandDim, padding: '2px 6px', borderRadius: 4,
     flexShrink: 0,
   },
   lockedBadge: {
@@ -726,13 +726,13 @@ const styles: Record<string, React.CSSProperties> = {
     pointerEvents: 'none',
   },
   modalBackdrop: {
-    position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)',
+    position: 'fixed', inset: 0, background: 'var(--overlay)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16,
   },
   modal: {
     background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10,
     padding: 24, width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto',
-    boxShadow: '0 16px 40px rgba(15,23,42,0.18)',
+    boxShadow: 'var(--shadow)',
   },
   ok: {
     background: colors.greenDim, color: colors.green, padding: 12,

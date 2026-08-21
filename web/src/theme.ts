@@ -38,6 +38,8 @@ export const colors = {
 
   radius: 10,
   controlHeight: 44,
+  overlay: 'var(--overlay)',
+  shadow: 'var(--shadow)',
 }
 
 export const radius = {

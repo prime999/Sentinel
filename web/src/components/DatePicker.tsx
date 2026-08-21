@@ -197,10 +197,10 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 40,
     width: 280,
     padding: 12,
-    background: colors.bgElevated,
+    background: colors.card,
     border: `1px solid ${colors.border}`,
     borderRadius: 14,
-    boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
+    boxShadow: 'var(--shadow)',
   },
   monthBar: {
     display: 'flex',

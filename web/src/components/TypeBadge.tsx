@@ -20,7 +20,7 @@ export default function TypeBadge({ type, url }: { type?: string; url?: string }
       fontSize: 13,
       fontWeight: 600,
       letterSpacing: '0.06em',
-      border: `1px solid rgba(42, 240, 200, 0.28)`,
+      border: `1px solid color-mix(in srgb, ${colors.brand} 32%, transparent)`,
     }}>
       {labelFor(type, url)}
     </span>
