@@ -3,6 +3,8 @@ import { ReactNode, useEffect, useState } from 'react'
 import AppLogo from './AppLogo'
 import NavIcon from './NavIcon'
 import ProfileMenu from './ProfileMenu'
+import TableCellTooltip from './TableCellTooltip'
+import ThemeToggle from './ThemeToggle'
 import { api, OrgSettings } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { iconSizes, icons, NavIconKey } from '../icons'
@@ -161,6 +163,9 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
           <AppLogo src={org?.logo} size={iconSizes.nav} alt="" />
           <span>{brandName}</span>
         </Link>
+        <div className="app-topbar-actions">
+          <ThemeToggle />
+        </div>
       </header>
 
       {navOpen && (
@@ -230,6 +235,7 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
       </aside>
 
       <div className="app-main">
+        <TableCellTooltip />
         <main id="main-content" className="app-content" tabIndex={-1}>
           {children}
         </main>

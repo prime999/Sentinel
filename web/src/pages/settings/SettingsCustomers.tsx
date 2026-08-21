@@ -105,7 +105,7 @@ export default function SettingsCustomers() {
       <div className="split-panels">
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>All customers</h3>
-          <p style={{ color: colors.textMuted, fontSize: 14, margin: '0 0 16px' }}>
+          <p style={{ color: colors.textMuted, fontSize: 15, margin: '0 0 16px' }}>
             Default quota is 1 monitor per customer.
           </p>
 
@@ -197,7 +197,7 @@ export default function SettingsCustomers() {
             </div>
           )}
           {customers.length > 0 && (
-            <p style={{ color: colors.textDim, fontSize: 12, margin: '14px 0 0' }}>
+            <p style={{ color: colors.textDim, fontSize: 13, margin: '14px 0 0' }}>
               Showing {filtered.length} of {customers.length} customers
             </p>
           )}
@@ -240,9 +240,9 @@ const styles: Record<string, React.CSSProperties> = {
     background: colors.card, border: `1px solid ${colors.border}`,
     borderRadius: 10, padding: '24px 28px', minWidth: 0,
   },
-  cardTitle: { margin: '0 0 20px', fontSize: 16, fontWeight: 600 },
+  cardTitle: { margin: '0 0 20px', fontSize: 17, fontWeight: 600 },
   search: { maxWidth: 360, width: '100%', marginBottom: 16 },
-  rowBtn: { fontSize: 12, padding: '6px 10px', minHeight: 32 },
+  rowBtn: { fontSize: 13, padding: '6px 10px', minHeight: 32 },
   ok: {
     background: colors.greenDim, color: colors.green, padding: 12,
     borderRadius: 8, marginBottom: 16, border: `1px solid rgba(34,197,94,0.3)`,

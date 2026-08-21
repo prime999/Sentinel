@@ -248,7 +248,7 @@ export default function Performance() {
 
           {targets.length === 0 ? (
             <div className="empty-state">
-              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8, color: colors.text }}>No performance targets yet</div>
+              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: colors.text }}>No performance targets yet</div>
               <div style={{ marginBottom: 20 }}>
                 Add websites here to track response time and latency percentiles.
               </div>
@@ -471,14 +471,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   targetLink: { display: 'flex', flexDirection: 'column', gap: 2, textDecoration: 'none', color: colors.text, minWidth: 0 },
   targetName: { fontWeight: 600 },
-  targetUrl: { fontSize: 11, color: colors.textMuted },
+  targetUrl: { fontSize: 12, color: colors.textMuted },
   healthBadge: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 6,
     padding: '4px 8px',
     borderRadius: 6,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 600,
   },
   healthDot: { width: 6, height: 6, borderRadius: 1, flexShrink: 0 },
@@ -491,22 +491,22 @@ const styles: Record<string, React.CSSProperties> = {
   },
   railHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   railLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 600,
     color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
   },
   railValue: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 600,
     marginTop: 8,
     letterSpacing: '-0.02em',
     fontFamily: fonts.mono,
     fontVariantNumeric: 'tabular-nums',
   },
-  railMeta: { fontSize: 12, color: colors.textMuted, marginTop: 8, fontFamily: fonts.mono },
-  railEmpty: { fontSize: 13, color: colors.textMuted, padding: '20px 0' },
+  railMeta: { fontSize: 13, color: colors.textMuted, marginTop: 8, fontFamily: fonts.mono },
+  railEmpty: { fontSize: 14, color: colors.textMuted, padding: '20px 0' },
   railList: { listStyle: 'none', margin: '8px 0 0', padding: 0 },
   alertRow: {
     display: 'flex',
@@ -518,7 +518,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: `1px solid ${colors.border}`,
   },
   alertDot: { width: 8, height: 8, borderRadius: 2, marginTop: 5, flexShrink: 0 },
-  alertTitle: { fontWeight: 600, fontSize: 13 },
-  alertMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2, fontFamily: fonts.mono },
+  alertTitle: { fontWeight: 600, fontSize: 14 },
+  alertMeta: { fontSize: 13, color: colors.textMuted, marginTop: 2, fontFamily: fonts.mono },
 }
 

@@ -159,9 +159,9 @@ export default function SettingsMaintenance() {
 
 const styles: Record<string, React.CSSProperties> = {
   card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: '28px 32px' },
-  title: { margin: '0 0 8px', fontSize: 16, fontWeight: 600 },
-  desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 24px', lineHeight: 1.5 },
+  title: { margin: '0 0 8px', fontSize: 17, fontWeight: 600 },
+  desc: { color: colors.textMuted, fontSize: 15, margin: '0 0 24px', lineHeight: 1.5 },
   actions: { display: 'flex', justifyContent: 'flex-start', marginTop: 24 },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 15 },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
 }

@@ -62,10 +62,10 @@ export default function SettingsServer() {
 
 const styles: Record<string, React.CSSProperties> = {
   card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: '32px' },
-  title: { margin: '0 0 8px', fontSize: 16, fontWeight: 600 },
-  desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 24px', lineHeight: 1.5 },
+  title: { margin: '0 0 8px', fontSize: 17, fontWeight: 600 },
+  desc: { color: colors.textMuted, fontSize: 15, margin: '0 0 24px', lineHeight: 1.5 },
   stack: { display: 'flex', flexDirection: 'column', gap: 20 },
-  hint: { fontSize: 12, color: colors.textMuted, lineHeight: 1.45 },
+  hint: { fontSize: 13, color: colors.textMuted, lineHeight: 1.45 },
   actions: { display: 'flex', justifyContent: 'flex-start', marginTop: 24 },
   ok: { background: 'rgba(34,197,94,0.15)', color: colors.green, padding: 12, borderRadius: 8, marginBottom: 16 },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },

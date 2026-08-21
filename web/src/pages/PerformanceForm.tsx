@@ -142,7 +142,7 @@ export default function PerformanceForm({
             />
           </Field>
         </div>
-        <p style={{ color: colors.textMuted, fontSize: 13, margin: '-8px 0 16px' }}>
+        <p style={{ color: colors.textMuted, fontSize: 14, margin: '-8px 0 16px' }}>
           Send a SLOW alert only after this many slow checks in a row (default 1).
         </p>
         <label style={styles.checkbox}>
@@ -196,7 +196,7 @@ const styles: Record<string, React.CSSProperties> = {
   form: {
     display: 'grid', gap: 4,
   },
-  checkbox: { display: 'flex', gap: 10, alignItems: 'center', fontSize: 14, color: colors.textMuted },
+  checkbox: { display: 'flex', gap: 10, alignItems: 'center', fontSize: 15, color: colors.textMuted },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,
     borderRadius: 8, marginBottom: 16, border: `1px solid rgba(248,81,73,0.3)`,

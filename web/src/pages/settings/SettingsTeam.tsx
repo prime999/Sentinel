@@ -227,7 +227,7 @@ export default function SettingsTeam() {
         <div style={styles.cardHeader}>
           <div>
             <h3 style={{ ...styles.cardTitle, marginBottom: 6 }}>All users</h3>
-            <p style={{ color: colors.textMuted, fontSize: 14, margin: 0 }}>
+            <p style={{ color: colors.textMuted, fontSize: 15, margin: 0 }}>
               {isPlatformAdmin
                 ? 'Platform admins have full access. Assign a customer for customer admins and users.'
                 : 'Admins can manage this customer’s monitors. Users can view only.'}
@@ -407,7 +407,7 @@ export default function SettingsTeam() {
           </div>
         )}
         {members.length > 0 && (
-          <p style={{ color: colors.textDim, fontSize: 12, margin: '14px 0 0' }}>
+          <p style={{ color: colors.textDim, fontSize: 13, margin: '14px 0 0' }}>
             Showing {filtered.length} of {members.length} users
           </p>
         )}
@@ -485,7 +485,7 @@ export default function SettingsTeam() {
                 minLength={8}
                 autoComplete="new-password"
               />
-              <p style={{ color: colors.textMuted, fontSize: 12, margin: '8px 0 0' }}>
+              <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
                 At least 8 characters, with a letter and a number.
               </p>
             </Field>
@@ -644,7 +644,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 16,
     marginBottom: 20,
   },
-  cardTitle: { margin: '0 0 20px', fontSize: 16, fontWeight: 600 },
+  cardTitle: { margin: '0 0 20px', fontSize: 17, fontWeight: 600 },
   filters: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -665,11 +665,11 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 760,
     borderCollapse: 'separate',
     borderSpacing: 0,
-    fontSize: 14,
+    fontSize: 15,
   },
   th: {
     textAlign: 'left',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 600,
     color: colors.textMuted,
     textTransform: 'uppercase',
@@ -691,23 +691,23 @@ const styles: Record<string, React.CSSProperties> = {
   },
   username: { fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 },
   youBadge: {
-    fontSize: 10, fontWeight: 600, color: colors.brand,
+    fontSize: 11, fontWeight: 600, color: colors.brand,
     background: 'rgba(42, 240, 200, 0.15)', padding: '2px 6px', borderRadius: 4,
     flexShrink: 0,
   },
   lockedBadge: {
     display: 'inline-block',
-    fontSize: 11, fontWeight: 600, color: colors.red,
+    fontSize: 12, fontWeight: 600, color: colors.red,
     background: colors.redDim, padding: '3px 8px', borderRadius: 4,
     whiteSpace: 'nowrap',
   },
   activeBadge: {
     display: 'inline-block',
-    fontSize: 11, fontWeight: 600, color: colors.green,
+    fontSize: 12, fontWeight: 600, color: colors.green,
     background: colors.greenDim, padding: '3px 8px', borderRadius: 4,
     whiteSpace: 'nowrap',
   },
-  roleBadge: { fontSize: 12, color: colors.textMuted },
+  roleBadge: { fontSize: 13, color: colors.textMuted },
   actionRow: {
     display: 'inline-flex',
     flexWrap: 'nowrap',
@@ -715,8 +715,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  actionBtn: { fontSize: 12, padding: '6px 10px', minHeight: 32, whiteSpace: 'nowrap' },
-  deleteBtn: { fontSize: 12, padding: '6px 10px', minHeight: 32, color: colors.red, whiteSpace: 'nowrap' },
+  actionBtn: { fontSize: 13, padding: '6px 10px', minHeight: 32, whiteSpace: 'nowrap' },
+  deleteBtn: { fontSize: 13, padding: '6px 10px', minHeight: 32, color: colors.red, whiteSpace: 'nowrap' },
   honeypot: {
     position: 'absolute',
     left: -9999,

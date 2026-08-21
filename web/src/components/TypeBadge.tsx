@@ -17,7 +17,7 @@ export default function TypeBadge({ type, url }: { type?: string; url?: string }
       color: colors.brand,
       padding: '3px 8px',
       borderRadius: radius.sm,
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: 600,
       letterSpacing: '0.06em',
       border: `1px solid rgba(42, 240, 200, 0.28)`,

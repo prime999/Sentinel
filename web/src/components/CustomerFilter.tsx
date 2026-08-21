@@ -151,7 +151,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
     minWidth: 160,
     justifyContent: 'space-between',
-    fontSize: 13,
+    fontSize: 14,
     padding: '8px 12px',
   },
   triggerActive: {
@@ -165,7 +165,7 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 220,
     flex: 1,
   },
-  chevron: { color: colors.textMuted, fontSize: 11 },
+  chevron: { color: colors.textMuted, fontSize: 12 },
   panel: {
     position: 'absolute',
     top: 'calc(100% + 6px)',
@@ -182,7 +182,7 @@ const styles: Record<string, React.CSSProperties> = {
   search: {
     width: '100%',
     marginBottom: 8,
-    fontSize: 13,
+    fontSize: 14,
     padding: '8px 10px',
   },
   actions: {
@@ -191,7 +191,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 8,
   },
   actionBtn: {
-    fontSize: 12,
+    fontSize: 13,
     padding: '4px 8px',
     color: colors.textMuted,
   },
@@ -209,7 +209,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '8px 10px',
     borderRadius: 8,
     cursor: 'pointer',
-    fontSize: 13,
+    fontSize: 14,
     color: colors.text,
   },
   rowChecked: {
@@ -229,7 +229,7 @@ const styles: Record<string, React.CSSProperties> = {
   empty: {
     padding: 12,
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 14,
     textAlign: 'center',
   },
 }

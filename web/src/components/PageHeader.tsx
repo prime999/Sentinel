@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import ThemeToggle from './ThemeToggle'
 
 export default function PageHeader({
   title,
@@ -20,9 +21,10 @@ export default function PageHeader({
           <p className="page-subtitle">{subtitle}</p>
         )}
       </div>
-      {actions && (
-        <div className="page-header-actions">{actions}</div>
-      )}
+      <div className="page-header-actions">
+        {actions}
+        <ThemeToggle />
+      </div>
     </header>
   )
 }

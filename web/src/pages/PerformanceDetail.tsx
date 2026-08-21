@@ -61,7 +61,7 @@ export default function PerformanceDetail() {
           target.last_status !== 'up' && target.last_status !== 'unknown' ? (
             <span style={{
               color: colors.yellow, background: colors.yellowDim,
-              padding: '4px 8px', borderRadius: radius.sm, fontSize: 11, fontWeight: 600,
+              padding: '4px 8px', borderRadius: radius.sm, fontSize: 12, fontWeight: 600,
             }}>
               Slow
             </span>
@@ -121,7 +121,7 @@ export default function PerformanceDetail() {
                 <XAxis dataKey="time" tick={chartTick} axisLine={false} tickLine={false} />
                 <YAxis unit="ms" tick={chartTick} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabel} />
-                <ReferenceLine y={target.slow_threshold_ms} stroke={colors.yellow} strokeDasharray="4 4" label={{ value: 'SLA', fill: colors.yellow, fontSize: 11 }} />
+                <ReferenceLine y={target.slow_threshold_ms} stroke={colors.yellow} strokeDasharray="4 4" label={{ value: 'SLA', fill: colors.yellow, fontSize: 12 }} />
                 <Area type="monotone" dataKey="ms" stroke={colors.brand} fill="url(#svcGrad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
@@ -141,7 +141,7 @@ export default function PerformanceDetail() {
                 <XAxis dataKey="time" tick={chartTick} axisLine={false} tickLine={false} />
                 <YAxis unit="ms" tick={chartTick} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabel} />
-                <Legend wrapperStyle={{ fontSize: 12, color: colors.textMuted }} />
+                <Legend wrapperStyle={{ fontSize: 13, color: colors.textMuted }} />
                 <Area type="monotone" dataKey="dns" stackId="1" stroke="#58a6ff" fill="#58a6ff" fillOpacity={0.6} name="DNS" />
                 <Area type="monotone" dataKey="tcp" stackId="1" stroke="#bc8cff" fill="#bc8cff" fillOpacity={0.6} name="TCP" />
                 <Area type="monotone" dataKey="tls" stackId="1" stroke="#f778ba" fill="#f778ba" fillOpacity={0.6} name="TLS" />
@@ -230,12 +230,12 @@ function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) 
     <Panel>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>SLA Breaches</h3>
-          <div style={{ marginTop: 4, fontSize: 13, color: colors.textMuted }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>SLA Breaches</h3>
+          <div style={{ marginTop: 4, fontSize: 14, color: colors.textMuted }}>
             Probes slower than {slaMs > 0 ? `${slaMs} ms` : 'SLA'}
           </div>
         </div>
-        <span style={{ fontSize: 13, color: colors.textMuted }}>
+        <span style={{ fontSize: 14, color: colors.textMuted }}>
           {total === 0
             ? (date ? 'No breaches on this day' : 'No SLA breaches yet')
             : `Showing ${from}–${to} of ${total}`}
@@ -304,7 +304,7 @@ function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) 
           >
             Previous
           </button>
-          <span className="num" style={{ fontSize: 12, color: colors.textMuted }}>
+          <span className="num" style={{ fontSize: 13, color: colors.textMuted }}>
             Page {page + 1} of {totalPages}
           </span>
           <button
@@ -322,10 +322,10 @@ function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) 
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  back: { color: colors.textMuted, fontSize: 13, textDecoration: 'none' },
+  back: { color: colors.textMuted, fontSize: 14, textDecoration: 'none' },
   empty: { color: colors.textMuted, textAlign: 'center', paddingTop: 120 },
   filterBar: {
     display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16,
   },
-  resetBtn: { padding: '8px 12px', fontSize: 13, minHeight: 36 },
+  resetBtn: { padding: '8px 12px', fontSize: 14, minHeight: 36 },
 }

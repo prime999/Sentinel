@@ -33,7 +33,7 @@ export default function StatusBadge({ status }: { status: string }) {
       color: c.text,
       padding: '4px 8px',
       borderRadius: radius.sm,
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: 600,
       letterSpacing: '0.02em',
     }}>

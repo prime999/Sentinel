@@ -169,7 +169,7 @@ export default function Incidents() {
               >
                 Previous
               </button>
-              <span className="num" style={{ fontSize: 12, color: colors.textMuted }}>
+              <span className="num" style={{ fontSize: 13, color: colors.textMuted }}>
                 Page {page + 1} of {totalPages}
               </span>
               <button
@@ -190,5 +190,5 @@ export default function Incidents() {
 
 const styles: Record<string, React.CSSProperties> = {
   link: { color: colors.brand, textDecoration: 'none', fontWeight: 500 },
-  type: { textTransform: 'uppercase', fontSize: 11, fontWeight: 700, color: colors.textMuted, letterSpacing: '0.04em' },
+  type: { textTransform: 'uppercase', fontSize: 12, fontWeight: 700, color: colors.textMuted, letterSpacing: '0.04em' },
 }

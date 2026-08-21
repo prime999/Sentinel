@@ -212,7 +212,7 @@ function TypeMetrics({ monitor, stats, latest }: { monitor: Monitor; stats: Moni
 function UptimeBar({ label, pct }: { label: string; pct: number }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 6 }}>
         <span style={{ color: colors.textMuted }}>{label}</span>
         <span className="num" style={{ fontWeight: 600 }}>{pct.toFixed(1)}%</span>
       </div>
@@ -240,7 +240,7 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
         <Row label="Expires" value={`${formatDate(ssl.expires_at)} (${ssl.days_remaining} days)`} />
         <Row label="Fingerprint" value={ssl.fingerprint} mono />
         {ssl.issues && ssl.issues.length > 0 && (
-          <div style={{ marginTop: 12, padding: 10, background: colors.redDim, borderRadius: 8, color: colors.red, fontSize: 13 }}>
+          <div style={{ marginTop: 12, padding: 10, background: colors.redDim, borderRadius: 8, color: colors.red, fontSize: 14 }}>
             Issues: {ssl.issues.join(', ')}
           </div>
         )}
@@ -257,7 +257,7 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
           <Row key={rt} label={rt} value={vals.length ? vals.join(', ') : '—'} />
         ))}
         {dns.changes && dns.changes.length > 0 && (
-          <div style={{ marginTop: 12, padding: 10, background: colors.yellowDim, borderRadius: 8, fontSize: 13 }}>
+          <div style={{ marginTop: 12, padding: 10, background: colors.yellowDim, borderRadius: 8, fontSize: 14 }}>
             {dns.changes.map((c, i) => (
               <div key={i} style={{ marginTop: i ? 4 : 0 }}>{c.type}: {c.before || '∅'} → {c.after || '∅'}</div>
             ))}
@@ -324,7 +324,7 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
             <Row label="Status" value={incidentStatusLabel(lastIncident)} />
           </>
         ) : (
-          <div style={{ color: colors.textMuted, fontSize: 13 }}>No recent incidents</div>
+          <div style={{ color: colors.textMuted, fontSize: 14 }}>No recent incidents</div>
         )}
       </DetailBlock>
       <DetailBlock title="Notifications">
@@ -376,7 +376,7 @@ function channelStatusLabel(opts: {
 function DetailBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Surface>
-      <h3 className="panel-title" style={{ color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 11 }}>{title}</h3>
+      <h3 className="panel-title" style={{ color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 12 }}>{title}</h3>
       {children}
     </Surface>
   )
@@ -384,15 +384,15 @@ function DetailBlock({ title, children }: { title: string; children: React.React
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '8px 0', borderBottom: `1px solid ${colors.border}`, fontSize: 13 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '8px 0', borderBottom: `1px solid ${colors.border}`, fontSize: 14 }}>
       <span style={{ color: colors.textMuted, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontWeight: 500, textAlign: 'right', fontFamily: mono ? fonts.mono : 'inherit', fontSize: mono ? 11 : 13, wordBreak: 'break-all' }}>{value}</span>
+      <span style={{ fontWeight: 500, textAlign: 'right', fontFamily: mono ? fonts.mono : 'inherit', fontSize: mono ? 12 : 14, wordBreak: 'break-all' }}>{value}</span>
     </div>
   )
 }
 
 function Empty() {
-  return <div style={{ color: colors.textMuted, fontSize: 13 }}>Waiting for check data…</div>
+  return <div style={{ color: colors.textMuted, fontSize: 14 }}>Waiting for check data…</div>
 }
 
 function IncidentsTable({ monitorId }: { monitorId: string }) {
@@ -458,8 +458,8 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
   return (
     <Surface>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Recent Incidents</h3>
-        <span style={{ fontSize: 13, color: colors.textMuted }}>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>Recent Incidents</h3>
+        <span style={{ fontSize: 14, color: colors.textMuted }}>
           {total === 0
             ? (filtered ? 'No matching incidents' : 'No incidents yet')
             : `Showing ${from}–${to} of ${total}`}
@@ -525,7 +525,7 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
           >
             Previous
           </button>
-          <span className="num" style={{ fontSize: 12, color: colors.textMuted }}>
+          <span className="num" style={{ fontSize: 13, color: colors.textMuted }}>
             Page {page + 1} of {totalPages}
           </span>
           <button
@@ -550,14 +550,14 @@ function timeAgo(iso: string) { const s = Math.floor((Date.now() - new Date(iso)
 
 const styles: Record<string, React.CSSProperties> = {
   invertBadge: {
-    fontSize: 11, fontWeight: 600, color: colors.yellow,
+    fontSize: 12, fontWeight: 600, color: colors.yellow,
     background: 'rgba(210,153,34,0.15)', padding: '2px 8px', borderRadius: 6,
   },
   chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' },
-  emptyChart: { color: colors.textMuted, textAlign: 'center', paddingTop: 120, fontSize: 13 },
+  emptyChart: { color: colors.textMuted, textAlign: 'center', paddingTop: 120, fontSize: 14 },
   incidentType: {
     textTransform: 'uppercase',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 700,
     color: colors.textMuted,
     letterSpacing: '0.04em',

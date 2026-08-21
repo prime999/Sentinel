@@ -270,7 +270,7 @@ export default function MonitorForm({
                 />
               </Field>
             </div>
-            <p style={{ color: colors.textMuted, fontSize: 13, margin: '-8px 0 12px' }}>
+            <p style={{ color: colors.textMuted, fontSize: 14, margin: '-8px 0 12px' }}>
               Sent as an Authorization header for htpasswd-protected sites. Clear the username to disable.
             </p>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -325,14 +325,14 @@ export default function MonitorForm({
             <Field label="Grace period (seconds)">
               <input type="number" min={30} className="input" value={numberFieldValue(graceSeconds)}
                 onChange={e => setGraceSeconds(parseNumberInput(e.target.value))} />
-              <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
+              <p style={{ color: colors.textMuted, fontSize: 14, margin: '8px 0 0' }}>
                 Alert if no ping received within this window after the last heartbeat.
               </p>
             </Field>
             {form.heartbeat_token && (
               <Field label="Ping URL">
                 <input readOnly className="input" value={`${window.location.origin}/api/heartbeat/${form.heartbeat_token}`} />
-                <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
+                <p style={{ color: colors.textMuted, fontSize: 14, margin: '8px 0 0' }}>
                   Call this URL (GET or POST) from your cron job or script on schedule.
                 </p>
               </Field>
@@ -360,14 +360,14 @@ export default function MonitorForm({
             value={numberFieldValue(form.alert_after_failures)}
             onChange={e => set('alert_after_failures', parseNumberInput(e.target.value))}
           />
-          <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
+          <p style={{ color: colors.textMuted, fontSize: 14, margin: '8px 0 0' }}>
             Send a DOWN alert after this many failed checks in a row, and wait for the same number of successful checks before RECOVERY (default 2). Only one DOWN email per outage.
           </p>
         </Field>
 
         <div style={styles.notifyBox}>
           <div style={styles.notifyTitle}>Notify via</div>
-          <p style={{ color: colors.textMuted, fontSize: 13, margin: '0 0 12px' }}>
+          <p style={{ color: colors.textMuted, fontSize: 14, margin: '0 0 12px' }}>
             Defaults follow Settings → Notifications. Turn a channel off to skip it for this monitor only.
           </p>
           <NotifyToggle
@@ -419,7 +419,7 @@ export default function MonitorForm({
             />
             <span>
               Also enable performance monitoring
-              <span style={{ display: 'block', color: colors.textMuted, fontSize: 13, marginTop: 4 }}>
+              <span style={{ display: 'block', color: colors.textMuted, fontSize: 14, marginTop: 4 }}>
                 Creates a separate performance target for latency tracking on this URL.
               </span>
             </span>
@@ -475,9 +475,9 @@ function NotifyToggle({
       opacity: disabled ? 0.55 : 1,
       cursor: disabled ? 'not-allowed' : 'pointer',
     }}>
-      <span style={{ fontSize: 14 }}>
+      <span style={{ fontSize: 15 }}>
         {label}
-        {hint && <span style={{ color: colors.textMuted, marginLeft: 8, fontSize: 12 }}>{hint}</span>}
+        {hint && <span style={{ color: colors.textMuted, marginLeft: 8, fontSize: 13 }}>{hint}</span>}
       </span>
       <span style={styles.switch}>
         <input
@@ -517,7 +517,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   preset: {
     padding: '6px 14px', borderRadius: 20, border: `1px solid ${colors.border}`,
-    background: colors.bgElevated, color: colors.brand, fontSize: 13,
+    background: colors.bgElevated, color: colors.brand, fontSize: 14,
   },
   notifyBox: {
     border: `1px solid ${colors.border}`,
@@ -525,7 +525,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 14,
     background: colors.bgElevated || colors.card,
   },
-  notifyTitle: { fontSize: 14, fontWeight: 600, marginBottom: 4 },
+  notifyTitle: { fontSize: 15, fontWeight: 600, marginBottom: 4 },
   switch: { position: 'relative', display: 'inline-flex', width: 42, height: 24, flexShrink: 0 },
   switchInput: {
     position: 'absolute',
