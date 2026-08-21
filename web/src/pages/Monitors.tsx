@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, Incident, Monitor, MonitorStats } from '../api'
+import { api, Incident, Monitor } from '../api'
 import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import DashboardRail from '../components/DashboardRail'
@@ -131,21 +131,15 @@ export default function Monitors() {
       return
     }
     ;(async () => {
-      const entries = await Promise.all(
-        ids.map(async id => {
-          try {
-            const s: MonitorStats = await api.stats(id, '30d')
-            const points = (s.points || []).slice(-24).map(p => p.response_time_ms)
-            return [id, { uptime_pct: s.uptime_pct, points }] as const
-          } catch {
-            return [id, { uptime_pct: 0, points: [] }] as const
-          }
-        }),
-      )
-      if (!cancelled) {
-        const next: Record<string, RowStats> = {}
-        for (const [id, row] of entries) next[id] = row
-        setStatsMap(next)
+      try {
+        const next = await api.monitorStatsSummary('30d', ids)
+        if (!cancelled) setStatsMap(next)
+      } catch {
+        if (!cancelled) {
+          const empty: Record<string, RowStats> = {}
+          for (const id of ids) empty[id] = { uptime_pct: 0, points: [] }
+          setStatsMap(empty)
+        }
       }
     })()
     return () => { cancelled = true }
