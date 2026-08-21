@@ -39,16 +39,14 @@ export default function ProfileMenu({ onLogout }: { onLogout: () => void }) {
         <span style={styles.avatar}>{initials}</span>
         <span style={styles.profileInfo}>
           <span style={styles.profileName}>{displayName}</span>
-          <span style={styles.profileRole}>
-            {profile ? roleLabel(profile.role) : 'Admin'}
-            {name ? ` · @${username}` : ''}
-          </span>
+          <span style={styles.roleChip}>{profile ? roleLabel(profile.role) : 'Admin'}</span>
         </span>
         <span style={{ ...styles.chevron, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
       </button>
 
       {open && (
         <div style={styles.menu}>
+          <div style={styles.signedIn}>Signed in as @{username}</div>
           <Link to="/profile" style={styles.menuItem} onClick={() => setOpen(false)}>
             Profile Settings
           </Link>
@@ -96,8 +94,21 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-  profileRole: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
-  chevron: { fontSize: 10, color: colors.textMuted, transition: 'transform 0.15s' },
+  roleChip: {
+    display: 'inline-flex',
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    padding: '1px 7px',
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: '0.02em',
+    color: colors.textMuted,
+    background: colors.bgElevated,
+    border: `1px solid ${colors.border}`,
+    lineHeight: 1.4,
+  },
+  chevron: { fontSize: 10, color: colors.textMuted, transition: 'transform 0.15s', flexShrink: 0 },
   menu: {
     position: 'absolute',
     bottom: '100%',
@@ -110,6 +121,12 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
     zIndex: 20,
+  },
+  signedIn: {
+    padding: '10px 14px 8px',
+    fontSize: 12,
+    color: colors.textMuted,
+    borderBottom: `1px solid ${colors.border}`,
   },
   menuItem: {
     display: 'block',
