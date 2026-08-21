@@ -9,11 +9,12 @@ import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import IncidentStatus, { incidentStatusLabel } from '../components/IncidentStatus'
 import MetricCard from '../components/MetricCard'
+import NextCheckCountdown from '../components/NextCheckCountdown'
 import StatusBadge, { badgeStatusFor } from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
-import { secondsUntilNextCheck, useAdaptivePoll } from '../utils/poll'
+import { useAdaptivePoll } from '../utils/poll'
 
 export default function MonitorDetail() {
   const { isAdmin } = useAuth()
@@ -278,46 +279,6 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
   )
 }
 
-function NextCheckCountdown({ monitor, onDue }: { monitor: Monitor; onDue?: () => void }) {
-  const monitorRef = useRef(monitor)
-  monitorRef.current = monitor
-  const onDueRef = useRef(onDue)
-  onDueRef.current = onDue
-  const [seconds, setSeconds] = useState(() => secondsUntilNextCheck(monitor))
-
-  useEffect(() => {
-    setSeconds(secondsUntilNextCheck(monitor))
-    const tick = setInterval(() => {
-      const next = secondsUntilNextCheck(monitorRef.current)
-      setSeconds(prev => {
-        if (prev > 0 && next === 0) onDueRef.current?.()
-        return next
-      })
-    }, 1000)
-    return () => clearInterval(tick)
-  }, [monitor.last_checked_at, monitor.interval_seconds, monitor.enabled])
-
-  if (!monitor.enabled) {
-    return (
-      <>
-        <div style={{ fontSize: 36, fontWeight: 700, color: colors.textMuted }}>—</div>
-        <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>monitor disabled</div>
-      </>
-    )
-  }
-
-  return (
-    <>
-      <div style={{ fontSize: 36, fontWeight: 700, color: colors.brand }}>
-        {seconds === 0 ? 'Checking…' : `${seconds}s`}
-      </div>
-      <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
-        {seconds === 0 ? 'probe due now' : 'until next probe'}
-      </div>
-    </>
-  )
-}
-
 function SidePanel({ monitor, incidents, onCheckDue }: {
   monitor: Monitor
   incidents: Incident[]
@@ -374,11 +335,7 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
           />
         )}
       </Panel>
-      <Panel title="Next Check">
-        <div style={{ textAlign: 'center', padding: '12px 0' }}>
-          <NextCheckCountdown monitor={monitor} onDue={onCheckDue} />
-        </div>
-      </Panel>
+      <NextCheckCountdown target={monitor} onDue={onCheckDue} />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResi
 import { useAuth } from '../context/AuthContext'
 import DatePicker from '../components/DatePicker'
 import MetricCard from '../components/MetricCard'
+import NextCheckCountdown from '../components/NextCheckCountdown'
 import { colors } from '../theme'
 import { useAdaptivePoll } from '../utils/poll'
 
@@ -31,7 +32,7 @@ export default function PerformanceDetail() {
     return t
   }, [id])
 
-  useAdaptivePoll(id, load, [period])
+  const refreshRef = useAdaptivePoll(id, load, [period])
 
   if (!target) return <div style={{ color: colors.textMuted }}>Loading…</div>
 
@@ -73,6 +74,12 @@ export default function PerformanceDetail() {
           {isAdmin && <Link to={`/performance/targets/${id}/edit`} className="btn">Edit</Link>}
         </div>
       </div>
+
+      <NextCheckCountdown
+        target={target}
+        onDue={() => refreshRef.current?.()}
+        disabledLabel="Paused"
+      />
 
       {perf && perf.p50_ms > 0 && (
         <div className="grid-4" style={{ marginBottom: 24 }}>
