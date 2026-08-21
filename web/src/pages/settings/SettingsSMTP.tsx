@@ -50,7 +50,7 @@ export default function SettingsSMTP() {
         </Link>
       </div>
       {message && <div style={styles.ok}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div className="split-panels">
         <form onSubmit={handleSave} style={styles.card}>
@@ -106,7 +106,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const styles: Record<string, React.CSSProperties> = {
   card: {
     background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '24px 28px', minWidth: 0,
+    borderRadius: 10, padding: '24px 28px', minWidth: 0,
   },
   cardTitle: { margin: '0 0 20px', fontSize: 16, fontWeight: 600 },
   checkbox: { display: 'flex', gap: 10, alignItems: 'center', fontSize: 14, color: colors.textMuted },

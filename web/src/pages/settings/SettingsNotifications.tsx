@@ -75,7 +75,7 @@ export default function SettingsNotifications() {
   return (
     <>
       {message && <div style={styles.ok}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div style={styles.card}>
         <h3 style={styles.title}>Notification endpoints</h3>
@@ -201,7 +201,7 @@ function EndpointCard({
 const styles: Record<string, React.CSSProperties> = {
   card: {
     background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '24px 28px',
+    borderRadius: 10, padding: '24px 28px',
   },
   title: { margin: '0 0 8px', fontSize: 16, fontWeight: 600 },
   desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },

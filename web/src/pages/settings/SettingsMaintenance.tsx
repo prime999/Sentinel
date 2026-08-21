@@ -64,7 +64,7 @@ export default function SettingsMaintenance() {
 
   return (
     <>
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
       <form onSubmit={handleCreate} style={styles.card}>
         <h3 style={styles.title}>Schedule Maintenance</h3>
         <p style={styles.desc}>Suppress alerts during planned downtime. Leave monitor blank for global maintenance.</p>
@@ -132,7 +132,7 @@ export default function SettingsMaintenance() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 28 },
+  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 28 },
   title: { margin: '0 0 8px' },
   desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },

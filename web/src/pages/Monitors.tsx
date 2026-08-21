@@ -5,6 +5,10 @@ import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResi
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import DashboardRail from '../components/DashboardRail'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
+import MetricCard from '../components/MetricCard'
+import PageHeader from '../components/PageHeader'
+import Panel from '../components/Panel'
+import SegmentedTabs from '../components/SegmentedTabs'
 import Sparkline from '../components/Sparkline'
 import StatusBadge, { badgeStatusFor } from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
@@ -138,7 +142,7 @@ export default function Monitors() {
             const points = (s.points || []).slice(-24).map(p => p.response_time_ms)
             return [id, { uptime_pct: s.uptime_pct, points }] as const
           } catch {
-            return [id, { uptime_pct: 0, points: [] }] as const
+            return [id, { uptime_pct: 0, points: [] as number[] }] as const
           }
         }),
       )
@@ -170,92 +174,63 @@ export default function Monitors() {
 
   return (
     <div className="page" style={styles.page}>
-      <div style={styles.layout}>
-        <div style={styles.main}>
-          <div style={styles.topBar}>
-            <div>
-              <h1 className="page-title" style={{ fontSize: 28 }}>
-                {greetingFor(hour)}, {name}
-              </h1>
-              <p className="page-subtitle" style={{ marginBottom: 0 }}>
-                Here&apos;s what&apos;s happening with your monitors.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              {isPlatformAdmin && customers.length > 0 && (
-                <CustomerFilter
-                  customers={customers}
-                  selectedIds={selectedCustomers}
-                  onChange={setSelectedCustomers}
-                />
-              )}
-              {isAdmin && (
-                <Link to="/monitors/new" className="btn btn-primary">+ Add Monitor</Link>
-              )}
-            </div>
-          </div>
+      <div className="page-layout">
+        <div className="page-layout-main">
+          <PageHeader
+            title={`${greetingFor(hour)}, ${name}`}
+            subtitle="Here's what's happening with your monitors."
+            actions={
+              <>
+                {isPlatformAdmin && customers.length > 0 && (
+                  <CustomerFilter
+                    customers={customers}
+                    selectedIds={selectedCustomers}
+                    onChange={setSelectedCustomers}
+                  />
+                )}
+                {isAdmin && (
+                  <Link to="/monitors/new" className="btn btn-primary">+ Add Monitor</Link>
+                )}
+              </>
+            }
+          />
 
           {searched.length > 0 && (
-            <div style={styles.metrics}>
-              <div style={styles.metricWide}>
-                <div style={styles.metricLabel}>Overall Uptime</div>
-                <div style={styles.metricValue}>
-                  {overallUptime == null ? '—' : `${overallUptime.toFixed(2)}%`}
-                </div>
-                <div style={styles.metricSub}>Last 30 days · filtered monitors</div>
+            <div className="kpi-strip">
+              <div className="kpi-wide">
+                <MetricCard
+                  label="Overall Uptime"
+                  value={overallUptime == null ? '—' : `${overallUptime.toFixed(2)}%`}
+                  sub="Last 30 days · filtered monitors"
+                />
               </div>
-              <div style={styles.metricCard}>
-                <div style={styles.metricLabel}>Monitors</div>
-                <div style={styles.metricValue}>{searched.length}</div>
-                <div style={styles.metricSub}>Total monitors</div>
-              </div>
-              <div style={{ ...styles.metricStat, borderColor: 'rgba(34,197,94,0.35)' }}>
-                <div style={{ ...styles.statCount, color: colors.green }}>{up}</div>
-                <div style={styles.statLabel}>Healthy</div>
-              </div>
-              <div style={{ ...styles.metricStat, borderColor: 'rgba(245,158,11,0.35)' }}>
-                <div style={{ ...styles.statCount, color: colors.yellow }}>{degraded}</div>
-                <div style={styles.statLabel}>Warning</div>
-              </div>
-              <div style={{ ...styles.metricStat, borderColor: 'rgba(239,68,68,0.35)' }}>
-                <div style={{ ...styles.statCount, color: colors.red }}>{down}</div>
-                <div style={styles.statLabel}>Down</div>
-              </div>
+              <MetricCard label="Monitors" value={String(searched.length)} sub="Total monitors" />
+              <MetricCard label="Healthy" value={String(up)} accent="green" />
+              <MetricCard label="Warning" value={String(degraded)} accent="yellow" />
+              <MetricCard label="Down" value={String(down)} accent="red" />
             </div>
           )}
 
           {(monitors.length > 0 || search) && (
-            <div style={styles.toolbar}>
+            <div className="toolbar-row">
               <input
-                className="input"
+                className="input search-field"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search monitors…"
-                style={styles.searchInput}
+                aria-label="Search monitors"
               />
-              <div style={styles.tabs}>
-                {statusTabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setStatusTab(tab.id)}
-                    style={{
-                      ...styles.tab,
-                      ...(statusTab === tab.id ? styles.tabActive : {}),
-                    }}
-                  >
-                    {tab.label}
-                    {typeof tab.count === 'number' && (
-                      <span style={styles.tabCount}>{tab.count}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              <SegmentedTabs
+                label="Filter by status"
+                value={statusTab}
+                onChange={id => setStatusTab(id as StatusTab)}
+                tabs={statusTabs}
+              />
             </div>
           )}
 
           {allTags.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }} role="group" aria-label="Filter by tag">
               <button
                 type="button"
                 className="btn"
@@ -278,28 +253,28 @@ export default function Monitors() {
             </div>
           )}
 
-          {error && <div style={styles.error}>{error}</div>}
+          {error && <div className="flash-error" role="alert">{error}</div>}
 
           {monitors.length === 0 ? (
-            <div style={styles.empty}>
-              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>No monitors yet</div>
-              <div style={{ color: colors.textMuted, marginBottom: 20 }}>
+            <div className="empty-state">
+              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8, color: colors.text }}>No monitors yet</div>
+              <div style={{ marginBottom: 20 }}>
                 Add your first website, port, SSL, or DNS monitor.
               </div>
               {isAdmin && <Link to="/monitors/new" className="btn btn-primary">Add Monitor</Link>}
             </div>
           ) : filtered.length === 0 ? (
-            <div style={styles.empty}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>No matches</div>
-              <div style={{ color: colors.textMuted }}>
+            <div className="empty-state">
+              <div style={{ fontWeight: 600, marginBottom: 8, color: colors.text }}>No matches</div>
+              <div>
                 {search.trim()
                   ? `No monitors match “${search.trim()}”.`
                   : 'No monitors for the selected filters.'}
               </div>
             </div>
           ) : (
-            <div className="data-table-wrap" style={styles.tableWrap}>
-              <table ref={tableRef} className="data-table" style={styles.table}>
+            <Panel padded={false} className="data-table-wrap">
+              <table ref={tableRef} className="data-table">
                 <ColGroup widths={widths} />
                 <thead>
                   <tr>
@@ -322,22 +297,25 @@ export default function Monitors() {
                         ? colors.yellow
                         : colors.green
                     return (
-                      <tr key={m.id} style={styles.tr}>
-                        <td style={styles.td}>
+                      <tr
+                        key={m.id}
+                        className={m.last_status === 'down' ? 'row-down' : m.last_status === 'degraded' ? 'row-warn' : undefined}
+                      >
+                        <td>
                           <Link to={`/monitors/${m.id}`} style={styles.monitorLink}>
                             <span style={styles.monitorName}>{m.name}</span>
                             <span style={styles.monitorUrl}>{monitorTarget(m)}</span>
                           </Link>
                         </td>
-                        <td style={styles.td}>
+                        <td>
                           <TypeBadge type={m.type} url={m.url} />
                         </td>
-                        <td style={styles.td}>
+                        <td>
                           <StatusBadge status={badgeStatusFor(m.type, m.last_status)} />
                         </td>
-                        <td style={styles.td}>
+                        <td>
                           <div style={styles.responseCell}>
-                            <span style={{ fontWeight: 600 }}>
+                            <span className="num" style={{ fontWeight: 600 }}>
                               {typeof ms === 'number' ? `${ms}ms` : '—'}
                             </span>
                             {st?.points && st.points.length > 1 && (
@@ -345,17 +323,19 @@ export default function Monitors() {
                             )}
                           </div>
                         </td>
-                        <td style={styles.td}>
+                        <td className="num">
                           {st ? `${st.uptime_pct.toFixed(2)}%` : '—'}
                         </td>
-                        <td style={{ ...styles.td, color: colors.textMuted }}>
+                        <td className="num" style={{ color: colors.textMuted }}>
                           {m.last_checked_at ? timeAgo(m.last_checked_at) : 'Waiting'}
                         </td>
-                        <td style={styles.td}>
+                        <td>
                           <div style={{ position: 'relative' }} ref={menuId === m.id ? menuRef : undefined}>
                             <button
                               type="button"
                               aria-label="Actions"
+                              aria-haspopup="menu"
+                              aria-expanded={menuId === m.id}
                               style={styles.kebab}
                               onClick={() => setMenuId(menuId === m.id ? null : m.id)}
                             >
@@ -400,7 +380,7 @@ export default function Monitors() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </Panel>
           )}
         </div>
 
@@ -412,147 +392,11 @@ export default function Monitors() {
 
 const styles: Record<string, React.CSSProperties> = {
   page: { maxWidth: '100%' },
-  layout: {
-    display: 'flex',
-    gap: 24,
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
-  },
-  main: { flex: '1 1 560px', minWidth: 0 },
-  topBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 28,
-    gap: 16,
-    flexWrap: 'wrap',
-  },
-  metrics: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-    gap: 12,
-    marginBottom: 24,
-  },
-  metricWide: {
-    background: colors.card,
-    border: `1px solid ${colors.border}`,
-    borderRadius: colors.radius,
-    padding: 24,
-    gridColumn: 'span 2',
-  },
-  metricCard: {
-    background: colors.card,
-    border: `1px solid ${colors.border}`,
-    borderRadius: colors.radius,
-    padding: 24,
-  },
-  metricStat: {
-    background: colors.card,
-    border: `1px solid ${colors.border}`,
-    borderRadius: colors.radius,
-    padding: '20px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metricLabel: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
-  metricValue: {
-    fontSize: 28,
-    fontWeight: 700,
-    letterSpacing: '-0.02em',
-    lineHeight: 1.1,
-  },
-  metricSub: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 8,
-  },
-  statCount: {
-    fontSize: 24,
-    fontWeight: 700,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textMuted,
-    fontWeight: 500,
-  },
-  toolbar: {
-    display: 'flex',
-    gap: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    flexWrap: 'wrap',
-  },
-  searchInput: {
-    maxWidth: 280,
-    width: '100%',
-  },
-  tabs: {
-    display: 'flex',
-    gap: 4,
-    background: colors.card,
-    border: `1px solid ${colors.border}`,
-    borderRadius: 12,
-    padding: 4,
-  },
-  tab: {
-    border: 'none',
-    background: 'transparent',
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: 500,
-    padding: '8px 14px',
-    borderRadius: 8,
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 36,
-  },
-  tabActive: {
-    background: colors.bgElevated,
-    color: colors.text,
-  },
-  tabCount: {
-    fontSize: 11,
-    color: colors.textDim,
-  },
-  tableWrap: {
-    background: colors.card,
-    border: `1px solid ${colors.border}`,
-    borderRadius: colors.radius,
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: 14,
-  },
-  th: {
-    textAlign: 'left',
-    padding: '14px 16px',
-    fontSize: 12,
-    fontWeight: 600,
-    color: colors.textMuted,
-    borderBottom: `1px solid ${colors.border}`,
-    whiteSpace: 'nowrap',
-  },
-  tr: {
-    borderBottom: `1px solid ${colors.border}`,
-  },
-  td: {
-    padding: '16px',
-    verticalAlign: 'middle',
-  },
+  th: {},
   monitorLink: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 4,
+    gap: 2,
     color: 'inherit',
     textDecoration: 'none',
     minWidth: 0,
@@ -561,7 +405,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
   monitorUrl: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textMuted,
   },
   responseCell: {
@@ -570,10 +414,10 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 10,
   },
   kebab: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    border: `1px solid transparent`,
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    border: '1px solid transparent',
     background: 'transparent',
     color: colors.textMuted,
     fontSize: 18,
@@ -587,7 +431,7 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 140,
     background: colors.bgElevated,
     border: `1px solid ${colors.border}`,
-    borderRadius: 12,
+    borderRadius: 10,
     boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
     zIndex: 30,
     overflow: 'hidden',
@@ -603,20 +447,5 @@ const styles: Record<string, React.CSSProperties> = {
   },
   menuDanger: {
     padding: 8,
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '64px 24px',
-    background: colors.card,
-    borderRadius: colors.radius,
-    border: `1px solid ${colors.border}`,
-  },
-  error: {
-    background: colors.redDim,
-    color: colors.red,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-    border: `1px solid rgba(239,68,68,0.3)`,
   },
 }

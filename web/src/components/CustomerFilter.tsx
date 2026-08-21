@@ -88,6 +88,7 @@ export default function CustomerFilter({
         }}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label="Filter by customer"
       >
         <span style={styles.triggerLabel}>{label}</span>
         <span style={styles.chevron}>{open ? '▴' : '▾'}</span>
@@ -100,6 +101,7 @@ export default function CustomerFilter({
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search customers…"
+            aria-label="Search customers"
             style={styles.search}
             autoFocus
           />

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { api, Customer, TeamMember, UserRole } from '../../api'
 import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import PageHeader from '../../components/PageHeader'
 import { roleLabel, useAuth } from '../../context/AuthContext'
 import { colors } from '../../theme'
 
@@ -199,15 +200,17 @@ export default function SettingsTeam() {
 
   return (
     <div className="page">
-      <h1 className="page-title">Users</h1>
-      <p className="page-subtitle">
-        {isPlatformAdmin
-          ? 'Manage platform and customer users. Unlock lockouts and reset passwords when needed.'
-          : 'Manage users for your customer account. Unlock lockouts and reset passwords when needed.'}
-      </p>
+      <PageHeader
+        title="Users"
+        subtitle={
+          isPlatformAdmin
+            ? 'Manage platform and customer users. Unlock lockouts and reset passwords when needed.'
+            : 'Manage users for your customer account. Unlock lockouts and reset passwords when needed.'
+        }
+      />
 
       {message && <div style={styles.ok}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div style={styles.card}>
         <div style={styles.cardHeader}>
@@ -232,6 +235,7 @@ export default function SettingsTeam() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search username or email…"
+              aria-label="Search username or email"
               autoComplete="off"
             />
             <select
@@ -239,6 +243,7 @@ export default function SettingsTeam() {
               style={styles.filterSelect}
               value={roleFilter}
               onChange={e => setRoleFilter(e.target.value as RoleFilter)}
+              aria-label="Filter by role"
             >
               <option value="all">All roles</option>
               <option value="admin">Admin</option>
@@ -249,6 +254,7 @@ export default function SettingsTeam() {
               style={styles.filterSelect}
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value as StatusFilter)}
+              aria-label="Filter by status"
             >
               <option value="all">All statuses</option>
               <option value="active">Active</option>
@@ -260,6 +266,7 @@ export default function SettingsTeam() {
                 style={styles.filterSelect}
                 value={customerFilter}
                 onChange={e => setCustomerFilter(e.target.value)}
+                aria-label="Filter by customer"
               >
                 <option value="all">All customers</option>
                 <option value="platform">Platform</option>
@@ -586,7 +593,7 @@ function Field({
 const styles: Record<string, React.CSSProperties> = {
   card: {
     background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '24px 28px', minWidth: 0,
+    borderRadius: 10, padding: '24px 28px', minWidth: 0,
   },
   cardHeader: {
     display: 'flex',
@@ -643,7 +650,7 @@ const styles: Record<string, React.CSSProperties> = {
   username: { fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 },
   youBadge: {
     fontSize: 10, fontWeight: 600, color: colors.brand,
-    background: 'rgba(20,184,166,0.15)', padding: '2px 6px', borderRadius: 4,
+    background: 'rgba(42, 240, 200, 0.15)', padding: '2px 6px', borderRadius: 4,
     flexShrink: 0,
   },
   lockedBadge: {
@@ -681,7 +688,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16,
   },
   modal: {
-    background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12,
+    background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10,
     padding: 24, width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto',
     boxShadow: '0 16px 40px rgba(15,23,42,0.18)',
   },

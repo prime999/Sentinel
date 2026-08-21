@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { api, Customer } from '../../api'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import PageHeader from '../../components/PageHeader'
 import { colors } from '../../theme'
 
 export default function SettingsCustomers() {
@@ -89,11 +90,13 @@ export default function SettingsCustomers() {
 
   return (
     <div className="page">
-      <h1 className="page-title">Customers</h1>
-      <p className="page-subtitle">Group monitors by customer and set monitor quotas.</p>
+      <PageHeader
+        title="Customers"
+        subtitle="Group monitors by customer and set monitor quotas."
+      />
 
       {message && <div style={styles.ok}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div className="split-panels">
         <div style={styles.card}>
@@ -109,6 +112,7 @@ export default function SettingsCustomers() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search customers…"
+              aria-label="Search customers"
               autoComplete="off"
             />
           )}
@@ -200,7 +204,7 @@ export default function SettingsCustomers() {
 const styles: Record<string, React.CSSProperties> = {
   card: {
     background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '24px 28px', minWidth: 0,
+    borderRadius: 10, padding: '24px 28px', minWidth: 0,
   },
   cardTitle: { margin: '0 0 20px', fontSize: 16, fontWeight: 600 },
   search: { maxWidth: 360, width: '100%', marginBottom: 16 },

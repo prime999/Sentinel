@@ -89,7 +89,7 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 420,
     background: colors.bgElevated,
     border: `1px solid ${colors.border}`,
-    borderRadius: 14,
+    borderRadius: 10,
     padding: '24px 28px',
     boxShadow: '0 24px 48px rgba(0,0,0,0.45)',
   },
@@ -108,6 +108,7 @@ const styles: Record<string, React.CSSProperties> = {
   actions: {
     display: 'flex',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
     gap: 10,
   },
 }

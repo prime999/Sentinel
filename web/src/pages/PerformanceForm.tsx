@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, Customer, PerformanceTarget } from '../api'
 import ConfirmDialog from '../components/ConfirmDialog'
+import PageHeader from '../components/PageHeader'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 import { numberFieldValue, parseNumberInput } from '../utils/numberInput'
@@ -71,9 +72,11 @@ export default function PerformanceForm() {
 
   return (
     <div className="page">
-      <h1 className="page-title">{id ? 'Edit Target' : 'Add Performance Target'}</h1>
-      <p className="page-subtitle">Track response time and latency for a website — independent of uptime monitoring.</p>
-      {error && <div style={styles.error}>{error}</div>}
+      <PageHeader
+        title={id ? 'Edit Target' : 'Add Performance Target'}
+        subtitle="Track response time and latency for a website — independent of uptime monitoring."
+      />
+      {error && <div className="flash-error" role="alert">{error}</div>}
       <form onSubmit={handleSubmit} style={styles.form}>
         <Field label="Name">
           <input required className="input" value={form.name || ''} onChange={e => set('name', e.target.value)} />
@@ -171,7 +174,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const styles: Record<string, React.CSSProperties> = {
   form: {
     maxWidth: 520, background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '28px 32px',
+    borderRadius: 10, padding: '28px 32px',
   },
   checkbox: { display: 'flex', gap: 10, alignItems: 'center', fontSize: 14, color: colors.textMuted },
   error: {

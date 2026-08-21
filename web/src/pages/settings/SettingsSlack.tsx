@@ -66,7 +66,7 @@ export default function SettingsSlack() {
         <Link to="/settings/notifications" style={styles.back}>← Notifications</Link>
       </div>
       {message && <div style={styles.ok}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
 
       <form onSubmit={handleSave} style={styles.card}>
         <h3 style={styles.title}>Slack</h3>
@@ -126,7 +126,7 @@ const styles: Record<string, React.CSSProperties> = {
   back: { color: colors.textMuted, fontSize: 13, textDecoration: 'none' },
   card: {
     background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '24px 28px', maxWidth: 640,
+    borderRadius: 10, padding: '24px 28px', maxWidth: 640,
   },
   title: { margin: '0 0 8px', fontSize: 16, fontWeight: 600 },
   desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px', lineHeight: 1.45 },

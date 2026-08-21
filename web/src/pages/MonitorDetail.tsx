@@ -10,10 +10,14 @@ import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFil
 import IncidentStatus, { incidentStatusLabel } from '../components/IncidentStatus'
 import MetricCard from '../components/MetricCard'
 import NextCheckCountdown from '../components/NextCheckCountdown'
+import PageHeader from '../components/PageHeader'
+import Surface from '../components/Panel'
+import SegmentedTabs from '../components/SegmentedTabs'
 import StatusBadge, { badgeStatusFor } from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
 import { useAuth } from '../context/AuthContext'
-import { colors } from '../theme'
+import { chartGridStroke, chartTick, chartTooltipLabel, chartTooltipStyle } from '../chartTheme'
+import { colors, fonts } from '../theme'
 import { useAdaptivePoll } from '../utils/poll'
 
 export default function MonitorDetail() {
@@ -55,69 +59,73 @@ export default function MonitorDetail() {
 
   return (
     <div className="page">
-      {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{target}</h1>
+      <PageHeader
+        title={target}
+        badges={
+          <>
             <TypeBadge type={type} url={monitor.url} />
             <StatusBadge status={badgeStatusFor(type, monitor.last_status)} />
             {monitor.invert && <span style={styles.invertBadge}>Inverted</span>}
-          </div>
-          <div style={{ color: colors.textMuted, fontSize: 14 }}>{monitor.name}</div>
-        </div>
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: 10 }}>
+          </>
+        }
+        subtitle={monitor.name}
+        actions={isAdmin ? (
+          <>
             <Link to={`/monitors/${id}/edit`} className="btn">Edit</Link>
             <DeleteMonitorButton id={monitor.id} name={monitor.name} variant="danger" />
-          </div>
-        )}
-      </div>
+          </>
+        ) : undefined}
+      />
 
       <TypeMetrics monitor={monitor} stats={stats} latest={latest} />
 
       {type !== 'dns' && (
-        <div style={styles.chartCard}>
+        <Surface style={{ marginBottom: 20 }}>
           <div style={styles.chartHeader}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Availability History</h3>
-            <select value={period} onChange={e => setPeriod(e.target.value)} className="input" style={{ width: 'auto', padding: '6px 12px' }}>
-              <option value="24h">Last 24 hours</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-            </select>
+            <h3 className="panel-title" style={{ margin: 0 }}>Availability History</h3>
+            <SegmentedTabs
+              label="Chart period"
+              value={period}
+              onChange={setPeriod}
+              tabs={[
+                { id: '24h', label: '24h' },
+                { id: '7d', label: '7d' },
+                { id: '30d', label: '30d' },
+              ]}
+            />
           </div>
           <div style={{ height: 260 }}>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
-                    <linearGradient id="fillTeal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={colors.brand} stopOpacity={0.4} />
+                    <linearGradient id="fillInstrument" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={colors.brand} stopOpacity={0.28} />
                       <stop offset="100%" stopColor={colors.brand} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke={colors.border} strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="time" tick={{ fill: colors.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis unit="ms" tick={{ fill: colors.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <CartesianGrid stroke={chartGridStroke} vertical={false} />
+                  <XAxis dataKey="time" tick={chartTick} axisLine={false} tickLine={false} />
+                  <YAxis unit="ms" tick={chartTick} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 8, color: colors.text }}
-                    labelStyle={{ color: colors.textMuted }}
+                    contentStyle={chartTooltipStyle}
+                    labelStyle={chartTooltipLabel}
                   />
-                  <Area type="monotone" dataKey="ms" stroke={colors.brand} fill="url(#fillTeal)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="ms" stroke={colors.brand} fill="url(#fillInstrument)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div style={styles.emptyChart}>No data yet — waiting for first check</div>
             )}
           </div>
-        </div>
+        </Surface>
       )}
 
       {stats && type === 'http' && (
-        <div style={{ ...styles.chartCard, marginBottom: 20 }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>Uptime</h3>
+        <Surface style={{ marginBottom: 20 }}>
+          <h3 className="panel-title">Uptime</h3>
           <UptimeBar label="Selected period" pct={stats.uptime_pct} />
-        </div>
+        </Surface>
       )}
 
       <div className="detail-grid" style={{ marginBottom: 20 }}>
@@ -193,7 +201,7 @@ function UptimeBar({ label, pct }: { label: string; pct: number }) {
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
         <span style={{ color: colors.textMuted }}>{label}</span>
-        <span style={{ fontWeight: 600 }}>{pct.toFixed(1)}%</span>
+        <span className="num" style={{ fontWeight: 600 }}>{pct.toFixed(1)}%</span>
       </div>
       <div style={{ height: 8, background: colors.bg, borderRadius: 4, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: colors.green, borderRadius: 4, transition: 'width 0.3s' }} />
@@ -207,9 +215,9 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
 
   if (type === 'ssl') {
     const ssl = parseSSL(latest?.details)
-    if (!ssl) return <Panel title="Certificate Details"><Empty /></Panel>
+    if (!ssl) return <DetailBlock title="Certificate Details"><Empty /></DetailBlock>
     return (
-      <Panel title="Certificate Details">
+      <DetailBlock title="Certificate Details">
         <Row label="Subject (CN)" value={ssl.subject || '—'} />
         <Row
           label="SANs"
@@ -223,15 +231,15 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
             Issues: {ssl.issues.join(', ')}
           </div>
         )}
-      </Panel>
+      </DetailBlock>
     )
   }
 
   if (type === 'dns') {
     const dns = parseDNS(latest?.details)
-    if (!dns) return <Panel title="DNS Records"><Empty /></Panel>
+    if (!dns) return <DetailBlock title="DNS Records"><Empty /></DetailBlock>
     return (
-      <Panel title="DNS Records">
+      <DetailBlock title="DNS Records">
         {Object.entries(dns.records).map(([rt, vals]) => (
           <Row key={rt} label={rt} value={vals.length ? vals.join(', ') : '—'} />
         ))}
@@ -242,25 +250,25 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
             ))}
           </div>
         )}
-      </Panel>
+      </DetailBlock>
     )
   }
 
   if (type === 'port') {
     const port = parsePort(latest?.details)
     return (
-      <Panel title="Connection Details">
+      <DetailBlock title="Connection Details">
         <Row label="Host" value={port?.host || monitor.url} />
         <Row label="Port" value={String(port?.port ?? monitor.port ?? '—')} />
         <Row label="Protocol" value="TCP" />
         <Row label="Timeout" value={`${monitor.timeout_ms} ms`} />
         <Row label="Status" value={port?.open ? 'Open' : port ? 'Closed' : '—'} />
-      </Panel>
+      </DetailBlock>
     )
   }
 
   return (
-    <Panel title="Connection Details">
+    <DetailBlock title="Connection Details">
       <Row label="URL" value={monitor.url} />
       <Row label="Method" value={monitor.method} />
       <Row label="Status Code" value={latest?.status_code != null ? String(latest.status_code) : '—'} />
@@ -275,7 +283,7 @@ function TypeDetailPanel({ monitor, latest }: { monitor: Monitor; latest?: Check
           <Row label="TTFB" value={latest.ttfb_ms != null ? `${latest.ttfb_ms} ms` : '—'} />
         </>
       )}
-    </Panel>
+    </DetailBlock>
   )
 }
 
@@ -294,7 +302,7 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      <Panel title="Last Incident">
+      <DetailBlock title="Last Incident">
         {lastIncident ? (
           <>
             <Row label="Type" value={lastIncident.type} />
@@ -305,8 +313,8 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
         ) : (
           <div style={{ color: colors.textMuted, fontSize: 13 }}>No recent incidents</div>
         )}
-      </Panel>
-      <Panel title="Notifications">
+      </DetailBlock>
+      <DetailBlock title="Notifications">
         <Row
           label="Email"
           value={channelStatusLabel({
@@ -334,7 +342,7 @@ function SidePanel({ monitor, incidents, onCheckDue }: {
             })}
           />
         )}
-      </Panel>
+      </DetailBlock>
       <NextCheckCountdown target={monitor} onDue={onCheckDue} />
     </div>
   )
@@ -352,12 +360,12 @@ function channelStatusLabel(opts: {
   return opts.detail ? `On (${opts.detail})` : 'On'
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function DetailBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={styles.panel}>
-      <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</h3>
+    <Surface>
+      <h3 className="panel-title" style={{ color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 11 }}>{title}</h3>
       {children}
-    </div>
+    </Surface>
   )
 }
 
@@ -365,7 +373,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '8px 0', borderBottom: `1px solid ${colors.border}`, fontSize: 13 }}>
       <span style={{ color: colors.textMuted, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontWeight: 500, textAlign: 'right', fontFamily: mono ? 'monospace' : 'inherit', fontSize: mono ? 11 : 13, wordBreak: 'break-all' }}>{value}</span>
+      <span style={{ fontWeight: 500, textAlign: 'right', fontFamily: mono ? fonts.mono : 'inherit', fontSize: mono ? 11 : 13, wordBreak: 'break-all' }}>{value}</span>
     </div>
   )
 }
@@ -426,7 +434,7 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
   const filtered = !!(filters.date || filters.status || filters.type)
 
   return (
-    <div style={{ ...styles.chartCard, marginTop: 0 }}>
+    <Surface>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Recent Incidents</h3>
         <span style={{ fontSize: 13, color: colors.textMuted }}>
@@ -443,40 +451,40 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
         />
       </div>
       <div className="data-table-wrap">
-        <table ref={tableRef} className="data-table" style={styles.table}>
+        <table ref={tableRef} className="data-table">
           <ColGroup widths={widths} />
           <thead>
             <tr>
-              <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Started</ResizableTh>
-              <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Type</ResizableTh>
-              <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Message</ResizableTh>
-              <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
-              <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Resolved</ResizableTh>
+              <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Started</ResizableTh>
+              <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Type</ResizableTh>
+              <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Message</ResizableTh>
+              <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+              <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Resolved</ResizableTh>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} style={{ ...styles.td, color: colors.textMuted }}>Loading…</td>
+                  <td colSpan={5} style={{ color: colors.textMuted }}>Loading…</td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ ...styles.td, color: colors.textMuted }}>No incidents recorded for this monitor.</td>
+                <td colSpan={5} style={{ color: colors.textMuted }}>No incidents recorded for this monitor.</td>
               </tr>
             ) : (
               items.map(inc => (
-                <tr key={inc.id}>
-                  <td style={styles.td}>{new Date(inc.started_at).toLocaleString()}</td>
-                  <td style={styles.td}>
+                <tr key={inc.id} className={!inc.resolved_at ? ((inc.type === 'slow' || inc.type === 'ssl_expiry') ? 'row-warn' : 'row-down') : undefined}>
+                  <td className="num">{new Date(inc.started_at).toLocaleString()}</td>
+                  <td>
                     <span style={styles.incidentType}>{inc.type}</span>
                   </td>
-                  <td style={{ ...styles.td, color: colors.textMuted, maxWidth: 360 }}>
+                  <td style={{ color: colors.textMuted }}>
                     {inc.message || '—'}
                   </td>
-                  <td style={styles.td}>
+                  <td>
                     <IncidentStatus incident={inc} />
                   </td>
-                  <td style={{ ...styles.td, color: colors.textMuted }}>
+                  <td className="num" style={{ color: colors.textMuted }}>
                     {inc.resolved_at ? new Date(inc.resolved_at).toLocaleString() : '—'}
                   </td>
                 </tr>
@@ -486,23 +494,21 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
         </table>
       </div>
       {total > pageSize && (
-        <div style={styles.pager}>
+        <div className="table-pager">
           <button
             type="button"
-            className="btn"
-            style={styles.pagerBtn}
+            className="btn btn-sm"
             disabled={page <= 0 || loading}
             onClick={() => setPage(p => Math.max(0, p - 1))}
           >
             Previous
           </button>
-          <span style={{ fontSize: 13, color: colors.textMuted }}>
+          <span className="num" style={{ fontSize: 12, color: colors.textMuted }}>
             Page {page + 1} of {totalPages}
           </span>
           <button
             type="button"
-            className="btn"
-            style={styles.pagerBtn}
+            className="btn btn-sm"
             disabled={page + 1 >= totalPages || loading}
             onClick={() => setPage(p => p + 1)}
           >
@@ -510,7 +516,7 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
           </button>
         </div>
       )}
-    </div>
+    </Surface>
   )
 }
 
@@ -521,49 +527,17 @@ function formatDate(iso: string) { try { return new Date(iso).toLocaleDateString
 function timeAgo(iso: string) { const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000); return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)}m ago` : `${Math.floor(s / 3600)}h ago` }
 
 const styles: Record<string, React.CSSProperties> = {
-  header: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-    marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${colors.border}`,
-  },
   invertBadge: {
     fontSize: 11, fontWeight: 600, color: colors.yellow,
-    background: 'rgba(210,153,34,0.15)', padding: '2px 8px', borderRadius: 4,
+    background: 'rgba(210,153,34,0.15)', padding: '2px 8px', borderRadius: 6,
   },
-  chartCard: {
-    background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '20px 24px', marginBottom: 20,
-  },
-  chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  emptyChart: { color: colors.textMuted, textAlign: 'center', paddingTop: 120, fontSize: 14 },
-  panel: {
-    background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '18px 20px',
-  },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: {
-    textAlign: 'left', padding: '10px 12px', borderBottom: `1px solid ${colors.border}`,
-    color: colors.textMuted, fontWeight: 600, fontSize: 12, textTransform: 'uppercase',
-  },
-  td: { padding: '12px', borderBottom: `1px solid ${colors.border}` },
+  chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' },
+  emptyChart: { color: colors.textMuted, textAlign: 'center', paddingTop: 120, fontSize: 13 },
   incidentType: {
     textTransform: 'uppercase',
     fontSize: 11,
     fontWeight: 700,
     color: colors.textMuted,
     letterSpacing: '0.04em',
-  },
-  pager: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 16,
-    paddingTop: 12,
-    borderTop: `1px solid ${colors.border}`,
-  },
-  pagerBtn: {
-    minHeight: 36,
-    padding: '0 14px',
-    fontSize: 13,
   },
 }

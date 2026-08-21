@@ -141,7 +141,7 @@ export default function SettingsAudit() {
         )}
       </div>
 
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
 
       {entries.length === 0 && !loading ? (
         <p style={styles.empty}>
@@ -217,7 +217,7 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     background: colors.card,
     border: `1px solid ${colors.border}`,
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 28,
   },
   header: { marginBottom: 16 },
@@ -232,7 +232,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '14px 16px',
     background: colors.bg,
     border: `1px solid ${colors.border}`,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   field: {
     display: 'flex',

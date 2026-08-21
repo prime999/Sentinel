@@ -69,7 +69,7 @@ export default function SettingsStatusPage() {
   return (
     <>
       {message && <div style={styles.ok}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
       <form onSubmit={handleSave} style={styles.card}>
         <h3 style={styles.title}>Public Status Page</h3>
         <p style={styles.desc}>
@@ -126,7 +126,7 @@ export default function SettingsStatusPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 28, maxWidth: 640 },
+  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 28, maxWidth: 640 },
   title: { margin: '0 0 8px' },
   desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },
   check: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 },

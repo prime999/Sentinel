@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, Customer, Monitor, MonitorType, NotificationsSummary } from '../api'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
+import PageHeader from '../components/PageHeader'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 import { numberFieldValue, parseNumberInput } from '../utils/numberInput'
@@ -163,9 +164,11 @@ export default function MonitorForm() {
 
   return (
     <div className="page">
-      <h1 className="page-title">{id ? 'Edit Monitor' : 'Add Monitor'}</h1>
-      <p className="page-subtitle">Configure check type, target, and alert settings.</p>
-      {error && <div style={styles.error}>{error}</div>}
+      <PageHeader
+        title={id ? 'Edit Monitor' : 'Add Monitor'}
+        subtitle="Configure check type, target, and alert settings."
+      />
+      {error && <div className="flash-error" role="alert">{error}</div>}
       <form onSubmit={handleSubmit} style={styles.form}>
         <Field label="Monitor Type">
           <select value={monitorType} onChange={e => set('type', e.target.value as MonitorType)} className="input">
@@ -483,7 +486,7 @@ function NotifyToggle({
 const styles: Record<string, React.CSSProperties> = {
   form: {
     display: 'grid', gap: 20, maxWidth: 720, background: colors.card,
-    padding: '28px 32px', borderRadius: 12, border: `1px solid ${colors.border}`,
+    padding: '28px 32px', borderRadius: 10, border: `1px solid ${colors.border}`,
   },
   row: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'start' },
   error: {

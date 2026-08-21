@@ -53,7 +53,7 @@ export default function SettingsTokens() {
 
   return (
     <>
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
       {created && (
         <div style={styles.tokenBox}>
           <strong>Token created — copy now, it won&apos;t be shown again:</strong>
@@ -130,7 +130,7 @@ export default function SettingsTokens() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 28 },
+  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 28 },
   title: { margin: '0 0 8px' },
   desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },
   tableWrap: {},
