@@ -75,6 +75,15 @@ func decodeLoginResponse(t *testing.T, rec *httptest.ResponseRecorder) loginResp
 	return out
 }
 
+func waitForMFADispatch(t *testing.T, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for MFA email dispatch")
+	}
+}
+
 func TestLoginWithoutMFAStillCreatesSession(t *testing.T) {
 	srv, _, _ := newTestMFAServer(t)
 
@@ -102,11 +111,13 @@ func TestMFALoginRequiresVerificationAndCreatesSessionAfterCode(t *testing.T) {
 	}
 
 	var sentCode string
+	done := make(chan struct{}, 1)
 	srv.sendMFACode = func(to, username, code string) error {
 		if to != updated.Email || username != updated.Username {
 			t.Fatalf("unexpected delivery target to=%q username=%q", to, username)
 		}
 		sentCode = code
+		done <- struct{}{}
 		return nil
 	}
 
@@ -121,6 +132,7 @@ func TestMFALoginRequiresVerificationAndCreatesSessionAfterCode(t *testing.T) {
 	if !loginResp.MFARequired || loginResp.ChallengeID == "" {
 		t.Fatalf("expected mfa challenge, got %+v", loginResp)
 	}
+	waitForMFADispatch(t, done)
 	if sentCode == "" {
 		t.Fatal("expected MFA code to be sent")
 	}
@@ -152,8 +164,10 @@ func TestMFALoginResendReplacesOldChallenge(t *testing.T) {
 	}
 
 	var sentCodes []string
+	done := make(chan struct{}, 2)
 	srv.sendMFACode = func(to, username, code string) error {
 		sentCodes = append(sentCodes, code)
+		done <- struct{}{}
 		return nil
 	}
 
@@ -162,6 +176,7 @@ func TestMFALoginResendReplacesOldChallenge(t *testing.T) {
 		"password": "Admin1234",
 	})
 	loginResp := decodeLoginResponse(t, loginRec)
+	waitForMFADispatch(t, done)
 
 	resendRec := postJSON(t, srv.Handler(), "/api/auth/mfa/resend", map[string]string{
 		"challenge_id": loginResp.ChallengeID,
@@ -173,6 +188,7 @@ func TestMFALoginResendReplacesOldChallenge(t *testing.T) {
 	if resendResp.ChallengeID == "" || resendResp.ChallengeID == loginResp.ChallengeID {
 		t.Fatalf("expected replacement challenge, got %+v", resendResp)
 	}
+	waitForMFADispatch(t, done)
 	if len(sentCodes) != 2 {
 		t.Fatalf("expected 2 delivered codes, got %d", len(sentCodes))
 	}
@@ -202,8 +218,10 @@ func TestMFALoginRejectsExpiredAndRepeatedWrongCodes(t *testing.T) {
 	}
 
 	var sentCode string
+	done := make(chan struct{}, 1)
 	srv.sendMFACode = func(to, username, code string) error {
 		sentCode = code
+		done <- struct{}{}
 		return nil
 	}
 
@@ -212,6 +230,7 @@ func TestMFALoginRejectsExpiredAndRepeatedWrongCodes(t *testing.T) {
 		"password": "Admin1234",
 	})
 	loginResp := decodeLoginResponse(t, loginRec)
+	waitForMFADispatch(t, done)
 	if sentCode == "" {
 		t.Fatal("missing sent code")
 	}
@@ -251,13 +270,15 @@ func TestMFALoginRejectsExpiredAndRepeatedWrongCodes(t *testing.T) {
 	}
 }
 
-func TestMFALoginFailsWhenDeliveryUnavailable(t *testing.T) {
+func TestMFALoginReturnsChallengeWhenDeliveryFailsAsync(t *testing.T) {
 	srv, st, user := newTestMFAServer(t)
 	updated, err := st.UpdateOwnProfile(user.ID, user.Username, user.Name, "admin@example.com", "", boolPtr(true))
 	if err != nil {
 		t.Fatalf("enable mfa: %v", err)
 	}
+	done := make(chan struct{}, 1)
 	srv.sendMFACode = func(to, username, code string) error {
+		done <- struct{}{}
 		return fmt.Errorf("smtp down")
 	}
 
@@ -265,22 +286,20 @@ func TestMFALoginFailsWhenDeliveryUnavailable(t *testing.T) {
 		"username": updated.Username,
 		"password": "Admin1234",
 	})
-	if loginRec.Code != http.StatusBadRequest {
-		t.Fatalf("expected delivery failure, status=%d body=%s", loginRec.Code, loginRec.Body.String())
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("expected immediate challenge response, status=%d body=%s", loginRec.Code, loginRec.Body.String())
 	}
-	var body map[string]string
-	if err := json.Unmarshal(loginRec.Body.Bytes(), &body); err != nil {
-		t.Fatalf("decode error body: %v", err)
+	resp := decodeLoginResponse(t, loginRec)
+	if !resp.MFARequired || resp.ChallengeID == "" {
+		t.Fatalf("expected mfa challenge, got %+v", resp)
 	}
-	if body["error"] != "mfa delivery unavailable" {
-		t.Fatalf("unexpected error body: %+v", body)
+	waitForMFADispatch(t, done)
+
+	var count int
+	if err := st.DB().QueryRow(`SELECT COUNT(*) FROM login_mfa_challenges WHERE user_id = ?`, updated.ID).Scan(&count); err != nil {
+		t.Fatalf("count challenges: %v", err)
 	}
-	rows, err := st.DB().Query(`SELECT id FROM login_mfa_challenges`)
-	if err != nil {
-		t.Fatalf("query challenges: %v", err)
-	}
-	defer rows.Close()
-	if rows.Next() {
-		t.Fatal("challenge should be deleted when delivery fails")
+	if count != 1 {
+		t.Fatalf("expected challenge to remain after async delivery failure, got %d", count)
 	}
 }

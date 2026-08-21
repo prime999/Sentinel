@@ -202,7 +202,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case errors.Is(err, errMFATooManyIssues):
 				jsonError(w, http.StatusTooManyRequests, err.Error())
-			case errors.Is(err, errMFAEmailRequired), errors.Is(err, errMFADeliveryUnavailable):
+			case errors.Is(err, errMFAEmailRequired):
 				jsonError(w, http.StatusBadRequest, err.Error())
 			default:
 				jsonError(w, http.StatusInternalServerError, "could not start verification")

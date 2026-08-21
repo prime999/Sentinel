@@ -30,7 +30,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         setEmailHint(res.email_hint || '')
         setCode('')
         setStep('code')
-        setMessage(res.message || 'Verification code sent to your email.')
+        setMessage(res.message || 'Check your email for a verification code.')
         return
       }
       onLogin()
@@ -59,7 +59,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       if (res.challenge_id) setChallengeId(res.challenge_id)
       if (res.email_hint) setEmailHint(res.email_hint)
       setCode('')
-      setMessage(res.message || 'A new verification code was sent.')
+      setMessage(res.message || 'A new verification code is on its way.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not resend code')
     }
