@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { colors } from '../theme'
+import ModalCloseButton from './ModalCloseButton'
 
 export default function ConfirmDialog({
   open,
@@ -48,7 +49,10 @@ export default function ConfirmDialog({
         aria-describedby="confirm-dialog-message"
         style={styles.dialog}
       >
-        <h3 id="confirm-dialog-title" style={styles.title}>{title}</h3>
+        <div style={styles.head}>
+          <h3 id="confirm-dialog-title" style={styles.title}>{title}</h3>
+          <ModalCloseButton onClick={onCancel} disabled={busy} />
+        </div>
         <p id="confirm-dialog-message" style={styles.message}>{message}</p>
         <div style={styles.actions}>
           <button
@@ -93,8 +97,15 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '24px 28px',
     boxShadow: '0 24px 48px rgba(0,0,0,0.45)',
   },
+  head: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 10,
+  },
   title: {
-    margin: '0 0 10px',
+    margin: 0,
     fontSize: 18,
     fontWeight: 700,
     letterSpacing: '-0.01em',

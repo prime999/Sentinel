@@ -7,6 +7,7 @@ import { api, FleetPerformance, PerformanceHealth, PerformanceTarget, ServicePer
 import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../components/ColumnResize'
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import ConfirmDialog from '../components/ConfirmDialog'
+import KebabMenu from '../components/KebabMenu'
 import PerformanceForm from './PerformanceForm'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
@@ -64,11 +65,9 @@ export default function Performance() {
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
   const [error, setError] = useState('')
-  const [menuId, setMenuId] = useState<string | null>(null)
   const [deleteTargetRow, setDeleteTargetRow] = useState<PerformanceTarget | null>(null)
   const [targetForm, setTargetForm] = useState<string | 'new' | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const menuRef = useRef<HTMLDivElement | null>(null)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('performance', 7)
 
@@ -88,14 +87,6 @@ export default function Performance() {
     }, 30000)
     return () => clearInterval(id)
   }, [period])
-
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuId(null)
-    }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [])
 
   const serviceById = useMemo(() => {
     const map: Record<string, ServicePerformance> = {}
@@ -170,7 +161,6 @@ export default function Performance() {
       await api.deletePerformanceTarget(deleteTargetRow.id)
       setTargets(prev => prev.filter(t => t.id !== deleteTargetRow.id))
       setDeleteTargetRow(null)
-      setMenuId(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
     } finally {
@@ -190,37 +180,36 @@ export default function Performance() {
         onConfirm={confirmDelete}
         onCancel={() => { if (!deleting) setDeleteTargetRow(null) }}
       />
+      <PageHeader
+        title="Performance"
+        subtitle="Measure website response time and latency — separate from uptime monitoring."
+        actions={
+          <>
+            {isPlatformAdmin && (
+              <CustomerFilter
+                customers={customers}
+                selectedIds={selectedCustomers}
+                onChange={setSelectedCustomers}
+              />
+            )}
+            <SegmentedTabs
+              label="Latency period"
+              value={period}
+              onChange={setPeriod}
+              tabs={[
+                { id: '24h', label: '24h' },
+                { id: '7d', label: '7d' },
+                { id: '30d', label: '30d' },
+              ]}
+            />
+            {isAdmin && (
+              <button type="button" className="btn btn-primary" onClick={() => setTargetForm('new')}>+ Add Target</button>
+            )}
+          </>
+        }
+      />
       <div className="performance-layout">
         <div className="page-layout-main">
-          <PageHeader
-            title="Performance"
-            subtitle="Measure website response time and latency — separate from uptime monitoring."
-            actions={
-              <>
-                {isPlatformAdmin && (
-                  <CustomerFilter
-                    customers={customers}
-                    selectedIds={selectedCustomers}
-                    onChange={setSelectedCustomers}
-                  />
-                )}
-                <SegmentedTabs
-                  label="Latency period"
-                  value={period}
-                  onChange={setPeriod}
-                  tabs={[
-                    { id: '24h', label: '24h' },
-                    { id: '7d', label: '7d' },
-                    { id: '30d', label: '30d' },
-                  ]}
-                />
-                {isAdmin && (
-                  <button type="button" className="btn btn-primary" onClick={() => setTargetForm('new')}>+ Add Target</button>
-                )}
-              </>
-            }
-          />
-
           {searched.length > 0 && (
             <div className="kpi-strip">
               <div className="kpi-wide">
@@ -286,7 +275,7 @@ export default function Performance() {
                     <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('p95')}>P95</ResizableTh>
                     <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('sla')}>SLA</ResizableTh>
                     <ResizableTh index={5} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('checked')}>Last Checked</ResizableTh>
-                    <ResizableTh index={6} style={{ width: 52 }} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
+                    <ResizableTh index={6} className="col-actions" resize={false} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                   </tr>
                 </thead>
                 <tbody>
@@ -328,34 +317,19 @@ export default function Performance() {
                         <td className="num" style={{ color: colors.textMuted }}>
                           {t.last_checked_at ? timeAgo(t.last_checked_at) : 'Waiting'}
                         </td>
-                        <td style={styles.actionsTd}>
-                          <div style={{ position: 'relative' }} ref={menuId === t.id ? menuRef : undefined}>
-                            <button
-                              type="button"
-                              aria-label="Actions"
-                              aria-haspopup="menu"
-                              aria-expanded={menuId === t.id}
-                              style={styles.kebab}
-                              onClick={() => setMenuId(menuId === t.id ? null : t.id)}
-                            >
-                              ⋮
-                            </button>
-                            {menuId === t.id && (
-                              <div style={styles.menu}>
-                                <Link
-                                  to={`/performance/${t.id}`}
-                                  style={styles.menuItem}
-                                  onClick={() => setMenuId(null)}
-                                >
+                        <td className="col-actions">
+                          <KebabMenu>
+                            {close => (
+                              <>
+                                <Link to={`/performance/${t.id}`} onClick={close}>
                                   View
                                 </Link>
                                 {isAdmin && (
                                   <>
                                     <button
                                       type="button"
-                                      style={styles.menuItem}
                                       onClick={() => {
-                                        setMenuId(null)
+                                        close()
                                         setTargetForm(t.id)
                                       }}
                                     >
@@ -363,9 +337,9 @@ export default function Performance() {
                                     </button>
                                     <button
                                       type="button"
-                                      style={styles.menuDangerBtn}
+                                      className="kebab-danger"
                                       onClick={() => {
-                                        setMenuId(null)
+                                        close()
                                         setDeleteTargetRow(t)
                                       }}
                                     >
@@ -373,9 +347,9 @@ export default function Performance() {
                                     </button>
                                   </>
                                 )}
-                              </div>
+                              </>
                             )}
-                          </div>
+                          </KebabMenu>
                         </td>
                       </tr>
                     )
@@ -508,50 +482,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
   healthDot: { width: 6, height: 6, borderRadius: 1, flexShrink: 0 },
-  kebab: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-    border: 'none',
-    background: 'transparent',
-    color: colors.textMuted,
-    fontSize: 18,
-    lineHeight: 1,
-  },
-  menu: {
-    position: 'absolute',
-    right: 0,
-    top: '100%',
-    zIndex: 20,
-    minWidth: 140,
-    background: colors.bgElevated,
-    border: `1px solid ${colors.border}`,
-    borderRadius: 10,
-    overflow: 'hidden',
-    boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
-  },
-  menuItem: {
-    display: 'block',
-    width: '100%',
-    padding: '10px 14px',
-    fontSize: 13,
-    color: colors.text,
-    textDecoration: 'none',
-    textAlign: 'left',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-  },
-  menuDangerBtn: {
-    display: 'block',
-    width: '100%',
-    textAlign: 'left',
-    padding: '10px 14px',
-    fontSize: 13,
-    color: colors.red,
-    border: 'none',
-    background: 'transparent',
-  },
   rail: {
     width: 300,
     minWidth: 0,

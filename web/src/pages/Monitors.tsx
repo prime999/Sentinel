@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Incident, Monitor } from '../api'
 import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../components/ColumnResize'
+import ConfirmDialog from '../components/ConfirmDialog'
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import DashboardRail from '../components/DashboardRail'
-import DeleteMonitorButton from '../components/DeleteMonitorButton'
+import KebabMenu from '../components/KebabMenu'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
 import Panel from '../components/Panel'
@@ -67,9 +68,9 @@ export default function Monitors() {
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
-  const [menuId, setMenuId] = useState<string | null>(null)
   const [monitorForm, setMonitorForm] = useState<string | 'new' | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
+  const [deleteMonitor, setDeleteMonitor] = useState<Monitor | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('monitors', 7)
 
@@ -97,14 +98,6 @@ export default function Monitors() {
     const id = setInterval(load, 30000)
     return () => clearInterval(id)
   }, [tagFilter])
-
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuId(null)
-    }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [])
 
   const customerScoped = useMemo(
     () => monitors.filter(m => matchesCustomerFilter(m.tenant_id, selectedCustomers)),
@@ -135,6 +128,21 @@ export default function Monitors() {
     return null
   }, [statsMap])
   const { sorted, header } = useTableSort(filtered, sortValue)
+
+  async function confirmDelete() {
+    if (!deleteMonitor) return
+    setDeleting(true)
+    setError('')
+    try {
+      await api.deleteMonitor(deleteMonitor.id)
+      setMonitors(prev => prev.filter(x => x.id !== deleteMonitor.id))
+      setDeleteMonitor(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const up = searched.filter(m => m.last_status === 'up').length
   const down = searched.filter(m => m.last_status === 'down').length
@@ -181,27 +189,40 @@ export default function Monitors() {
 
   return (
     <div className="page" style={styles.page}>
+      <ConfirmDialog
+        open={!!deleteMonitor}
+        title="Delete monitor?"
+        message={
+          deleteMonitor
+            ? `Delete “${deleteMonitor.name}”? Check history for this monitor will be removed.`
+            : 'Delete this monitor?'
+        }
+        confirmLabel="Delete"
+        danger
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => { if (!deleting) setDeleteMonitor(null) }}
+      />
+      <PageHeader
+        title={`${greetingFor(hour)}, ${name}`}
+        subtitle="Here's what's happening with your monitors."
+        actions={
+          <>
+            {isPlatformAdmin && (
+              <CustomerFilter
+                customers={customers}
+                selectedIds={selectedCustomers}
+                onChange={setSelectedCustomers}
+              />
+            )}
+            {isAdmin && (
+              <button type="button" className="btn btn-primary" onClick={() => setMonitorForm('new')}>+ Add Monitor</button>
+            )}
+          </>
+        }
+      />
       <div className="page-layout">
         <div className="page-layout-main">
-          <PageHeader
-            title={`${greetingFor(hour)}, ${name}`}
-            subtitle="Here's what's happening with your monitors."
-            actions={
-              <>
-                {isPlatformAdmin && (
-                  <CustomerFilter
-                    customers={customers}
-                    selectedIds={selectedCustomers}
-                    onChange={setSelectedCustomers}
-                  />
-                )}
-                {isAdmin && (
-                  <button type="button" className="btn btn-primary" onClick={() => setMonitorForm('new')}>+ Add Monitor</button>
-                )}
-              </>
-            }
-          />
-
           {searched.length > 0 && (
             <div className="kpi-strip">
               <div className="kpi-wide">
@@ -291,7 +312,7 @@ export default function Monitors() {
                     <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('response')}>Response Time</ResizableTh>
                     <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('uptime')}>Uptime (30d)</ResizableTh>
                     <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('checked')}>Last Checked</ResizableTh>
-                    <ResizableTh index={6} style={{ ...styles.th, width: 48 }} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
+                    <ResizableTh index={6} className="col-actions" resize={false} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                   </tr>
                 </thead>
                 <tbody>
@@ -336,54 +357,39 @@ export default function Monitors() {
                         <td className="num" style={{ color: colors.textMuted }}>
                           {m.last_checked_at ? timeAgo(m.last_checked_at) : 'Waiting'}
                         </td>
-                        <td>
-                          <div style={{ position: 'relative' }} ref={menuId === m.id ? menuRef : undefined}>
-                            <button
-                              type="button"
-                              aria-label="Actions"
-                              aria-haspopup="menu"
-                              aria-expanded={menuId === m.id}
-                              style={styles.kebab}
-                              onClick={() => setMenuId(menuId === m.id ? null : m.id)}
-                            >
-                              ⋮
-                            </button>
-                            {menuId === m.id && (
-                              <div style={styles.menu}>
-                                <Link
-                                  to={`/monitors/${m.id}`}
-                                  style={styles.menuItem}
-                                  onClick={() => setMenuId(null)}
-                                >
+                        <td className="col-actions">
+                          <KebabMenu>
+                            {close => (
+                              <>
+                                <Link to={`/monitors/${m.id}`} onClick={close}>
                                   View
                                 </Link>
                                 {isAdmin && (
                                   <>
                                     <button
                                       type="button"
-                                      style={styles.menuItem}
                                       onClick={() => {
-                                        setMenuId(null)
+                                        close()
                                         setMonitorForm(m.id)
                                       }}
                                     >
                                       Edit
                                     </button>
-                                    <div style={styles.menuDanger}>
-                                      <DeleteMonitorButton
-                                        id={m.id}
-                                        name={m.name}
-                                        onDeleted={() => {
-                                          setMenuId(null)
-                                          setMonitors(prev => prev.filter(x => x.id !== m.id))
-                                        }}
-                                      />
-                                    </div>
+                                    <button
+                                      type="button"
+                                      className="kebab-danger"
+                                      onClick={() => {
+                                        close()
+                                        setDeleteMonitor(m)
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
                                   </>
                                 )}
-                              </div>
+                              </>
                             )}
-                          </div>
+                          </KebabMenu>
                         </td>
                       </tr>
                     )
@@ -433,45 +439,5 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-  },
-  kebab: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-    border: '1px solid transparent',
-    background: 'transparent',
-    color: colors.textMuted,
-    fontSize: 18,
-    lineHeight: 1,
-  },
-  menu: {
-    position: 'absolute',
-    right: 0,
-    top: '100%',
-    marginTop: 4,
-    minWidth: 140,
-    background: colors.bgElevated,
-    border: `1px solid ${colors.border}`,
-    borderRadius: 10,
-    boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-    zIndex: 30,
-    overflow: 'hidden',
-  },
-  menuItem: {
-    display: 'block',
-    width: '100%',
-    padding: '10px 14px',
-    fontSize: 13,
-    fontWeight: 500,
-    color: colors.text,
-    textDecoration: 'none',
-    textAlign: 'left',
-    background: 'transparent',
-    border: 'none',
-    borderBottom: `1px solid ${colors.border}`,
-    cursor: 'pointer',
-  },
-  menuDanger: {
-    padding: 8,
   },
 }

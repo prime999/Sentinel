@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { api, MaintenanceWindow, Monitor } from '../../api'
 import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import KebabMenu from '../../components/KebabMenu'
 import { colors } from '../../theme'
 
 export default function SettingsMaintenance() {
@@ -106,7 +107,7 @@ export default function SettingsMaintenance() {
               <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Name</ResizableTh>
               <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Scope</ResizableTh>
               <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Period</ResizableTh>
-              <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
+              <ResizableTh index={3} className="col-actions" resize={false} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
             </tr></thead>
             <tbody>
               {windows.map(w => (
@@ -114,7 +115,22 @@ export default function SettingsMaintenance() {
                   <td>{w.name}</td>
                   <td>{w.monitor_id ? monitors.find(m => m.id === w.monitor_id)?.name || w.monitor_id : 'All'}</td>
                   <td>{new Date(w.starts_at).toLocaleString()} – {new Date(w.ends_at).toLocaleString()}</td>
-                  <td><button type="button" className="btn" onClick={() => setDeleteId(w.id)}>Delete</button></td>
+                  <td className="col-actions">
+                    <KebabMenu>
+                      {close => (
+                        <button
+                          type="button"
+                          className="kebab-danger"
+                          onClick={() => {
+                            close()
+                            setDeleteId(w.id)
+                          }}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </KebabMenu>
+                  </td>
                 </tr>
               ))}
             </tbody>

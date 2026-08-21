@@ -89,6 +89,7 @@ export function useColumnResize(tableId: string, columnCount: number) {
     const prevSelect = document.body.style.userSelect
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
+    document.body.classList.add('is-col-resizing')
 
     const onMove = (ev: PointerEvent) => {
       const next = Math.max(MIN_COL, Math.round(startW + (ev.clientX - startX)))
@@ -105,6 +106,7 @@ export function useColumnResize(tableId: string, columnCount: number) {
       handle.removeEventListener('pointercancel', onUp)
       document.body.style.cursor = prevCursor
       document.body.style.userSelect = prevSelect
+      document.body.classList.remove('is-col-resizing')
     }
     handle.addEventListener('pointermove', onMove)
     handle.addEventListener('pointerup', onUp)
@@ -175,6 +177,7 @@ export function ResizableTh({
   activeSortKey,
   sortDir,
   onSort,
+  resize = true,
 }: {
   index: number
   children?: React.ReactNode
@@ -187,6 +190,7 @@ export function ResizableTh({
   activeSortKey?: string | null
   sortDir?: SortDir
   onSort?: (key: string) => void
+  resize?: boolean
 }) {
   const sortable = Boolean(columnKey && onSort)
   const active = sortable && activeSortKey === columnKey
@@ -210,7 +214,9 @@ export function ResizableTh({
           </span>
         </button>
       ) : children}
-      <ResizeHandle onDrag={e => startResize(index, e)} onFit={() => autoFit(index, tableRef.current)} />
+      {resize && (
+        <ResizeHandle onDrag={e => startResize(index, e)} onFit={() => autoFit(index, tableRef.current)} />
+      )}
     </th>
   )
 }

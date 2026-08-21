@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { api, APIToken, APITokenCreated } from '../../api'
 import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import KebabMenu from '../../components/KebabMenu'
 import { colors } from '../../theme'
 
 export default function SettingsTokens() {
@@ -81,7 +82,7 @@ export default function SettingsTokens() {
                   <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Prefix</ResizableTh>
                   <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Created</ResizableTh>
                   <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Last used</ResizableTh>
-                  <ResizableTh index={4} style={{ ...styles.th, textAlign: 'right' }} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Actions</ResizableTh>
+                  <ResizableTh index={4} className="col-actions" resize={false} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                 </tr>
               </thead>
               <tbody>
@@ -93,15 +94,21 @@ export default function SettingsTokens() {
                     </td>
                     <td style={styles.td}>{new Date(t.created_at).toLocaleString()}</td>
                     <td style={styles.td}>{t.last_used_at ? new Date(t.last_used_at).toLocaleString() : '—'}</td>
-                    <td style={{ ...styles.td, textAlign: 'right' }}>
-                      <button
-                        type="button"
-                        className="btn btn-danger"
-                        style={styles.revokeBtn}
-                        onClick={() => setRevokeId(t.id)}
-                      >
-                        Revoke
-                      </button>
+                    <td className="col-actions">
+                      <KebabMenu>
+                        {close => (
+                          <button
+                            type="button"
+                            className="kebab-danger"
+                            onClick={() => {
+                              close()
+                              setRevokeId(t.id)
+                            }}
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </KebabMenu>
                     </td>
                   </tr>
                 ))}

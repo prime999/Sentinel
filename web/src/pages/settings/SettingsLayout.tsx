@@ -41,27 +41,28 @@ export default function SettingsLayout() {
 
   return (
     <div className="page">
-      <PageHeader
-        title="Settings"
-        subtitle={
-          isPlatformAdmin
-            ? 'Configure organization details and alert delivery.'
-            : isAdmin
-              ? 'Manage notifications and API tokens for your account.'
-              : 'Manage API tokens for this account.'
-        }
-      />
-
-      <div style={{ marginBottom: 20 }}>
-        <SegmentedTabs
-          label="Settings sections"
-          tabs={tabs.map(tab => ({
-            id: tab.path,
-            label: tab.label,
-            to: tab.path,
-            end: tab.path !== '/settings/notifications',
-          }))}
+      <div className="page-sticky">
+        <PageHeader
+          title="Settings"
+          subtitle={
+            isPlatformAdmin
+              ? 'Configure organization details and alert delivery.'
+              : isAdmin
+                ? 'Manage notifications and API tokens for your account.'
+                : 'Manage API tokens for this account.'
+          }
         />
+        <div className="page-sticky-extra">
+          <SegmentedTabs
+            label="Settings sections"
+            tabs={tabs.map(tab => ({
+              id: tab.path,
+              label: tab.label,
+              to: tab.path,
+              end: tab.path !== '/settings/notifications',
+            }))}
+          />
+        </div>
       </div>
 
       <Outlet />

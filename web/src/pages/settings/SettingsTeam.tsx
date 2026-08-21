@@ -2,8 +2,10 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { api, Customer, TeamMember, UserRole } from '../../api'
 import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import KebabMenu from '../../components/KebabMenu'
+import ModalCloseButton from '../../components/ModalCloseButton'
 import PageHeader from '../../components/PageHeader'
-import { roleLabel, useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/AuthContext'
 import { colors } from '../../theme'
 
 type RoleFilter = 'all' | UserRole
@@ -303,7 +305,7 @@ export default function SettingsTeam() {
                     <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('customer')}>Customer</ResizableTh>
                   )}
                   <ResizableTh index={isPlatformAdmin ? 3 : 2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('status')}>Status</ResizableTh>
-                  <ResizableTh index={isPlatformAdmin ? 4 : 3} style={{ ...styles.th, textAlign: 'right' }} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Actions</ResizableTh>
+                  <ResizableTh index={isPlatformAdmin ? 4 : 3} className="col-actions" resize={false} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                 </tr>
               </thead>
               <tbody>
@@ -351,31 +353,52 @@ export default function SettingsTeam() {
                         <span style={styles.activeBadge}>Active</span>
                       )}
                     </td>
-                    <td style={{ ...styles.td, textAlign: 'right' }}>
-                      <div style={styles.actionRow}>
-                        {m.locked && (
-                          <button type="button" className="btn" onClick={() => handleUnlock(m.id)} style={styles.actionBtn}>
-                            Unlock
-                          </button>
-                        )}
-                        {m.id !== currentUser?.id ? (
-                          <>
-                            <button type="button" className="btn" onClick={() => {
-                              setResetId(m.id)
-                              setResetPassword('')
-                              setResetPassword2('')
-                              setError('')
-                            }} style={styles.actionBtn}>
-                              Reset password
-                            </button>
-                            <button type="button" className="btn" onClick={() => setDeleteId(m.id)} style={styles.deleteBtn}>
-                              Remove
-                            </button>
-                          </>
-                        ) : (
-                          !m.locked && <span style={styles.roleBadge}>{roleLabel(m.role)}</span>
-                        )}
-                      </div>
+                    <td className="col-actions">
+                      {(m.locked || m.id !== currentUser?.id) && (
+                        <KebabMenu>
+                          {close => (
+                            <>
+                              {m.locked && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    close()
+                                    handleUnlock(m.id)
+                                  }}
+                                >
+                                  Unlock
+                                </button>
+                              )}
+                              {m.id !== currentUser?.id && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      close()
+                                      setResetId(m.id)
+                                      setResetPassword('')
+                                      setResetPassword2('')
+                                      setError('')
+                                    }}
+                                  >
+                                    Reset password
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="kebab-danger"
+                                    onClick={() => {
+                                      close()
+                                      setDeleteId(m.id)
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </KebabMenu>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -419,11 +442,16 @@ export default function SettingsTeam() {
             <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden style={styles.honeypot} />
             <input type="password" name="password" autoComplete="current-password" tabIndex={-1} aria-hidden style={styles.honeypot} />
 
-            <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Add user</h3>
-            <p style={{ margin: '0 0 16px', color: colors.textMuted, fontSize: 14 }}>
-              Create a new account
-              {isPlatformAdmin ? ' for the platform or a customer.' : ' for your customer account.'}
-            </p>
+            <div className="modal-head">
+              <div className="modal-head-copy">
+                <h3 className="form-modal-title">Add user</h3>
+                <p className="form-modal-sub">
+                  Create a new account
+                  {isPlatformAdmin ? ' for the platform or a customer.' : ' for your customer account.'}
+                </p>
+              </div>
+              <ModalCloseButton onClick={closeAdd} disabled={busy} />
+            </div>
             {formError && <div style={{ ...styles.error, marginBottom: 16 }}>{formError}</div>}
             <Field label="Username" htmlFor="user-username">
               <CleanInput
@@ -490,10 +518,15 @@ export default function SettingsTeam() {
       {resetId && (
         <div style={styles.modalBackdrop} onClick={() => { if (!busy) setResetId(null) }}>
           <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Reset password</h3>
-            <p style={{ margin: '0 0 16px', color: colors.textMuted, fontSize: 14 }}>
-              Set a new password for {resetTarget?.username || 'this user'}. This also clears any login lockout.
-            </p>
+            <div className="modal-head">
+              <div className="modal-head-copy">
+                <h3 className="form-modal-title">Reset password</h3>
+                <p className="form-modal-sub">
+                  Set a new password for {resetTarget?.username || 'this user'}. This also clears any login lockout.
+                </p>
+              </div>
+              <ModalCloseButton onClick={() => { if (!busy) setResetId(null) }} disabled={busy} />
+            </div>
             <Field label="New password" htmlFor="reset-password">
               <input
                 id="reset-password"

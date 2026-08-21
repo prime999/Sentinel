@@ -1,6 +1,8 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { api, Customer } from '../../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import KebabMenu from '../../components/KebabMenu'
 import PageHeader from '../../components/PageHeader'
 import { colors } from '../../theme'
 
@@ -16,6 +18,8 @@ export default function SettingsCustomers() {
   const [search, setSearch] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const { widths, startResize, autoFit } = useColumnResize('customers', 3)
 
   async function load() {
     try {
@@ -122,44 +126,74 @@ export default function SettingsCustomers() {
           ) : filtered.length === 0 ? (
             <p style={{ color: colors.textMuted }}>No customers match “{search.trim()}”.</p>
           ) : (
-            <div style={styles.table}>
-              <div style={styles.tableHead}>
-                <span>Name</span>
-                <span>Usage</span>
-                <span>Actions</span>
-              </div>
-              {filtered.map(c => (
-                <div key={c.id} style={styles.tableRow}>
-                  {editing?.id === c.id ? (
-                    <form onSubmit={handleSaveEdit} style={styles.editRow}>
-                      <input className="input input-compact" value={editName} onChange={e => setEditName(e.target.value)} required />
-                      <input
-                        className="input input-compact"
-                        type="number"
-                        min={1}
-                        value={editQuota}
-                        onChange={e => setEditQuota(+e.target.value)}
-                        style={{ width: 80 }}
-                      />
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <button type="submit" className="btn btn-primary" style={styles.rowBtn}>Save</button>
-                        <button type="button" className="btn" style={styles.rowBtn} onClick={() => setEditing(null)}>Cancel</button>
-                      </div>
-                    </form>
-                  ) : (
-                    <>
-                      <span style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{c.name}</span>
-                      <span style={{ color: colors.textMuted, fontSize: 13 }}>
-                        {c.monitor_count ?? 0} / {c.monitor_quota}
-                      </span>
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <button type="button" className="btn" style={styles.rowBtn} onClick={() => startEdit(c)}>Edit</button>
-                        <button type="button" className="btn" style={{ ...styles.rowBtn, color: colors.red }} onClick={() => setDeleteId(c.id)}>Delete</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
+            <div className="data-table-wrap">
+              <table ref={tableRef} className="data-table">
+                <ColGroup widths={widths} />
+                <thead>
+                  <tr>
+                    <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Name</ResizableTh>
+                    <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Usage</ResizableTh>
+                    <ResizableTh index={2} className="col-actions" resize={false} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(c => (
+                    <tr key={c.id}>
+                      {editing?.id === c.id ? (
+                        <td colSpan={3} style={{ overflow: 'visible', whiteSpace: 'normal' }}>
+                          <form onSubmit={handleSaveEdit} className="customer-edit-row">
+                            <input className="input input-compact" value={editName} onChange={e => setEditName(e.target.value)} required />
+                            <input
+                              className="input input-compact"
+                              type="number"
+                              min={1}
+                              value={editQuota}
+                              onChange={e => setEditQuota(+e.target.value)}
+                              style={{ width: 88 }}
+                            />
+                            <button type="submit" className="btn btn-primary" style={styles.rowBtn}>Save</button>
+                            <button type="button" className="btn" style={styles.rowBtn} onClick={() => setEditing(null)}>Cancel</button>
+                          </form>
+                        </td>
+                      ) : (
+                        <>
+                          <td style={{ fontWeight: 600 }}>{c.name}</td>
+                          <td style={{ color: colors.textMuted }}>
+                            {c.monitor_count ?? 0} / {c.monitor_quota}
+                          </td>
+                          <td className="col-actions">
+                            <KebabMenu>
+                              {close => (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      close()
+                                      startEdit(c)
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="kebab-danger"
+                                    onClick={() => {
+                                      close()
+                                      setDeleteId(c.id)
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </KebabMenu>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
           {customers.length > 0 && (
@@ -208,20 +242,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cardTitle: { margin: '0 0 20px', fontSize: 16, fontWeight: 600 },
   search: { maxWidth: 360, width: '100%', marginBottom: 16 },
-  table: { display: 'flex', flexDirection: 'column', gap: 0 },
-  tableHead: {
-    display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 88px 140px', gap: 12, alignItems: 'center',
-    fontSize: 11, fontWeight: 600, color: colors.textMuted,
-    textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 4px 10px',
-  },
-  tableRow: {
-    display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 88px 140px', gap: 12, alignItems: 'center',
-    padding: '12px 4px', borderTop: `1px solid ${colors.border}`,
-  },
-  editRow: {
-    display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 80px 140px', gap: 12, alignItems: 'center',
-    gridColumn: '1 / -1',
-  },
   rowBtn: { fontSize: 12, padding: '6px 10px', minHeight: 32 },
   ok: {
     background: colors.greenDim, color: colors.green, padding: 12,
