@@ -13,7 +13,7 @@ function initialsFrom(name: string, username: string): string {
   return source.slice(0, 2).toUpperCase()
 }
 
-export default function ProfileMenu({ onLogout }: { onLogout: () => void }) {
+export default function ProfileMenu({ onLogout, collapsed }: { onLogout: () => void; collapsed?: boolean }) {
   const { user } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [open, setOpen] = useState(false)
@@ -23,29 +23,41 @@ export default function ProfileMenu({ onLogout }: { onLogout: () => void }) {
     api.getProfile().then(setProfile).catch(() => {})
   }, [location.pathname])
 
+  useEffect(() => {
+    setOpen(false)
+  }, [collapsed, location.pathname])
+
   const username = profile?.username || user?.username || 'admin'
   const name = (profile?.name || user?.name || '').trim()
   const displayName = name || username
   const initials = initialsFrom(name, username)
 
   return (
-    <div style={styles.wrap}>
+    <div style={{ ...styles.wrap, padding: collapsed ? 0 : '0 4px' }}>
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        style={styles.profileBtn}
+        style={{
+          ...styles.profileBtn,
+          ...(collapsed ? styles.profileBtnCollapsed : {}),
+        }}
         aria-expanded={open}
+        title={displayName}
       >
-        <span style={styles.avatar}>{initials}</span>
-        <span style={styles.profileInfo}>
-          <span style={styles.profileName}>{displayName}</span>
-          <span style={styles.roleChip}>{profile ? roleLabel(profile.role) : 'Admin'}</span>
-        </span>
-        <span style={{ ...styles.chevron, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
+        <span style={{ ...styles.avatar, ...(collapsed ? styles.avatarCollapsed : {}) }}>{initials}</span>
+        {!collapsed && (
+          <>
+            <span style={styles.profileInfo}>
+              <span style={styles.profileName}>{displayName}</span>
+              <span style={styles.roleChip}>{profile ? roleLabel(profile.role) : 'Admin'}</span>
+            </span>
+            <span style={{ ...styles.chevron, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
+          </>
+        )}
       </button>
 
       {open && (
-        <div style={styles.menu}>
+        <div style={{ ...styles.menu, ...(collapsed ? styles.menuCollapsed : {}) }}>
           <div style={styles.signedIn}>Signed in as @{username}</div>
           <Link to="/profile" style={styles.menuItem} onClick={() => setOpen(false)}>
             Profile Settings
@@ -73,6 +85,11 @@ const styles: Record<string, React.CSSProperties> = {
     color: colors.text,
     textAlign: 'left',
   },
+  profileBtnCollapsed: {
+    justifyContent: 'center',
+    padding: '8px 0',
+    gap: 0,
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -85,6 +102,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 700,
     border: `1px solid rgba(20, 184, 166, 0.35)`,
+  },
+  avatarCollapsed: {
+    width: 36,
+    height: 36,
+    fontSize: 12,
   },
   profileInfo: { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 },
   profileName: {
@@ -121,6 +143,13 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
     zIndex: 20,
+  },
+  menuCollapsed: {
+    left: 'calc(100% + 8px)',
+    right: 'auto',
+    bottom: 0,
+    width: 220,
+    marginBottom: 0,
   },
   signedIn: {
     padding: '10px 14px 8px',
