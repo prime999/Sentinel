@@ -33,7 +33,7 @@ export default function SettingsWebhooks() {
         </Link>
       </div>
       {message && <div style={styles.ok}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
       <form onSubmit={handleSave} style={styles.card}>
         <h3 style={styles.title}>Webhook Notifications</h3>
         <p style={styles.desc}>POST JSON payloads to external URLs on alerts (down, recovery, slow, SSL, DNS).</p>
@@ -60,7 +60,7 @@ export default function SettingsWebhooks() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 28, maxWidth: 800 },
+  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 28, maxWidth: 800 },
   title: { margin: '0 0 8px' },
   desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },
   row: { display: 'grid', gap: 10, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${colors.border}` },

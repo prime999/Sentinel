@@ -1,4 +1,4 @@
-import { colors } from '../theme'
+import { colors, radius } from '../theme'
 
 function labelFor(type?: string, url?: string): string {
   if (!type || type === 'http') {
@@ -15,12 +15,12 @@ export default function TypeBadge({ type, url }: { type?: string; url?: string }
     <span style={{
       background: colors.brandDim,
       color: colors.brand,
-      padding: '4px 10px',
-      borderRadius: 8,
+      padding: '3px 8px',
+      borderRadius: radius.sm,
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: 600,
       letterSpacing: '0.06em',
-      border: `1px solid rgba(20, 184, 166, 0.3)`,
+      border: `1px solid rgba(42, 240, 200, 0.28)`,
     }}>
       {labelFor(type, url)}
     </span>

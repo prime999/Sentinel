@@ -41,8 +41,9 @@ export default function ProfileMenu({ onLogout, collapsed }: { onLogout: () => v
           ...styles.profileBtn,
           ...(collapsed ? styles.profileBtnCollapsed : {}),
         }}
+        aria-haspopup="menu"
         aria-expanded={open}
-        title={displayName}
+        aria-label={displayName}
       >
         <span style={{ ...styles.avatar, ...(collapsed ? styles.avatarCollapsed : {}) }}>{initials}</span>
         {!collapsed && (
@@ -79,7 +80,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
     width: '100%',
     padding: '10px 12px',
-    borderRadius: 12,
+    borderRadius: 8,
     border: 'none',
     background: 'transparent',
     color: colors.text,
@@ -101,7 +102,7 @@ const styles: Record<string, React.CSSProperties> = {
     placeItems: 'center',
     fontSize: 13,
     fontWeight: 700,
-    border: `1px solid rgba(20, 184, 166, 0.35)`,
+    border: `1px solid rgba(42, 240, 200, 0.35)`,
   },
   avatarCollapsed: {
     width: 36,
@@ -139,7 +140,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 8,
     background: colors.bgElevated,
     border: `1px solid ${colors.border}`,
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: 'hidden',
     boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
     zIndex: 20,

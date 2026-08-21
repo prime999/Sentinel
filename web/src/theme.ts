@@ -1,19 +1,26 @@
+export const fonts = {
+  sans: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  mono: "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+}
+
 export const colors = {
-  bg: '#0B0D12',
-  bgElevated: '#181D27',
-  card: '#11151C',
-  cardHover: '#181D27',
-  sidebar: '#0B0D12',
-  border: '#232A36',
-  borderLight: '#2E3644',
+  bg: '#06080B',
+  bgElevated: '#161C26',
+  card: '#10151C',
+  cardHover: '#161C26',
+  sidebar: '#0A0E14',
+  border: '#1C2430',
+  borderLight: '#2A3342',
 
   text: '#E5E7EB',
   textMuted: '#9CA3AF',
   textDim: '#6B7280',
 
-  brand: '#14B8A6',
-  brandDeep: '#0D9488',
-  brandDim: 'rgba(20, 184, 166, 0.15)',
+  brand: '#2AF0C8',
+  brandDeep: '#12C4A0',
+  brandDim: 'rgba(42, 240, 200, 0.15)',
+  brandInk: '#04241E',
+  brandHover: '#5FF5D6',
 
   green: '#22C55E',
   greenDim: 'rgba(34, 197, 94, 0.15)',
@@ -29,12 +36,12 @@ export const colors = {
   degraded: '#F59E0B',
   unknown: '#9CA3AF',
 
-  radius: 14,
-  controlHeight: 44,
+  radius: 10,
+  controlHeight: 40,
 }
 
 export const radius = {
-  sm: 8,
-  md: 14,
-  lg: 16,
+  sm: 6,
+  md: 10,
+  lg: 12,
 }

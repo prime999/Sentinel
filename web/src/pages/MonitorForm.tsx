@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, Customer, Monitor, MonitorType, NotificationsSummary } from '../api'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
+import FormModal from '../components/FormModal'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 import { numberFieldValue, parseNumberInput } from '../utils/numberInput'
@@ -32,9 +33,18 @@ const defaults: Partial<Monitor> = {
   notify_webhooks: true,
 }
 
-export default function MonitorForm() {
-  const { id } = useParams<{ id: string }>()
+export default function MonitorForm({
+  monitorId,
+  onClose,
+  onSaved,
+}: {
+  monitorId?: string
+  onClose?: () => void
+  onSaved?: () => void
+} = {}) {
+  const params = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const id = monitorId ?? params.id
   const { isPlatformAdmin } = useAuth()
   const [form, setForm] = useState<Partial<Monitor>>(defaults)
   const [error, setError] = useState('')
@@ -126,7 +136,8 @@ export default function MonitorForm() {
     try {
       if (id) {
         await api.updateMonitor(id, payload)
-        navigate(`/monitors/${id}`)
+        if (onSaved) onSaved()
+        else navigate(`/monitors/${id}`)
         return
       }
 
@@ -150,22 +161,34 @@ export default function MonitorForm() {
             ? `Monitor created, but performance target failed: ${perfErr.message}`
             : 'Monitor created, but performance target failed'
           setError(msg)
-          // Stay on form briefly so the error is visible, then go to the monitor.
-          setTimeout(() => navigate(`/monitors/${created.id}`), 2500)
+          setTimeout(() => {
+            if (onSaved) onSaved()
+            else navigate(`/monitors/${created.id}`)
+          }, 2500)
           return
         }
       }
-      navigate(`/monitors/${created.id}`)
+      if (onSaved) onSaved()
+      else navigate(`/monitors/${created.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     }
   }
 
+  function handleClose() {
+    if (onClose) onClose()
+    else if (id) navigate(`/monitors/${id}`)
+    else navigate('/')
+  }
+
   return (
-    <div className="page">
-      <h1 className="page-title">{id ? 'Edit Monitor' : 'Add Monitor'}</h1>
-      <p className="page-subtitle">Configure check type, target, and alert settings.</p>
-      {error && <div style={styles.error}>{error}</div>}
+    <FormModal
+      title={id ? 'Edit Monitor' : 'Add Monitor'}
+      subtitle="Configure check type, target, and alert settings."
+      onClose={handleClose}
+      wide
+    >
+      {error && <div className="flash-error" role="alert">{error}</div>}
       <form onSubmit={handleSubmit} style={styles.form}>
         <Field label="Monitor Type">
           <select value={monitorType} onChange={e => set('type', e.target.value as MonitorType)} className="input">
@@ -226,7 +249,7 @@ export default function MonitorForm() {
             <Field label="Keyword must not exist">
               <input value={form.keyword_must_not_exist || ''} onChange={e => set('keyword_must_not_exist', e.target.value)} className="input" />
             </Field>
-            <div style={styles.row}>
+            <div className="form-row">
               <Field label="HTTP Basic Auth username">
                 <input
                   autoComplete="off"
@@ -321,7 +344,7 @@ export default function MonitorForm() {
           <input className="input" value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="production, api" />
         </Field>
 
-        <div style={styles.row}>
+        <div className="form-row">
           <Field label="Interval (seconds)">
             <input type="number" min={30} value={numberFieldValue(form.interval_seconds)} onChange={e => set('interval_seconds', parseNumberInput(e.target.value))} className="input" />
           </Field>
@@ -406,14 +429,17 @@ export default function MonitorForm() {
           <input type="checkbox" checked={form.enabled ?? true} onChange={e => set('enabled', e.target.checked)} />
           Enabled
         </label>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+        <div className="form-modal-actions">
+          <button type="button" className="btn" onClick={handleClose}>Cancel</button>
           <button type="submit" className="btn btn-primary">{id ? 'Save Changes' : 'Create Monitor'}</button>
-          {id && form.name && (
-            <DeleteMonitorButton id={id} name={form.name} variant="danger" />
-          )}
         </div>
+        {id && form.name && (
+          <div style={{ marginTop: 8 }}>
+            <DeleteMonitorButton id={id} name={form.name} variant="danger" />
+          </div>
+        )}
       </form>
-    </div>
+    </FormModal>
   )
 }
 
@@ -482,10 +508,8 @@ function NotifyToggle({
 
 const styles: Record<string, React.CSSProperties> = {
   form: {
-    display: 'grid', gap: 20, maxWidth: 720, background: colors.card,
-    padding: '28px 32px', borderRadius: 12, border: `1px solid ${colors.border}`,
+    display: 'grid', gap: 16,
   },
-  row: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'start' },
   error: {
     background: colors.redDim, color: colors.red,
     padding: 12, borderRadius: 8, marginBottom: 16,

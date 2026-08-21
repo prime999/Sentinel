@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, Customer, PerformanceTarget } from '../api'
 import ConfirmDialog from '../components/ConfirmDialog'
+import FormModal from '../components/FormModal'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 import { numberFieldValue, parseNumberInput } from '../utils/numberInput'
@@ -16,9 +17,18 @@ const defaults: Partial<PerformanceTarget> = {
   alert_after_slow: 1,
 }
 
-export default function PerformanceForm() {
-  const { id } = useParams<{ id: string }>()
+export default function PerformanceForm({
+  targetId,
+  onClose,
+  onSaved,
+}: {
+  targetId?: string
+  onClose?: () => void
+  onSaved?: () => void
+} = {}) {
+  const params = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const id = targetId ?? params.id
   const { isPlatformAdmin } = useAuth()
   const [form, setForm] = useState<Partial<PerformanceTarget>>(defaults)
   const [error, setError] = useState('')
@@ -45,10 +55,12 @@ export default function PerformanceForm() {
     try {
       if (id) {
         await api.updatePerformanceTarget(id, form)
-        navigate(`/performance/${id}`)
+        if (onSaved) onSaved()
+        else navigate(`/performance/${id}`)
       } else {
         const created = await api.createPerformanceTarget(form)
-        navigate(`/performance/${created.id}`)
+        if (onSaved) onSaved()
+        else navigate(`/performance/${created.id}`)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
@@ -62,18 +74,27 @@ export default function PerformanceForm() {
     try {
       await api.deletePerformanceTarget(id)
       setDeleteOpen(false)
-      navigate('/performance')
+      if (onSaved) onSaved()
+      else navigate('/performance')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
       setBusy(false)
     }
   }
 
+  function handleClose() {
+    if (onClose) onClose()
+    else if (id) navigate(`/performance/${id}`)
+    else navigate('/performance')
+  }
+
   return (
-    <div className="page">
-      <h1 className="page-title">{id ? 'Edit Target' : 'Add Performance Target'}</h1>
-      <p className="page-subtitle">Track response time and latency for a website — independent of uptime monitoring.</p>
-      {error && <div style={styles.error}>{error}</div>}
+    <FormModal
+      title={id ? 'Edit Target' : 'Add Performance Target'}
+      subtitle="Track response time and latency for a website — independent of uptime monitoring."
+      onClose={handleClose}
+    >
+      {error && <div className="flash-error" role="alert">{error}</div>}
       <form onSubmit={handleSubmit} style={styles.form}>
         <Field label="Name">
           <input required className="input" value={form.name || ''} onChange={e => set('name', e.target.value)} />
@@ -101,7 +122,7 @@ export default function PerformanceForm() {
             <option value="HEAD">HEAD</option>
           </select>
         </Field>
-        <div className="grid-2" style={{ gap: 16 }}>
+        <div className="form-row">
           <Field label="Check Interval (seconds)">
             <input type="number" className="input" value={numberFieldValue(form.interval_seconds)} onChange={e => set('interval_seconds', parseNumberInput(e.target.value))} />
           </Field>
@@ -137,12 +158,15 @@ export default function PerformanceForm() {
             <span>Enabled</span>
           </label>
         )}
-        <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+        <div className="form-modal-actions">
+          <button type="button" className="btn" onClick={handleClose}>Cancel</button>
           <button type="submit" className="btn btn-primary">Save</button>
-          {id && (
-            <button type="button" className="btn" onClick={() => setDeleteOpen(true)} style={{ color: colors.red }}>Delete</button>
-          )}
         </div>
+        {id && (
+          <div style={{ marginTop: 8 }}>
+            <button type="button" className="btn" onClick={() => setDeleteOpen(true)} style={{ color: colors.red }}>Delete</button>
+          </div>
+        )}
       </form>
 
       <ConfirmDialog
@@ -155,7 +179,7 @@ export default function PerformanceForm() {
         onConfirm={confirmDelete}
         onCancel={() => { if (!busy) setDeleteOpen(false) }}
       />
-    </div>
+    </FormModal>
   )
 }
 
@@ -170,8 +194,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const styles: Record<string, React.CSSProperties> = {
   form: {
-    maxWidth: 520, background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '28px 32px',
+    display: 'grid', gap: 4,
   },
   checkbox: { display: 'flex', gap: 10, alignItems: 'center', fontSize: 14, color: colors.textMuted },
   error: {

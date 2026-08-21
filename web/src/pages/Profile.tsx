@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 import { roleLabel, useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 
@@ -82,8 +83,10 @@ export default function Profile() {
 
   return (
     <div className="page">
-      <h1 className="page-title">Profile</h1>
-      <p className="page-subtitle">Manage your account credentials, recovery email, and sign-in security.</p>
+      <PageHeader
+        title="Profile"
+        subtitle="Manage your account credentials, recovery email, and sign-in security."
+      />
 
       <div style={styles.headerCard}>
         <span style={styles.avatar}>{initials}</span>
@@ -96,7 +99,7 @@ export default function Profile() {
       </div>
 
       {message && <div style={styles.ok}>{message}</div>}
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={styles.error} role="alert">{error}</div>}
 
       <form onSubmit={handleSubmit} style={styles.form} autoComplete="off">
         <h3 style={styles.sectionTitle}>Account Details</h3>
@@ -208,17 +211,17 @@ const styles: Record<string, React.CSSProperties> = {
   headerCard: {
     display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px',
     background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, marginBottom: 24, maxWidth: 480,
+    borderRadius: 10, marginBottom: 24, maxWidth: 480,
   },
   avatar: {
     width: 56, height: 56, borderRadius: '50%',
-    background: `linear-gradient(135deg, ${colors.brand}, ${colors.brandDeep})`,
-    color: colors.bg, display: 'grid', placeItems: 'center',
+    background: colors.brandDim,
+    color: colors.brand, display: 'grid', placeItems: 'center',
     fontSize: 20, fontWeight: 700,
   },
   form: {
     maxWidth: 480, background: colors.card, border: `1px solid ${colors.border}`,
-    borderRadius: 12, padding: '28px 32px',
+    borderRadius: 10, padding: '28px 32px',
   },
   sectionTitle: { margin: '0 0 16px', fontSize: 15, fontWeight: 600 },
   toggleRow: {
