@@ -13,7 +13,7 @@ export default function PageHeader({
 }) {
   return (
     <header className="page-header">
-      <div>
+      <div className="page-header-copy">
         <h1 className="page-title">{title}</h1>
         {badges && <div className="page-header-badges">{badges}</div>}
         {subtitle != null && subtitle !== '' && (

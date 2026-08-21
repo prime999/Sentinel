@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, AuditEntry, AuditMeta } from '../../api'
-import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
+import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../../components/ColumnResize'
 import DatePicker from '../../components/DatePicker'
 import { colors } from '../../theme'
 
@@ -30,6 +30,15 @@ export default function SettingsAudit() {
   const [loading, setLoading] = useState(true)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('audit', 5)
+  const sortValue = useCallback((e: AuditEntry, key: string) => {
+    if (key === 'time') return e.created_at
+    if (key === 'actor') return e.actor
+    if (key === 'action') return e.action
+    if (key === 'resource') return e.resource
+    if (key === 'detail') return e.detail || ''
+    return null
+  }, [])
+  const { sorted, header } = useTableSort(entries, sortValue)
 
   useEffect(() => {
     api.listAuditMeta().then(setMeta).catch(() => {})
@@ -154,11 +163,11 @@ export default function SettingsAudit() {
               <ColGroup widths={widths} />
               <thead>
                 <tr>
-                  <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Time</ResizableTh>
-                  <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Actor</ResizableTh>
-                  <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Action</ResizableTh>
-                  <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Resource</ResizableTh>
-                  <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Detail</ResizableTh>
+                  <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('time')}>Time</ResizableTh>
+                  <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('actor')}>Actor</ResizableTh>
+                  <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('action')}>Action</ResizableTh>
+                  <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('resource')}>Resource</ResizableTh>
+                  <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('detail')}>Detail</ResizableTh>
                 </tr>
               </thead>
               <tbody>
@@ -167,7 +176,7 @@ export default function SettingsAudit() {
                     <td colSpan={5} style={{ ...styles.td, color: colors.textMuted }}>Loading…</td>
                   </tr>
                 ) : (
-                  entries.map(e => (
+                  sorted.map(e => (
                     <tr key={e.id}>
                       <td style={styles.td}>{new Date(e.created_at).toLocaleString()}</td>
                       <td style={styles.td}>{e.actor}</td>

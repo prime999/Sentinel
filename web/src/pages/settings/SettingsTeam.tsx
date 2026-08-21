@@ -1,6 +1,6 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, Customer, TeamMember, UserRole } from '../../api'
-import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
+import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import PageHeader from '../../components/PageHeader'
 import { roleLabel, useAuth } from '../../context/AuthContext'
@@ -71,6 +71,15 @@ export default function SettingsTeam() {
       return hay.includes(q)
     })
   }, [members, search, roleFilter, customerFilter, statusFilter, isPlatformAdmin, customers])
+
+  const sortValue = useCallback((m: TeamMember, key: string) => {
+    if (key === 'username') return m.username
+    if (key === 'role') return m.role
+    if (key === 'customer') return customerName(m.tenant_id)
+    if (key === 'status') return m.locked ? 'locked' : 'active'
+    return null
+  }, [customers])
+  const { sorted, header } = useTableSort(filtered, sortValue)
 
   function openAdd() {
     setUsername('')
@@ -288,17 +297,17 @@ export default function SettingsTeam() {
               <ColGroup widths={widths} />
               <thead>
                 <tr>
-                  <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Username</ResizableTh>
-                  <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Role</ResizableTh>
+                  <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('username')}>Username</ResizableTh>
+                  <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('role')}>Role</ResizableTh>
                   {isPlatformAdmin && (
-                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Customer</ResizableTh>
+                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('customer')}>Customer</ResizableTh>
                   )}
-                  <ResizableTh index={isPlatformAdmin ? 3 : 2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+                  <ResizableTh index={isPlatformAdmin ? 3 : 2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('status')}>Status</ResizableTh>
                   <ResizableTh index={isPlatformAdmin ? 4 : 3} style={{ ...styles.th, textAlign: 'right' }} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Actions</ResizableTh>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(m => (
+                {sorted.map(m => (
                   <tr key={m.id}>
                     <td style={styles.td}>
                       <span style={styles.username}>

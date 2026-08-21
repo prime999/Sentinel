@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Incident, Monitor } from '../api'
-import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
+import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../components/ColumnResize'
 import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import IncidentStatus from '../components/IncidentStatus'
 import PageHeader from '../components/PageHeader'
@@ -28,6 +28,16 @@ export default function Incidents() {
   const [loading, setLoading] = useState(true)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('incidents', 6)
+  const sortValue = useCallback((inc: Incident, key: string) => {
+    if (key === 'monitor') return inc.monitor_name || inc.monitor_id
+    if (key === 'type') return inc.type
+    if (key === 'message') return inc.message || ''
+    if (key === 'started') return inc.started_at
+    if (key === 'resolved') return inc.resolved_at || ''
+    if (key === 'status') return inc.resolved_at ? 'resolved' : 'open'
+    return null
+  }, [])
+  const { sorted, header } = useTableSort(incidents, sortValue)
 
   useEffect(() => {
     api.monitors().then(setMonitors).catch(() => {})
@@ -109,12 +119,12 @@ export default function Incidents() {
             <ColGroup widths={widths} />
             <thead>
               <tr>
-                <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Monitor</ResizableTh>
-                <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Type</ResizableTh>
-                <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Message</ResizableTh>
-                <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Started</ResizableTh>
-                <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Resolved</ResizableTh>
-                <ResizableTh index={5} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+                <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('monitor')}>Monitor</ResizableTh>
+                <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('type')}>Type</ResizableTh>
+                <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('message')}>Message</ResizableTh>
+                <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('started')}>Started</ResizableTh>
+                <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('resolved')}>Resolved</ResizableTh>
+                <ResizableTh index={5} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('status')}>Status</ResizableTh>
               </tr>
             </thead>
             <tbody>
@@ -123,7 +133,7 @@ export default function Incidents() {
                   <td colSpan={6} style={{ padding: 24, color: colors.textMuted }}>Loading…</td>
                 </tr>
               ) : (
-                incidents.map(inc => {
+                sorted.map(inc => {
                   const open = !inc.resolved_at
                   const warn = inc.type === 'slow' || inc.type === 'ssl_expiry'
                   return (

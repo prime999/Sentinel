@@ -68,20 +68,30 @@ export default function SettingsMaintenance() {
       <form onSubmit={handleCreate} style={styles.card}>
         <h3 style={styles.title}>Schedule Maintenance</h3>
         <p style={styles.desc}>Suppress alerts during planned downtime. Leave monitor blank for global maintenance.</p>
-        <div className="grid-2" style={{ gap: 16 }}>
-          <label className="field"><span className="field-label">Name</span>
-            <input required className="input" value={name} onChange={e => setName(e.target.value)} /></label>
-          <label className="field"><span className="field-label">Monitor (optional)</span>
+        <div className="grid-2">
+          <label className="field">
+            <span className="field-label">Name</span>
+            <input required className="input" value={name} onChange={e => setName(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">Monitor (optional)</span>
             <select className="input" value={monitorId} onChange={e => setMonitorId(e.target.value)}>
               <option value="">All monitors</option>
               {monitors.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select></label>
-          <label className="field"><span className="field-label">Starts</span>
-            <input required type="datetime-local" className="input" value={startsAt} onChange={e => setStartsAt(e.target.value)} /></label>
-          <label className="field"><span className="field-label">Ends</span>
-            <input required type="datetime-local" className="input" value={endsAt} onChange={e => setEndsAt(e.target.value)} /></label>
+            </select>
+          </label>
+          <label className="field">
+            <span className="field-label">Starts</span>
+            <input required type="datetime-local" className="input" value={startsAt} onChange={e => setStartsAt(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label">Ends</span>
+            <input required type="datetime-local" className="input" value={endsAt} onChange={e => setEndsAt(e.target.value)} />
+          </label>
         </div>
-        <button type="submit" className="btn btn-primary" style={{ marginTop: 16 }}>Add window</button>
+        <div style={styles.actions}>
+          <button type="submit" className="btn btn-primary">Add window</button>
+        </div>
       </form>
 
       <div style={{ ...styles.card, marginTop: 24 }}>
@@ -132,9 +142,10 @@ export default function SettingsMaintenance() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: 28 },
-  title: { margin: '0 0 8px' },
-  desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 20px' },
+  card: { background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10, padding: '28px 32px' },
+  title: { margin: '0 0 8px', fontSize: 16, fontWeight: 600 },
+  desc: { color: colors.textMuted, fontSize: 14, margin: '0 0 24px', lineHeight: 1.5 },
+  actions: { display: 'flex', justifyContent: 'flex-start', marginTop: 24 },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 14 },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
 }

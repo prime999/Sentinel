@@ -77,7 +77,7 @@ export default function CustomerFilter({
   })()
 
   return (
-    <div ref={rootRef} style={styles.wrap}>
+    <div ref={rootRef} className="customer-filter" style={styles.wrap}>
       <button
         type="button"
         className="btn"
@@ -95,7 +95,7 @@ export default function CustomerFilter({
       </button>
 
       {open && (
-        <div style={styles.panel} role="listbox" aria-multiselectable="true">
+        <div className="customer-filter-panel" style={styles.panel} role="listbox" aria-multiselectable="true">
           <input
             className="input"
             value={query}
@@ -149,7 +149,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    minWidth: 180,
+    minWidth: 160,
     justifyContent: 'space-between',
     fontSize: 13,
     padding: '8px 12px',
@@ -163,6 +163,7 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     maxWidth: 220,
+    flex: 1,
   },
   chevron: { color: colors.textMuted, fontSize: 11 },
   panel: {

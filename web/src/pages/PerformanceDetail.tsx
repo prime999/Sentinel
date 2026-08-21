@@ -4,9 +4,10 @@ import {
   Area, AreaChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api, PerformanceResult, PerformanceStats, PerformanceTarget } from '../api'
-import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
+import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../components/ColumnResize'
 import { useAuth } from '../context/AuthContext'
 import DatePicker from '../components/DatePicker'
+import PerformanceForm from './PerformanceForm'
 import MetricCard from '../components/MetricCard'
 import NextCheckCountdown from '../components/NextCheckCountdown'
 import PageHeader from '../components/PageHeader'
@@ -22,6 +23,7 @@ export default function PerformanceDetail() {
   const [target, setTarget] = useState<PerformanceTarget | null>(null)
   const [stats, setStats] = useState<PerformanceStats | null>(null)
   const [period, setPeriod] = useState('24h')
+  const [editing, setEditing] = useState(false)
   const periodRef = useRef(period)
   periodRef.current = period
 
@@ -83,7 +85,7 @@ export default function PerformanceDetail() {
                 { id: '30d', label: '30d' },
               ]}
             />
-            {isAdmin && <Link to={`/performance/targets/${id}/edit`} className="btn">Edit</Link>}
+            {isAdmin && <button type="button" className="btn" onClick={() => setEditing(true)}>Edit</button>}
           </>
         }
       />
@@ -154,6 +156,17 @@ export default function PerformanceDetail() {
       {id && (
         <SLABreachLog targetId={id} slaMs={target.slow_threshold_ms} />
       )}
+
+      {editing && id && (
+        <PerformanceForm
+          targetId={id}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false)
+            load()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -168,6 +181,16 @@ function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) 
   const [loading, setLoading] = useState(true)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('sla-log', 6)
+  const sortValue = useCallback((r: PerformanceResult, key: string) => {
+    if (key === 'time') return r.checked_at
+    if (key === 'status') return r.status
+    if (key === 'total') return r.response_time_ms
+    if (key === 'over') return Math.max(0, r.response_time_ms - slaMs)
+    if (key === 'ttfb') return r.ttfb_ms ?? null
+    if (key === 'dns') return r.dns_ms ?? null
+    return null
+  }, [slaMs])
+  const { sorted, header } = useTableSort(items, sortValue)
 
   useEffect(() => {
     setPage(0)
@@ -233,12 +256,12 @@ function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) 
           <ColGroup widths={widths} />
           <thead>
             <tr>
-              <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Time</ResizableTh>
-              <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
-              <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Total</ResizableTh>
-              <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Over SLA</ResizableTh>
-              <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>TTFB</ResizableTh>
-              <ResizableTh index={5} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>DNS</ResizableTh>
+              <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('time')}>Time</ResizableTh>
+              <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('status')}>Status</ResizableTh>
+              <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('total')}>Total</ResizableTh>
+              <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('over')}>Over SLA</ResizableTh>
+              <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('ttfb')}>TTFB</ResizableTh>
+              <ResizableTh index={5} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('dns')}>DNS</ResizableTh>
             </tr>
           </thead>
           <tbody>
@@ -253,7 +276,7 @@ function SLABreachLog({ targetId, slaMs }: { targetId: string; slaMs: number }) 
                 </td>
               </tr>
             ) : (
-              items.map(r => {
+              sorted.map(r => {
                 const over = Math.max(0, r.response_time_ms - slaMs)
                 return (
                   <tr key={r.id} className="row-warn">

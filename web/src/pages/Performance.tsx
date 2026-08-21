@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api, FleetPerformance, PerformanceHealth, PerformanceTarget, ServicePerformance } from '../api'
-import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
+import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../components/ColumnResize'
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import ConfirmDialog from '../components/ConfirmDialog'
+import PerformanceForm from './PerformanceForm'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
 import Panel from '../components/Panel'
@@ -65,6 +66,7 @@ export default function Performance() {
   const [error, setError] = useState('')
   const [menuId, setMenuId] = useState<string | null>(null)
   const [deleteTargetRow, setDeleteTargetRow] = useState<PerformanceTarget | null>(null)
+  const [targetForm, setTargetForm] = useState<string | 'new' | null>(null)
   const [deleting, setDeleting] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const tableRef = useRef<HTMLTableElement>(null)
@@ -123,6 +125,19 @@ export default function Performance() {
     return withHealth.filter(r => r.health === healthTab)
   }, [withHealth, healthTab])
 
+  const sortValue = useCallback((row: (typeof filtered)[number], key: string) => {
+    const t = row.target
+    const svc = serviceById[t.id]
+    if (key === 'name') return t.name
+    if (key === 'status') return row.health
+    if (key === 'latency') return t.latest_response_time_ms ?? null
+    if (key === 'p95') return svc?.has_data ? svc.p95_ms : null
+    if (key === 'sla') return t.slow_threshold_ms
+    if (key === 'checked') return t.last_checked_at || ''
+    return null
+  }, [serviceById])
+  const { sorted, header } = useTableSort(filtered, sortValue)
+
   const good = withHealth.filter(r => r.health === 'good').length
   const slow = withHealth.filter(r => r.health === 'warning' || r.health === 'critical').length
   const collecting = withHealth.filter(r => r.health === 'collecting').length
@@ -175,14 +190,14 @@ export default function Performance() {
         onConfirm={confirmDelete}
         onCancel={() => { if (!deleting) setDeleteTargetRow(null) }}
       />
-          <div className="performance-layout">
-        <div style={styles.main}>
+      <div className="performance-layout">
+        <div className="page-layout-main">
           <PageHeader
             title="Performance"
             subtitle="Measure website response time and latency — separate from uptime monitoring."
             actions={
               <>
-                {isPlatformAdmin && customers.length > 0 && (
+                {isPlatformAdmin && (
                   <CustomerFilter
                     customers={customers}
                     selectedIds={selectedCustomers}
@@ -200,7 +215,7 @@ export default function Performance() {
                   ]}
                 />
                 {isAdmin && (
-                  <Link to="/performance/targets/new" className="btn btn-primary">+ Add Target</Link>
+                  <button type="button" className="btn btn-primary" onClick={() => setTargetForm('new')}>+ Add Target</button>
                 )}
               </>
             }
@@ -248,7 +263,7 @@ export default function Performance() {
               <div style={{ marginBottom: 20 }}>
                 Add websites here to track response time and latency percentiles.
               </div>
-              {isAdmin && <Link to="/performance/targets/new" className="btn btn-primary">Add Target</Link>}
+              {isAdmin && <button type="button" className="btn btn-primary" onClick={() => setTargetForm('new')}>Add Target</button>}
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
@@ -265,17 +280,17 @@ export default function Performance() {
                 <ColGroup widths={widths} />
                 <thead>
                   <tr>
-                    <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Target</ResizableTh>
-                    <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
-                    <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Latency</ResizableTh>
-                    <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>P95</ResizableTh>
-                    <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>SLA</ResizableTh>
-                    <ResizableTh index={5} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Last Checked</ResizableTh>
+                    <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('name')}>Target</ResizableTh>
+                    <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('status')}>Status</ResizableTh>
+                    <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('latency')}>Latency</ResizableTh>
+                    <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('p95')}>P95</ResizableTh>
+                    <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('sla')}>SLA</ResizableTh>
+                    <ResizableTh index={5} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('checked')}>Last Checked</ResizableTh>
                     <ResizableTh index={6} style={{ width: 52 }} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(({ target: t, health }) => {
+                  {sorted.map(({ target: t, health }) => {
                     const svc = serviceById[t.id]
                     const ms = t.latest_response_time_ms
                     return (
@@ -336,13 +351,16 @@ export default function Performance() {
                                 </Link>
                                 {isAdmin && (
                                   <>
-                                    <Link
-                                      to={`/performance/targets/${t.id}/edit`}
+                                    <button
+                                      type="button"
                                       style={styles.menuItem}
-                                      onClick={() => setMenuId(null)}
+                                      onClick={() => {
+                                        setMenuId(null)
+                                        setTargetForm(t.id)
+                                      }}
                                     >
                                       Edit
-                                    </Link>
+                                    </button>
                                     <button
                                       type="button"
                                       style={styles.menuDangerBtn}
@@ -438,13 +456,24 @@ export default function Performance() {
           </Panel>
         </aside>
       </div>
+
+      {targetForm != null && (
+        <PerformanceForm
+          targetId={targetForm === 'new' ? undefined : targetForm}
+          onClose={() => setTargetForm(null)}
+          onSaved={() => {
+            setTargetForm(null)
+            api.performanceTargets().then(setTargets).catch(() => {})
+            api.performance(period).then(setSummary).catch(() => {})
+          }}
+        />
+      )}
     </div>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
   page: { maxWidth: '100%' },
-  main: { minWidth: 0 },
   metrics: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
@@ -503,10 +532,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   menuItem: {
     display: 'block',
+    width: '100%',
     padding: '10px 14px',
     fontSize: 13,
     color: colors.text,
     textDecoration: 'none',
+    textAlign: 'left',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
   },
   menuDangerBtn: {
     display: 'block',

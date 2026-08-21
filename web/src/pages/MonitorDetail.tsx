@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { api, CheckResult, DNSDetails, Incident, Monitor, MonitorStats, NotificationsSummary, PortDetails, SSLDetails } from '../api'
-import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
+import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../components/ColumnResize'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
+import MonitorForm from './MonitorForm'
 import IncidentFilters, { IncidentFilterValues } from '../components/IncidentFilters'
 import IncidentStatus, { incidentStatusLabel } from '../components/IncidentStatus'
 import MetricCard from '../components/MetricCard'
@@ -28,6 +29,7 @@ export default function MonitorDetail() {
   const [latest, setLatest] = useState<CheckResult | undefined>()
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [period, setPeriod] = useState('24h')
+  const [editing, setEditing] = useState(false)
   const periodRef = useRef(period)
   periodRef.current = period
 
@@ -71,7 +73,7 @@ export default function MonitorDetail() {
         subtitle={monitor.name}
         actions={isAdmin ? (
           <>
-            <Link to={`/monitors/${id}/edit`} className="btn">Edit</Link>
+            <button type="button" className="btn" onClick={() => setEditing(true)}>Edit</button>
             <DeleteMonitorButton id={monitor.id} name={monitor.name} variant="danger" />
           </>
         ) : undefined}
@@ -134,6 +136,17 @@ export default function MonitorDetail() {
       </div>
 
       <IncidentsTable monitorId={monitor.id} />
+
+      {editing && id && (
+        <MonitorForm
+          monitorId={id}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false)
+            load()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -396,6 +409,15 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
   const [loading, setLoading] = useState(true)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('monitor-incidents', 5)
+  const sortValue = useCallback((inc: Incident, key: string) => {
+    if (key === 'started') return inc.started_at
+    if (key === 'type') return inc.type
+    if (key === 'message') return inc.message || ''
+    if (key === 'status') return inc.resolved_at ? 'resolved' : 'open'
+    if (key === 'resolved') return inc.resolved_at || ''
+    return null
+  }, [])
+  const { sorted, header } = useTableSort(items, sortValue)
 
   useEffect(() => {
     setPage(0)
@@ -455,11 +477,11 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
           <ColGroup widths={widths} />
           <thead>
             <tr>
-              <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Started</ResizableTh>
-              <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Type</ResizableTh>
-              <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Message</ResizableTh>
-              <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
-              <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Resolved</ResizableTh>
+              <ResizableTh index={0} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('started')}>Started</ResizableTh>
+              <ResizableTh index={1} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('type')}>Type</ResizableTh>
+              <ResizableTh index={2} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('message')}>Message</ResizableTh>
+              <ResizableTh index={3} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('status')}>Status</ResizableTh>
+              <ResizableTh index={4} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('resolved')}>Resolved</ResizableTh>
             </tr>
           </thead>
           <tbody>
@@ -472,7 +494,7 @@ function IncidentsTable({ monitorId }: { monitorId: string }) {
                 <td colSpan={5} style={{ color: colors.textMuted }}>No incidents recorded for this monitor.</td>
               </tr>
             ) : (
-              items.map(inc => (
+              sorted.map(inc => (
                 <tr key={inc.id} className={!inc.resolved_at ? ((inc.type === 'slow' || inc.type === 'ssl_expiry') ? 'row-warn' : 'row-down') : undefined}>
                   <td className="num">{new Date(inc.started_at).toLocaleString()}</td>
                   <td>

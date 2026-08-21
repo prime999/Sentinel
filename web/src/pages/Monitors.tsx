@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Incident, Monitor } from '../api'
-import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
+import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../components/ColumnResize'
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import DashboardRail from '../components/DashboardRail'
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
 import Panel from '../components/Panel'
+import MonitorForm from './MonitorForm'
 import SegmentedTabs from '../components/SegmentedTabs'
 import Sparkline from '../components/Sparkline'
 import StatusBadge, { badgeStatusFor } from '../components/StatusBadge'
@@ -67,6 +68,7 @@ export default function Monitors() {
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
   const [menuId, setMenuId] = useState<string | null>(null)
+  const [monitorForm, setMonitorForm] = useState<string | 'new' | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('monitors', 7)
@@ -123,6 +125,17 @@ export default function Monitors() {
     return searched.filter(m => m.last_status === statusTab)
   }, [searched, statusTab])
 
+  const sortValue = useCallback((m: Monitor, key: string) => {
+    if (key === 'name') return m.name
+    if (key === 'type') return m.type
+    if (key === 'status') return m.last_status
+    if (key === 'response') return m.latest_response_time_ms ?? null
+    if (key === 'uptime') return statsMap[m.id]?.uptime_pct ?? null
+    if (key === 'checked') return m.last_checked_at || ''
+    return null
+  }, [statsMap])
+  const { sorted, header } = useTableSort(filtered, sortValue)
+
   const up = searched.filter(m => m.last_status === 'up').length
   const down = searched.filter(m => m.last_status === 'down').length
   const degraded = searched.filter(m => m.last_status === 'degraded').length
@@ -175,7 +188,7 @@ export default function Monitors() {
             subtitle="Here's what's happening with your monitors."
             actions={
               <>
-                {isPlatformAdmin && customers.length > 0 && (
+                {isPlatformAdmin && (
                   <CustomerFilter
                     customers={customers}
                     selectedIds={selectedCustomers}
@@ -183,7 +196,7 @@ export default function Monitors() {
                   />
                 )}
                 {isAdmin && (
-                  <Link to="/monitors/new" className="btn btn-primary">+ Add Monitor</Link>
+                  <button type="button" className="btn btn-primary" onClick={() => setMonitorForm('new')}>+ Add Monitor</button>
                 )}
               </>
             }
@@ -224,7 +237,7 @@ export default function Monitors() {
           )}
 
           {allTags.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }} role="group" aria-label="Filter by tag">
+            <div className="chip-row" role="group" aria-label="Filter by tag">
               <button
                 type="button"
                 className="btn"
@@ -255,7 +268,7 @@ export default function Monitors() {
               <div style={{ marginBottom: 20 }}>
                 Add your first website, port, SSL, or DNS monitor.
               </div>
-              {isAdmin && <Link to="/monitors/new" className="btn btn-primary">Add Monitor</Link>}
+              {isAdmin && <button type="button" className="btn btn-primary" onClick={() => setMonitorForm('new')}>Add Monitor</button>}
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
@@ -272,17 +285,17 @@ export default function Monitors() {
                 <ColGroup widths={widths} />
                 <thead>
                   <tr>
-                    <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Monitor</ResizableTh>
-                    <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Type</ResizableTh>
-                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
-                    <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Response Time</ResizableTh>
-                    <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Uptime (30d)</ResizableTh>
-                    <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Last Checked</ResizableTh>
+                    <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('name')}>Monitor</ResizableTh>
+                    <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('type')}>Type</ResizableTh>
+                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('status')}>Status</ResizableTh>
+                    <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('response')}>Response Time</ResizableTh>
+                    <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('uptime')}>Uptime (30d)</ResizableTh>
+                    <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('checked')}>Last Checked</ResizableTh>
                     <ResizableTh index={6} style={{ ...styles.th, width: 48 }} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(m => {
+                  {sorted.map(m => {
                     const st = statsMap[m.id]
                     const ms = m.latest_response_time_ms
                     const sparkColor = m.last_status === 'down'
@@ -346,13 +359,16 @@ export default function Monitors() {
                                 </Link>
                                 {isAdmin && (
                                   <>
-                                    <Link
-                                      to={`/monitors/${m.id}/edit`}
+                                    <button
+                                      type="button"
                                       style={styles.menuItem}
-                                      onClick={() => setMenuId(null)}
+                                      onClick={() => {
+                                        setMenuId(null)
+                                        setMonitorForm(m.id)
+                                      }}
                                     >
                                       Edit
-                                    </Link>
+                                    </button>
                                     <div style={styles.menuDanger}>
                                       <DeleteMonitorButton
                                         id={m.id}
@@ -380,6 +396,17 @@ export default function Monitors() {
 
         <DashboardRail incidents={incidents} uptimePct={overallUptime} />
       </div>
+
+      {monitorForm != null && (
+        <MonitorForm
+          monitorId={monitorForm === 'new' ? undefined : monitorForm}
+          onClose={() => setMonitorForm(null)}
+          onSaved={() => {
+            setMonitorForm(null)
+            load()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -432,12 +459,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
   menuItem: {
     display: 'block',
+    width: '100%',
     padding: '10px 14px',
     fontSize: 13,
     fontWeight: 500,
     color: colors.text,
     textDecoration: 'none',
+    textAlign: 'left',
+    background: 'transparent',
+    border: 'none',
     borderBottom: `1px solid ${colors.border}`,
+    cursor: 'pointer',
   },
   menuDanger: {
     padding: 8,
