@@ -4,6 +4,7 @@ import { api, Customer, Monitor, MonitorType, NotificationsSummary } from '../ap
 import DeleteMonitorButton from '../components/DeleteMonitorButton'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
+import { numberFieldValue, parseNumberInput } from '../utils/numberInput'
 
 const PORT_PRESETS = [
   { label: 'SSH (22)', port: 22 },
@@ -39,7 +40,7 @@ export default function MonitorForm() {
   const [error, setError] = useState('')
   const [statusRange, setStatusRange] = useState(false)
   const [dnsRecords, setDnsRecords] = useState('A,AAAA,MX,TXT,NS,CNAME')
-  const [graceSeconds, setGraceSeconds] = useState(60)
+  const [graceSeconds, setGraceSeconds] = useState<number | undefined>(60)
   const [tagsInput, setTagsInput] = useState('')
   const [enablePerformance, setEnablePerformance] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -88,7 +89,7 @@ export default function MonitorForm() {
     }
   }, [id])
 
-  function set<K extends keyof Monitor>(key: K, value: Monitor[K]) {
+  function set<K extends keyof Monitor>(key: K, value: Monitor[K] | undefined) {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
@@ -119,7 +120,7 @@ export default function MonitorForm() {
       })
     }
     if (monitorType === 'heartbeat') {
-      payload.config = JSON.stringify({ grace_seconds: graceSeconds })
+      payload.config = JSON.stringify({ grace_seconds: graceSeconds ?? 60 })
       payload.url = ''
     }
     try {
@@ -212,11 +213,11 @@ export default function MonitorForm() {
               </label>
               {statusRange ? (
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <input type="number" value={form.expected_status_min ?? 200} onChange={e => set('expected_status_min', +e.target.value)} className="input" />
-                  <input type="number" value={form.expected_status_max ?? 299} onChange={e => set('expected_status_max', +e.target.value)} className="input" />
+                  <input type="number" value={numberFieldValue(form.expected_status_min)} onChange={e => set('expected_status_min', parseNumberInput(e.target.value))} className="input" />
+                  <input type="number" value={numberFieldValue(form.expected_status_max)} onChange={e => set('expected_status_max', parseNumberInput(e.target.value))} className="input" />
                 </div>
               ) : (
-                <input type="number" value={form.expected_status ?? 200} onChange={e => set('expected_status', +e.target.value)} className="input" />
+                <input type="number" value={numberFieldValue(form.expected_status)} onChange={e => set('expected_status', parseNumberInput(e.target.value))} className="input" />
               )}
             </Field>
             <Field label="Keyword must exist">
@@ -262,7 +263,7 @@ export default function MonitorForm() {
               <input required value={form.url || ''} onChange={e => set('url', e.target.value)} className="input" placeholder="example.com" />
             </Field>
             <Field label="Port">
-              <input required type="number" value={form.port ?? 443} onChange={e => set('port', +e.target.value)} className="input" />
+              <input required type="number" value={numberFieldValue(form.port)} onChange={e => set('port', parseNumberInput(e.target.value))} className="input" />
             </Field>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {PORT_PRESETS.map(p => (
@@ -280,7 +281,7 @@ export default function MonitorForm() {
               <input required value={form.url || ''} onChange={e => set('url', e.target.value)} className="input" placeholder="example.com" />
             </Field>
             <Field label="Port (default 443)">
-              <input type="number" value={form.port ?? 443} onChange={e => set('port', +e.target.value)} className="input" />
+              <input type="number" value={numberFieldValue(form.port)} onChange={e => set('port', parseNumberInput(e.target.value))} className="input" />
             </Field>
           </>
         )}
@@ -299,8 +300,8 @@ export default function MonitorForm() {
         {monitorType === 'heartbeat' && (
           <>
             <Field label="Grace period (seconds)">
-              <input type="number" min={30} className="input" value={graceSeconds}
-                onChange={e => setGraceSeconds(+e.target.value)} />
+              <input type="number" min={30} className="input" value={numberFieldValue(graceSeconds)}
+                onChange={e => setGraceSeconds(parseNumberInput(e.target.value))} />
               <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
                 Alert if no ping received within this window after the last heartbeat.
               </p>
@@ -322,10 +323,10 @@ export default function MonitorForm() {
 
         <div style={styles.row}>
           <Field label="Interval (seconds)">
-            <input type="number" min={30} value={form.interval_seconds ?? 60} onChange={e => set('interval_seconds', +e.target.value)} className="input" />
+            <input type="number" min={30} value={numberFieldValue(form.interval_seconds)} onChange={e => set('interval_seconds', parseNumberInput(e.target.value))} className="input" />
           </Field>
           <Field label="Timeout (ms)">
-            <input type="number" value={form.timeout_ms ?? 10000} onChange={e => set('timeout_ms', +e.target.value)} className="input" />
+            <input type="number" value={numberFieldValue(form.timeout_ms)} onChange={e => set('timeout_ms', parseNumberInput(e.target.value))} className="input" />
           </Field>
         </div>
         <Field label="Alert after consecutive failures">
@@ -333,8 +334,8 @@ export default function MonitorForm() {
             type="number"
             min={1}
             className="input"
-            value={form.alert_after_failures ?? 2}
-            onChange={e => set('alert_after_failures', Math.max(1, +e.target.value || 1))}
+            value={numberFieldValue(form.alert_after_failures)}
+            onChange={e => set('alert_after_failures', parseNumberInput(e.target.value))}
           />
           <p style={{ color: colors.textMuted, fontSize: 13, margin: '8px 0 0' }}>
             Send a DOWN alert after this many failed checks in a row, and wait for the same number of successful checks before RECOVERY (default 2). Only one DOWN email per outage.

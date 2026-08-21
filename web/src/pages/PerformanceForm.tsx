@@ -4,6 +4,7 @@ import { api, Customer, PerformanceTarget } from '../api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
+import { numberFieldValue, parseNumberInput } from '../utils/numberInput'
 
 const defaults: Partial<PerformanceTarget> = {
   method: 'GET',
@@ -34,7 +35,7 @@ export default function PerformanceForm() {
     api.listCustomers().then(setCustomers).catch(() => {})
   }, [isPlatformAdmin])
 
-  function set<K extends keyof PerformanceTarget>(key: K, value: PerformanceTarget[K]) {
+  function set<K extends keyof PerformanceTarget>(key: K, value: PerformanceTarget[K] | undefined) {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
@@ -102,21 +103,21 @@ export default function PerformanceForm() {
         </Field>
         <div className="grid-2" style={{ gap: 16 }}>
           <Field label="Check Interval (seconds)">
-            <input type="number" className="input" value={form.interval_seconds ?? 300} onChange={e => set('interval_seconds', +e.target.value)} />
+            <input type="number" className="input" value={numberFieldValue(form.interval_seconds)} onChange={e => set('interval_seconds', parseNumberInput(e.target.value))} />
           </Field>
           <Field label="Slow Threshold (ms)">
-            <input type="number" className="input" value={form.slow_threshold_ms ?? 3000} onChange={e => set('slow_threshold_ms', +e.target.value)} />
+            <input type="number" className="input" value={numberFieldValue(form.slow_threshold_ms)} onChange={e => set('slow_threshold_ms', parseNumberInput(e.target.value))} />
           </Field>
           <Field label="Timeout (ms)">
-            <input type="number" className="input" value={form.timeout_ms ?? 10000} onChange={e => set('timeout_ms', +e.target.value)} />
+            <input type="number" className="input" value={numberFieldValue(form.timeout_ms)} onChange={e => set('timeout_ms', parseNumberInput(e.target.value))} />
           </Field>
           <Field label="Alert after consecutive slow checks">
             <input
               type="number"
               min={1}
               className="input"
-              value={form.alert_after_slow ?? 1}
-              onChange={e => set('alert_after_slow', Math.max(1, +e.target.value || 1))}
+              value={numberFieldValue(form.alert_after_slow)}
+              onChange={e => set('alert_after_slow', parseNumberInput(e.target.value))}
             />
           </Field>
         </div>
