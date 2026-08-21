@@ -239,6 +239,12 @@ type MonitorStats struct {
 	Performance PerformanceMetrics `json:"performance"`
 }
 
+// MonitorRowStats is the compact payload used by the monitors dashboard list.
+type MonitorRowStats struct {
+	UptimePct float64 `json:"uptime_pct"`
+	Points    []int   `json:"points"`
+}
+
 type MonitorPerformance struct {
 	MonitorID       string `json:"service_id"`
 	MonitorName     string `json:"name"`

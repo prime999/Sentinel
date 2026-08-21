@@ -8,6 +8,8 @@ import (
 	"github.com/sentinel-monitoring/sentinel/internal/models"
 )
 
+const monitorSparklinePoints = 24
+
 func percentile(sorted []int, p float64) int {
 	if len(sorted) == 0 {
 		return 0
@@ -124,6 +126,91 @@ func (s *Store) GetMonitorStats(monitorID string, since time.Time) (*models.Moni
 	}
 	stats.Performance = computePerformance(times, slowCount, total)
 	return stats, nil
+}
+
+func (s *Store) ListMonitorRowStats(monitorIDs []string, since time.Time) (map[string]models.MonitorRowStats, error) {
+	out := make(map[string]models.MonitorRowStats, len(monitorIDs))
+	for _, id := range monitorIDs {
+		out[id] = models.MonitorRowStats{Points: []int{}}
+	}
+	if len(monitorIDs) == 0 {
+		return out, nil
+	}
+
+	placeholders := sqlPlaceholders(len(monitorIDs))
+	args := make([]any, 0, len(monitorIDs)+1)
+	for _, id := range monitorIDs {
+		args = append(args, id)
+	}
+	args = append(args, formatTime(since))
+
+	uptimeRows, err := s.db.Query(`
+		SELECT monitor_id,
+			100.0 * SUM(CASE WHEN status IN ('up', 'degraded') THEN 1 ELSE 0 END) / COUNT(*)
+		FROM check_results
+		WHERE monitor_id IN (`+placeholders+`) AND checked_at >= ?
+		GROUP BY monitor_id`,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	for uptimeRows.Next() {
+		var id string
+		var pct float64
+		if err := uptimeRows.Scan(&id, &pct); err != nil {
+			uptimeRows.Close()
+			return nil, err
+		}
+		row := out[id]
+		row.UptimePct = pct
+		out[id] = row
+	}
+	if err := uptimeRows.Err(); err != nil {
+		uptimeRows.Close()
+		return nil, err
+	}
+	if err := uptimeRows.Close(); err != nil {
+		return nil, err
+	}
+
+	sparkArgs := make([]any, len(args)+1)
+	copy(sparkArgs, args)
+	sparkArgs[len(args)] = monitorSparklinePoints
+	sparkRows, err := s.db.Query(`
+		SELECT monitor_id, response_time_ms FROM (
+			SELECT monitor_id, response_time_ms, checked_at, id,
+				ROW_NUMBER() OVER (PARTITION BY monitor_id ORDER BY checked_at DESC, id DESC) AS rn
+			FROM check_results
+			WHERE monitor_id IN (`+placeholders+`) AND checked_at >= ?
+		) ranked
+		WHERE rn <= ?
+		ORDER BY monitor_id, checked_at ASC, id ASC`,
+		sparkArgs...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer sparkRows.Close()
+
+	points := make(map[string][]int, len(monitorIDs))
+	for sparkRows.Next() {
+		var id string
+		var rt int
+		if err := sparkRows.Scan(&id, &rt); err != nil {
+			return nil, err
+		}
+		points[id] = append(points[id], rt)
+	}
+	if err := sparkRows.Err(); err != nil {
+		return nil, err
+	}
+	for id, pts := range points {
+		row := out[id]
+		row.Points = pts
+		out[id] = row
+	}
+	return out, nil
 }
 
 func (s *Store) GetPerformanceTargetStats(targetID string, since time.Time) (*models.PerformanceStats, error) {
