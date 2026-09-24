@@ -194,3 +194,55 @@ func TestIncidentErrorPageToken(t *testing.T) {
 		t.Fatalf("message=%q", item.Message)
 	}
 }
+
+func TestIncidentErrorPageViewURLUsesDashboardSettings(t *testing.T) {
+	srv, st, admin := newTestMFAServer(t)
+	h := srv.Handler()
+	adminSess := withSession(t, st, admin.ID)
+
+	if err := st.SaveServerSettings(models.ServerSettings{
+		DashboardURL:  "https://monitor.2hatslogic.com",
+		RetentionDays: 30,
+		Workers:       10,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	m := &models.Monitor{Name: "shop", URL: "https://shop.example", Enabled: true}
+	if err := st.CreateMonitor(m); err != nil {
+		t.Fatal(err)
+	}
+	inc := &models.Incident{
+		MonitorID: m.ID,
+		Type:      models.IncidentDown,
+		Message:   "expected status 200, got 503",
+		StartedAt: time.Now().UTC(),
+		ErrorPage: &models.HTTPErrorPage{
+			StatusCode: 503,
+			BodyHTML:   "<html><body>down</body></html>",
+			PageURL:    "https://shop.example/",
+		},
+	}
+	if err := st.CreateIncident(inc); err != nil {
+		t.Fatal(err)
+	}
+
+	get := authedReq(t, h, http.MethodGet, "/api/incidents/"+inc.ID, adminSess)
+	if get.Code != http.StatusOK {
+		t.Fatalf("GET status=%d body=%s", get.Code, get.Body.String())
+	}
+	var item models.IncidentListItem
+	if err := json.Unmarshal(get.Body.Bytes(), &item); err != nil {
+		t.Fatal(err)
+	}
+	if item.ErrorPage == nil {
+		t.Fatal("expected error_page")
+	}
+	wantPrefix := "https://monitor.2hatslogic.com/api/incidents/" + inc.ID + "/error-page?token="
+	if !strings.HasPrefix(item.ErrorPage.ViewURL, wantPrefix) {
+		t.Fatalf("view_url=%q want prefix %q", item.ErrorPage.ViewURL, wantPrefix)
+	}
+	if strings.Contains(item.ErrorPage.ViewURL, "localhost") {
+		t.Fatalf("view_url still uses localhost: %q", item.ErrorPage.ViewURL)
+	}
+}
