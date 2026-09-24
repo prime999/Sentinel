@@ -25,7 +25,9 @@ func (s *Server) exposeErrorPageViewURL(item *models.IncidentListItem) {
 }
 
 func (s *Server) incidentErrorPageURL(id, token string) string {
-	base := strings.TrimRight(strings.TrimSpace(s.dashboardURL), "/")
+	// Use live Settings → Server dashboard URL (not startup config.yaml alone),
+	// same as password-reset and alert links.
+	base := s.dashboardBaseURL()
 	return base + "/api/incidents/" + id + "/error-page?token=" + url.QueryEscape(token)
 }
 
