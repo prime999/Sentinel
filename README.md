@@ -30,6 +30,16 @@ Sentinel is a lightweight, self-hosted monitoring tool for Linux servers. Monito
 - SMTP settings with test email
 - Session-based admin authentication
 
+### Host Monitoring
+- Monitor Linux server health and resource usage
+- CPU usage and load average monitoring
+- Memory and swap usage monitoring
+- Disk usage monitoring with configurable thresholds
+- Network traffic and interface statistics
+- Host uptime and system information
+- Alerts when resource usage exceeds configured thresholds
+- Track host health alongside website, port, SSL, and DNS monitors
+
 ## Screenshots
 
 Sign in, then work from the monitors dashboard. Sample data below uses `example.com` hosts.
