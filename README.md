@@ -30,6 +30,46 @@ Sentinel is a lightweight, self-hosted monitoring tool for Linux servers. Monito
 - SMTP settings with test email
 - Session-based admin authentication
 
+## Screenshots
+
+Sign in, then work from the monitors dashboard. Sample data below uses `example.com` hosts.
+
+<p align="center">
+  <img src="docs/screenshots/login.png" alt="Sign-in screen" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/monitors.png" alt="Monitors dashboard with uptime, status, and recent incidents" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/monitor-detail.png" alt="Monitor detail with response-time history" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/incidents.png" alt="Incident list" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/hosts.png" alt="Host list" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/host-detail.png" alt="Host detail with CPU, memory, and disk" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/performance.png" alt="Performance targets and fleet latency" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/sla.png" alt="Monthly availability report" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/status.png" alt="Public status page" width="900">
+</p>
+
 ## Quick Start (Docker)
 
 ```bash
