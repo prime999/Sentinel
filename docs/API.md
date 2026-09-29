@@ -962,6 +962,53 @@ curl -sS -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/
   "$BASE/api/settings/status-page"
 ```
 
+### Platform backup — `GET /api/settings/monitor-backup`, `POST /api/settings/monitor-backup/preview`, `POST /api/settings/monitor-backup/import`
+
+**Auth:** Admin (platform admin or customer admin). Customer admins export/import a **tenant pack** (their customer, users, monitors, performance targets, hosts, tenant Slack). Platform admins can export the full platform or `?customer=<tenant_id>` for a tenant pack.
+
+Export downloads a JSON attachment (`sentinel-platform` v1) with configuration needed to restore after data loss. **Includes secrets** (user password hashes, SMTP, webhooks, Slack, HTTP auth, heartbeat/host tokens). Treat backup files as credentials.
+
+**Included:** customers, users, monitors, performance targets, hosts, maintenance windows, settings (org/SMTP/webhooks/server/status page/Slack as applicable).
+
+**Excluded:** check/performance history, incidents, email log, audit log, sessions, API tokens (recreate tokens after restore).
+
+**Import order:** customers → users → monitors → performance targets → hosts → maintenance windows → settings. Same `mode` for all entity types: `create_only` or `overwrite`.
+
+Legacy **`sentinel-monitors`** v1 files (monitors only) still import.
+
+Platform envelope:
+
+```json
+{
+  "format": "sentinel-platform",
+  "version": 1,
+  "exported_at": "2026-09-28T12:00:00Z",
+  "scope_tenant_id": "",
+  "customers": [],
+  "users": [],
+  "monitors": [],
+  "performance_targets": [],
+  "hosts": [],
+  "maintenance_windows": [],
+  "settings": { "org": {}, "smtp": {}, "webhooks": [], "server": {}, "status_page": {}, "slack": [] }
+}
+```
+
+Preview returns per-section counts (`customers`, `users`, `monitors`, …) plus `missing_dependencies` when monitors reference customers not in the file or database.
+
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" -o platform.json \
+  "$BASE/api/settings/monitor-backup"
+
+curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d @platform.json \
+  "$BASE/api/settings/monitor-backup/preview"
+
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"mode":"create_only","format":"sentinel-platform","customers":[...],"monitors":[...]}' \
+  "$BASE/api/settings/monitor-backup/import"
+```
+
 ### Audit — `GET /api/settings/audit`, `GET /api/settings/audit/meta`
 
 Query: `limit`, `offset`, `actor`, `action`, `resource`, `from`, `to`.
@@ -1097,6 +1144,9 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
 | DELETE | `/api/settings/maintenance/{id}` | Platform admin |
 | GET, PUT | `/api/settings/server` | Platform admin |
 | GET, PUT | `/api/settings/status-page` | Platform admin |
+| GET | `/api/settings/monitor-backup` | Admin |
+| POST | `/api/settings/monitor-backup/preview` | Admin |
+| POST | `/api/settings/monitor-backup/import` | Admin |
 | GET | `/api/settings/audit` | Platform admin |
 | GET | `/api/settings/audit/meta` | Platform admin |
 | GET, POST | `/api/settings/tokens` | Any user |

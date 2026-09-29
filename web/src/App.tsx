@@ -26,6 +26,7 @@ import SettingsStatusPage from './pages/settings/SettingsStatusPage'
 import SettingsTokens from './pages/settings/SettingsTokens'
 import SettingsAudit from './pages/settings/SettingsAudit'
 import SettingsEmailLog from './pages/settings/SettingsEmailLog'
+import SettingsBackup from './pages/settings/SettingsBackup'
 import SettingsCustomers from './pages/settings/SettingsCustomers'
 import Incidents from './pages/Incidents'
 import IncidentDetail from './pages/IncidentDetail'
@@ -114,6 +115,7 @@ export default function App() {
             <Route path="tokens" element={<SettingsTokens />} />
             <Route path="audit" element={<SettingsAudit />} />
             <Route path="email-log" element={<PlatformAdminRoute><SettingsEmailLog /></PlatformAdminRoute>} />
+            <Route path="backup" element={<SettingsBackup />} />
           </Route>
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />

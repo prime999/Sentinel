@@ -554,6 +554,109 @@ export interface AuditMeta {
   actions: string[]
 }
 
+export interface MonitorBackupConflict {
+  id: string
+  import_name: string
+  existing_name: string
+}
+
+export interface MonitorBackupInvalid {
+  id?: string
+  name?: string
+  error: string
+}
+
+export interface BackupSectionPreview {
+  total: number
+  to_create: number
+  conflicts: MonitorBackupConflict[]
+  invalid: MonitorBackupInvalid[]
+  quota_blocked?: number
+  would_update: number
+  would_skip: number
+}
+
+export interface PlatformBackupPreview {
+  format: string
+  customers: BackupSectionPreview
+  users: BackupSectionPreview
+  monitors: BackupSectionPreview
+  performance_targets: BackupSectionPreview
+  hosts: BackupSectionPreview
+  maintenance_windows: BackupSectionPreview
+  settings_included: boolean
+  missing_dependencies: string[]
+}
+
+export interface SectionImportResult {
+  created: number
+  updated: number
+  skipped: number
+  failed: MonitorBackupInvalid[]
+}
+
+export interface PlatformBackupImportResult {
+  customers: SectionImportResult
+  users: SectionImportResult
+  monitors: SectionImportResult
+  performance_targets: SectionImportResult
+  hosts: SectionImportResult
+  maintenance_windows: SectionImportResult
+  settings_applied: boolean
+}
+
+function emptyBackupSectionPreview(): BackupSectionPreview {
+  return { total: 0, to_create: 0, conflicts: [], invalid: [], would_update: 0, would_skip: 0 }
+}
+
+function normalizeBackupSection(sec?: BackupSectionPreview | null): BackupSectionPreview {
+  if (!sec) return emptyBackupSectionPreview()
+  return {
+    total: sec.total ?? 0,
+    to_create: sec.to_create ?? 0,
+    conflicts: sec.conflicts ?? [],
+    invalid: sec.invalid ?? [],
+    quota_blocked: sec.quota_blocked,
+    would_update: sec.would_update ?? 0,
+    would_skip: sec.would_skip ?? 0,
+  }
+}
+
+export function normalizePlatformBackupPreview(p: PlatformBackupPreview): PlatformBackupPreview {
+  return {
+    format: p.format ?? '',
+    customers: normalizeBackupSection(p.customers),
+    users: normalizeBackupSection(p.users),
+    monitors: normalizeBackupSection(p.monitors),
+    performance_targets: normalizeBackupSection(p.performance_targets),
+    hosts: normalizeBackupSection(p.hosts),
+    maintenance_windows: normalizeBackupSection(p.maintenance_windows),
+    settings_included: !!p.settings_included,
+    missing_dependencies: p.missing_dependencies ?? [],
+  }
+}
+
+function normalizeSectionImportResult(r?: SectionImportResult | null): SectionImportResult {
+  return {
+    created: r?.created ?? 0,
+    updated: r?.updated ?? 0,
+    skipped: r?.skipped ?? 0,
+    failed: r?.failed ?? [],
+  }
+}
+
+export function normalizePlatformBackupImportResult(r: PlatformBackupImportResult): PlatformBackupImportResult {
+  return {
+    customers: normalizeSectionImportResult(r.customers),
+    users: normalizeSectionImportResult(r.users),
+    monitors: normalizeSectionImportResult(r.monitors),
+    performance_targets: normalizeSectionImportResult(r.performance_targets),
+    hosts: normalizeSectionImportResult(r.hosts),
+    maintenance_windows: normalizeSectionImportResult(r.maintenance_windows),
+    settings_applied: !!r.settings_applied,
+  }
+}
+
 export interface APIToken {
   id: string
   user_id: string
@@ -853,6 +956,38 @@ export const api = {
     return request<PaginatedResults<AuditEntry>>(`/api/settings/audit?${params}`)
   },
   listAuditMeta: () => request<AuditMeta>('/api/settings/audit/meta'),
+  exportMonitorBackup: async (customer?: string) => {
+    const q = customer ? `?customer=${encodeURIComponent(customer)}` : ''
+    const res = await fetch(`/api/settings/monitor-backup${q}`, { credentials: 'include' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error((body as { error?: string }).error || res.statusText)
+    }
+    const blob = await res.blob()
+    const disp = res.headers.get('Content-Disposition') || ''
+    const match = /filename="?([^";]+)"?/.exec(disp)
+    const filename = match?.[1] || 'sentinel-monitors.json'
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+  previewMonitorBackup: async (body: Record<string, unknown>) =>
+    normalizePlatformBackupPreview(
+      await request<PlatformBackupPreview>('/api/settings/monitor-backup/preview', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    ),
+  importMonitorBackup: async (body: Record<string, unknown> & { mode: 'create_only' | 'overwrite' }) =>
+    normalizePlatformBackupImportResult(
+      await request<PlatformBackupImportResult>('/api/settings/monitor-backup/import', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    ),
   listTokens: () => request<APIToken[]>('/api/settings/tokens'),
   createToken: (name: string) =>
     request<APITokenCreated>('/api/settings/tokens', { method: 'POST', body: JSON.stringify({ name }) }),
