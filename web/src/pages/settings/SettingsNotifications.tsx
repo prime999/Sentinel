@@ -1,17 +1,18 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, NotificationsSummary, SlackConfig, SMTPConfig, WebhookConfig } from '../../api'
+import { useSaveToast } from '../../components/useSaveToast'
 import { useAuth } from '../../context/AuthContext'
 import { colors } from '../../theme'
 
 export default function SettingsNotifications() {
   const { isPlatformAdmin } = useAuth()
   const [summary, setSummary] = useState<NotificationsSummary | null>(null)
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [alertEmails, setAlertEmails] = useState('')
   const [emailsLoaded, setEmailsLoaded] = useState(isPlatformAdmin)
+  const { toast, showSaved } = useSaveToast()
 
   async function load() {
     try {
@@ -32,11 +33,10 @@ export default function SettingsNotifications() {
     e.preventDefault()
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       const saved = await api.putAlertRecipients({ alert_emails: alertEmails })
       setAlertEmails(saved.alert_emails || '')
-      setMessage('Alert recipients saved')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save recipients')
     } finally {
@@ -47,10 +47,9 @@ export default function SettingsNotifications() {
   async function sendTest() {
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       await api.testAlertRecipients(alertEmails)
-      setMessage('Test email sent')
+      showSaved()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Test failed'
       setError(/too many requests/i.test(msg) ? 'Too many requests — wait a minute and try again.' : msg)
@@ -62,12 +61,11 @@ export default function SettingsNotifications() {
   async function toggleSlack(enabled: boolean) {
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       const cfg = await api.getSlack()
       const next: SlackConfig = { ...cfg, enabled }
       await api.putSlack(next)
-      setMessage(enabled ? 'Slack enabled' : 'Slack disabled')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update Slack')
@@ -79,12 +77,11 @@ export default function SettingsNotifications() {
   async function toggleEmail(enabled: boolean) {
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       const cfg = await api.getSMTP()
       const next: SMTPConfig = { ...cfg, enabled }
       await api.putSMTP(next)
-      setMessage(enabled ? 'Email enabled' : 'Email disabled')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update email')
@@ -96,12 +93,11 @@ export default function SettingsNotifications() {
   async function toggleWebhooks(enabled: boolean) {
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       const hooks = await api.getWebhooks()
       const next: WebhookConfig[] = hooks.map(h => ({ ...h, enabled }))
       await api.putWebhooks(next.length ? next : [])
-      setMessage(enabled ? 'Webhooks enabled' : 'Webhooks disabled')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update webhooks')
@@ -112,7 +108,7 @@ export default function SettingsNotifications() {
 
   return (
     <>
-      {message && <div style={styles.ok}>{message}</div>}
+      {toast}
       {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div style={styles.card}>
@@ -332,10 +328,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'rgba(148,163,184,0.15)', padding: '3px 8px', borderRadius: 4,
   },
   configureBtn: { fontSize: 13, padding: '6px 12px', minHeight: 32, textDecoration: 'none' },
-  ok: {
-    background: colors.greenDim, color: colors.green, padding: 12,
-    borderRadius: 8, marginBottom: 16, border: `1px solid rgba(34,197,94,0.3)`,
-  },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,
     borderRadius: 8, marginBottom: 16, border: `1px solid rgba(239,68,68,0.3)`,

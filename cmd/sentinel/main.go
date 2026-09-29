@@ -43,12 +43,20 @@ func main() {
 	alt := alerter.New(db, smtpCfg, cfg.SMTP, cfg.Server.DashboardURL)
 	sched := scheduler.New(db, chk, alt, cfg.Server.Workers, cfg.Server.RetentionDays)
 
+	logsDB, err := store.OpenLogsDB(cfg.Database.Path)
+	if err != nil {
+		log.Fatalf("logs database: %v", err)
+	}
+	defer logsDB.Close()
+	sched.SetLogsDB(logsDB)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go sched.Start(ctx)
 
 	apiSrv := api.New(db, alt, cfg)
+	apiSrv.SetLogsDB(logsDB)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/", apiSrv.Handler())

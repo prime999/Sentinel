@@ -183,6 +183,11 @@ type HostAgentConfig struct {
 	CollectSecurity bool     `json:"collect_security"`
 	CollectServices bool     `json:"collect_services"`
 	Services        []string `json:"services,omitempty"`
+	LogSources      []AgentLogSource `json:"log_sources,omitempty"`
+	TailLeases      []AgentTailLease `json:"tail_leases,omitempty"`
+	MaxEventsPerSecHost   int `json:"max_events_per_sec_host,omitempty"`
+	MaxEventSizeBytes     int `json:"max_event_size_bytes,omitempty"`
+	MaxBatchEvents        int `json:"max_batch_events,omitempty"`
 }
 
 type HostIngestPayload struct {
@@ -383,7 +388,7 @@ func NormalizeWatchedServices(in []string) []string {
 }
 
 func SanitizeAgentConfig(cfg HostAgentConfig) HostAgentConfig {
-	return HostAgentConfig{
+	out := HostAgentConfig{
 		IntervalSeconds: ClampHostInterval(cfg.IntervalSeconds),
 		CollectCPU:      cfg.CollectCPU,
 		CollectMemory:   cfg.CollectMemory,
@@ -394,7 +399,19 @@ func SanitizeAgentConfig(cfg HostAgentConfig) HostAgentConfig {
 		CollectSecurity: cfg.CollectSecurity,
 		CollectServices: cfg.CollectServices,
 		Services:        NormalizeWatchedServices(cfg.Services),
+		LogSources:      cfg.LogSources,
+		TailLeases:      cfg.TailLeases,
+		MaxEventsPerSecHost: cfg.MaxEventsPerSecHost,
+		MaxEventSizeBytes:   cfg.MaxEventSizeBytes,
+		MaxBatchEvents:      cfg.MaxBatchEvents,
 	}
+	if out.LogSources == nil {
+		out.LogSources = []AgentLogSource{}
+	}
+	if out.TailLeases == nil {
+		out.TailLeases = []AgentTailLease{}
+	}
+	return out
 }
 
 func ServiceUnitName(name string) string {
@@ -416,4 +433,31 @@ func ServiceIsHealthy(active string) bool {
 	default:
 		return false
 	}
+}
+
+// JournalUnitAllowed restricts journald sources to known service units (phase 2).
+func JournalUnitAllowed(unit string) bool {
+	unit = strings.TrimSpace(unit)
+	if unit == "" || len(unit) > 128 {
+		return false
+	}
+	if strings.ContainsAny(unit, "/\\ \t\n") {
+		return false
+	}
+	lower := strings.ToLower(unit)
+	allowed := []string{
+		"nginx.service", "apache2.service", "httpd.service",
+		"mysql.service", "mariadb.service", "postgresql.service",
+		"php-fpm.service", "redis.service", "docker.service",
+	}
+	for _, a := range allowed {
+		if lower == a {
+			return true
+		}
+	}
+	// php8.2-fpm.service style
+	if matched, _ := regexp.MatchString(`(?i)^php[\d.]*-?fpm\.service$`, unit); matched {
+		return true
+	}
+	return false
 }

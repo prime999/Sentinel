@@ -1,22 +1,22 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { api, ServerSettings } from '../../api'
+import { useSaveToast } from '../../components/useSaveToast'
 import { colors } from '../../theme'
 
 export default function SettingsServer() {
   const [cfg, setCfg] = useState<ServerSettings>({ dashboard_url: '', retention_days: 30, workers: 10 })
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const { toast, showSaved } = useSaveToast()
 
   useEffect(() => { api.getServerSettings().then(setCfg).catch(() => {}) }, [])
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
     setError('')
-    setMessage('')
     try {
       const saved = await api.putServerSettings(cfg)
       setCfg(saved)
-      setMessage('Server settings saved (restart required for worker/retention changes)')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     }
@@ -24,7 +24,7 @@ export default function SettingsServer() {
 
   return (
     <>
-      {message && <div style={styles.ok}>{message}</div>}
+      {toast}
       {error && <div style={styles.error} role="alert">{error}</div>}
       <form onSubmit={handleSave} style={styles.card}>
         <h3 style={styles.title}>Server Settings</h3>
@@ -67,6 +67,5 @@ const styles: Record<string, React.CSSProperties> = {
   stack: { display: 'flex', flexDirection: 'column', gap: 20 },
   hint: { fontSize: 13, color: colors.textMuted, lineHeight: 1.45 },
   actions: { display: 'flex', justifyContent: 'flex-start', marginTop: 24 },
-  ok: { background: 'rgba(34,197,94,0.15)', color: colors.green, padding: 12, borderRadius: 8, marginBottom: 16 },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
 }

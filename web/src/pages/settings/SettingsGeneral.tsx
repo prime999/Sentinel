@@ -1,6 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react'
 import AppLogo, { applyFavicon } from '../../components/AppLogo'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import { useSaveToast } from '../../components/useSaveToast'
 import { api, OrgSettings } from '../../api'
 import { colors } from '../../theme'
 
@@ -8,10 +9,10 @@ const MAX_LOGO_BYTES = 512 * 1024
 
 export default function SettingsGeneral() {
   const [cfg, setCfg] = useState<OrgSettings>({ company_name: '', tagline: '', logo: '' })
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [resetOpen, setResetOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const { toast, showSaved } = useSaveToast()
 
   useEffect(() => { api.getGeneral().then(setCfg).catch(() => {}) }, [])
 
@@ -40,13 +41,12 @@ export default function SettingsGeneral() {
   async function confirmReset() {
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       const reset = await api.resetGeneral()
       setCfg(reset)
       applyFavicon(reset.logo)
       setResetOpen(false)
-      setMessage('Organization settings reset to defaults')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reset failed')
     } finally {
@@ -57,12 +57,11 @@ export default function SettingsGeneral() {
   async function handleSave(e: FormEvent) {
     e.preventDefault()
     setError('')
-    setMessage('')
     try {
       const saved = await api.putGeneral(cfg)
       setCfg(saved)
       applyFavicon(saved.logo)
-      setMessage('Organization settings saved')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     }
@@ -72,7 +71,7 @@ export default function SettingsGeneral() {
 
   return (
     <>
-      {message && <div style={styles.ok}>{message}</div>}
+      {toast}
       {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div className="split-panels">
@@ -182,10 +181,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   previewLogo: { width: 32, height: 32, borderRadius: 6, objectFit: 'contain' },
   previewIcon: { color: colors.brand, fontSize: 24, width: 32, textAlign: 'center' },
-  ok: {
-    background: colors.greenDim, color: colors.green, padding: 12,
-    borderRadius: 8, marginBottom: 16, border: `1px solid rgba(63,185,80,0.3)`,
-  },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,
     borderRadius: 8, marginBottom: 16, border: `1px solid rgba(248,81,73,0.3)`,

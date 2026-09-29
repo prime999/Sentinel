@@ -659,6 +659,11 @@ func (s *Store) ImportPlatformSettings(settings *models.PlatformSettingsBackup, 
 			return err
 		}
 	}
+	if settings.Logs != nil {
+		if err := s.SaveLogSettings(*settings.Logs); err != nil {
+			return err
+		}
+	}
 	if settings.StatusPage != nil {
 		if err := s.SaveStatusPageConfig(*settings.StatusPage); err != nil {
 			return err

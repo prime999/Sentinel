@@ -14,6 +14,7 @@ import ChartWheelZoom from '../components/ChartWheelZoom'
 import SegmentedTabs from '../components/SegmentedTabs'
 import StatusBadge, { isPaused } from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
+import HostLogsTab from './HostLogsTab'
 import { chartGridStroke, chartTick, chartTimeTooltipLabel, chartTimeXAxis, chartTooltipLabel, chartTooltipStyle } from '../chartTheme'
 import { colors, fonts } from '../theme'
 import { formatDuration } from '../utils/duration'
@@ -21,7 +22,7 @@ import { formatBytes } from '../utils/bytes'
 import { useAdaptivePoll } from '../utils/poll'
 import { DEFAULT_CHART_RANGE, emptyChartMessage, formatChartTick, statsQuery, type ChartRange } from '../utils/period'
 
-type Tab = 'overview' | 'performance' | 'storage' | 'security' | 'services' | 'alerts'
+type Tab = 'overview' | 'performance' | 'storage' | 'security' | 'services' | 'logs' | 'alerts'
 type Band = 'Normal' | 'Warning' | 'Critical'
 type HealthStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'OFFLINE' | 'PAUSED' | 'WAITING'
 
@@ -426,6 +427,7 @@ export default function HostDetail() {
                 { id: 'storage', label: 'Storage' },
                 { id: 'security', label: 'Security' },
                 { id: 'services', label: 'Services' },
+                { id: 'logs', label: 'Logs' },
                 { id: 'alerts', label: 'Alert Rules' },
               ]}
             />
@@ -449,6 +451,7 @@ export default function HostDetail() {
           )}
           {tab === 'security' && <SecurityTab host={host} />}
           {tab === 'services' && <ServicesTab host={host} />}
+          {tab === 'logs' && <HostLogsTab host={host} isAdmin={!!isAdmin} />}
           {tab === 'alerts' && (
             isAdmin ? (
               <AlertRulesTab

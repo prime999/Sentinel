@@ -65,6 +65,7 @@ type PlatformSettingsBackup struct {
 	SMTP       *SMTPConfig          `json:"smtp,omitempty"`
 	Webhooks   []WebhookConfig      `json:"webhooks,omitempty"`
 	Server     *ServerSettings      `json:"server,omitempty"`
+	Logs       *LogSettings         `json:"logs,omitempty"`
 	StatusPage *StatusPageConfig    `json:"status_page,omitempty"`
 	Slack      []SlackSettingBackup `json:"slack,omitempty"`
 }

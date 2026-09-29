@@ -201,7 +201,7 @@ func (s *Server) handleAgentIngest(w http.ResponseWriter, r *http.Request) {
 	if err := s.alerter.HandleHostSample(fresh, sample); err != nil {
 		log.Printf("agent ingest metric alert: %v", err)
 	}
-	cfg := fresh.AgentConfig()
+	cfg := s.buildAgentConfig(fresh)
 	jsonOK(w, agentIngestResponse{OK: true, Config: cfg})
 }
 

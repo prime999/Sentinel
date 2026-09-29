@@ -25,6 +25,7 @@ type probeJob struct {
 
 type Scheduler struct {
 	store     *store.Store
+	logs      *store.LogsDB
 	checker   prober
 	alerter   *alerter.Alerter
 	workers   int
@@ -37,6 +38,10 @@ type Scheduler struct {
 
 func New(s *store.Store, c *checker.Checker, a *alerter.Alerter, workers, retentionDays int) *Scheduler {
 	return newScheduler(s, c, a, workers, retentionDays)
+}
+
+func (sch *Scheduler) SetLogsDB(logs *store.LogsDB) {
+	sch.logs = logs
 }
 
 func newScheduler(s *store.Store, c prober, a *alerter.Alerter, workers, retentionDays int) *Scheduler {
@@ -66,8 +71,10 @@ func (sch *Scheduler) Start(ctx context.Context) {
 
 	ticker := time.NewTicker(5 * time.Second)
 	pruneTicker := time.NewTicker(24 * time.Hour)
+	logsPruneTicker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 	defer pruneTicker.Stop()
+	defer logsPruneTicker.Stop()
 
 	for {
 		select {
@@ -79,6 +86,8 @@ func (sch *Scheduler) Start(ctx context.Context) {
 			sch.tickHosts()
 		case <-pruneTicker.C:
 			sch.prune()
+		case <-logsPruneTicker.C:
+			sch.pruneLogs()
 		}
 	}
 }
@@ -297,6 +306,33 @@ func (sch *Scheduler) prune() {
 		log.Printf("scheduler: prune incident captures: %v", err)
 	} else if cn > 0 {
 		log.Printf("scheduler: pruned %d old incident error-page captures", cn)
+	}
+}
+
+func (sch *Scheduler) pruneLogs() {
+	if sch.logs == nil {
+		return
+	}
+	settings, err := sch.store.GetLogSettings()
+	if err != nil {
+		settings = models.DefaultLogSettings()
+	}
+	eventBefore := time.Now().UTC().AddDate(0, 0, -settings.RetentionDays)
+	n, err := sch.logs.PruneEvents(eventBefore, 10000)
+	if err != nil {
+		log.Printf("scheduler: prune log events: %v", err)
+	} else if n > 0 {
+		log.Printf("scheduler: pruned %d old log events", n)
+	}
+	volBefore := time.Now().UTC().AddDate(0, 0, -settings.VolumeRetentionDays)
+	vn, err := sch.logs.PruneVolume(volBefore, 10000)
+	if err != nil {
+		log.Printf("scheduler: prune log volume: %v", err)
+	} else if vn > 0 {
+		log.Printf("scheduler: pruned %d old log volume buckets", vn)
+	}
+	if err := sch.logs.EnsureUnderSizeCap(settings.MaxDBSizeBytes, settings.RetentionDays); err != nil {
+		log.Printf("scheduler: log store size: %v", err)
 	}
 }
 

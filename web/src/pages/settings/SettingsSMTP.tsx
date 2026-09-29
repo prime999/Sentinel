@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, SMTPConfig } from '../../api'
+import { useSaveToast } from '../../components/useSaveToast'
 import { colors } from '../../theme'
 
 export default function SettingsSMTP() {
@@ -8,8 +9,8 @@ export default function SettingsSMTP() {
     host: '', port: 587, username: '', password: '', from: '', alert_emails: '', tls: true, enabled: true,
   })
   const [testTo, setTestTo] = useState('')
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const { toast, showSaved } = useSaveToast()
 
   useEffect(() => { api.getSMTP().then(setCfg).catch(() => {}) }, [])
 
@@ -20,11 +21,10 @@ export default function SettingsSMTP() {
   async function handleSave(e: FormEvent) {
     e.preventDefault()
     setError('')
-    setMessage('')
     try {
       const saved = await api.putSMTP(cfg)
       setCfg(saved)
-      setMessage('Email settings saved')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     }
@@ -32,10 +32,9 @@ export default function SettingsSMTP() {
 
   async function handleTest() {
     setError('')
-    setMessage('')
     try {
       await api.testSMTP(testTo)
-      setMessage('Test email sent')
+      showSaved()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Test failed'
       setError(/too many requests/i.test(msg) ? 'Too many requests — wait a minute and try again.' : msg)
@@ -44,12 +43,12 @@ export default function SettingsSMTP() {
 
   return (
     <>
+      {toast}
       <div style={{ marginBottom: 16 }}>
         <Link to="/settings/notifications" style={{ color: colors.textMuted, fontSize: 14, textDecoration: 'none' }}>
           ← Notifications
         </Link>
       </div>
-      {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div className="split-panels">
@@ -117,10 +116,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cardTitle: { margin: '0 0 20px', fontSize: 17, fontWeight: 600 },
   checkbox: { display: 'flex', gap: 10, alignItems: 'center', fontSize: 15, color: colors.textMuted },
-  ok: {
-    background: colors.greenDim, color: colors.green, padding: 12,
-    borderRadius: 8, marginBottom: 16, border: `1px solid rgba(63,185,80,0.3)`,
-  },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,
     borderRadius: 8, marginBottom: 16, border: `1px solid rgba(248,81,73,0.3)`,
