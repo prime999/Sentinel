@@ -12,6 +12,7 @@ const allTabs = [
   { path: '/settings/tokens', label: 'API Tokens', platformOnly: false },
   { path: '/settings/audit', label: 'Audit', platformOnly: true },
   { path: '/settings/email-log', label: 'Email log', platformOnly: true },
+  { path: '/settings/backup', label: 'Backup', platformOnly: false, adminOnly: true },
 ]
 
 export default function SettingsLayout() {
