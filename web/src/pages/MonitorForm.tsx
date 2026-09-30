@@ -480,6 +480,28 @@ export default function MonitorForm({
                 <option>GET</option><option>POST</option><option>HEAD</option>
               </select>
             </Field>
+            {form.method === 'POST' && (
+              <Field label="Request body">
+                <textarea
+                  value={form.request_body || ''}
+                  onChange={e => set('request_body', e.target.value)}
+                  className="input"
+                  rows={6}
+                  placeholder='Optional — e.g. {"ping":true}'
+                  style={{ resize: 'vertical', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13 }}
+                />
+              </Field>
+            )}
+            <Field label="Request headers">
+              <textarea
+                value={form.request_headers || ''}
+                onChange={e => set('request_headers', e.target.value)}
+                className="input"
+                rows={3}
+                placeholder={'Optional — one per line, e.g.\nContent-Type: application/json'}
+                style={{ resize: 'vertical', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13 }}
+              />
+            </Field>
             <Field label="Status Code Validation">
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                 <input type="checkbox" checked={statusRange} onChange={e => setStatusRange(e.target.checked)} />
