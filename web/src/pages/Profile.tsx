@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { api } from '../api'
 import PageHeader from '../components/PageHeader'
+import { useSaveToast } from '../components/useSaveToast'
 import { roleLabel, useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 
@@ -23,8 +24,8 @@ export default function Profile() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const { toast, showSaved } = useSaveToast()
 
   useEffect(() => {
     api.getProfile().then(p => {
@@ -39,7 +40,6 @@ export default function Profile() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
-    setMessage('')
 
     if (newPassword && newPassword !== confirmPassword) {
       setError('New passwords do not match')
@@ -71,7 +71,7 @@ export default function Profile() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      setMessage('Profile updated successfully')
+      showSaved()
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
@@ -83,6 +83,7 @@ export default function Profile() {
 
   return (
     <div className="page">
+      {toast}
       <PageHeader
         title="Profile"
         subtitle="Manage your account credentials, recovery email, and sign-in security."
@@ -98,7 +99,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error} role="alert">{error}</div>}
 
       <form onSubmit={handleSubmit} style={styles.form} autoComplete="off">
@@ -227,11 +227,6 @@ const styles: Record<string, React.CSSProperties> = {
   toggleRow: {
     display: 'flex', alignItems: 'flex-start', gap: 12,
     padding: '14px 0 4px',
-  },
-  ok: {
-    background: colors.greenDim, color: colors.green, padding: 12,
-    borderRadius: 8, marginBottom: 16, maxWidth: 480,
-    border: `1px solid rgba(34,197,94,0.3)`,
   },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,

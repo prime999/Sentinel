@@ -1,25 +1,25 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, WebhookConfig } from '../../api'
+import { useSaveToast } from '../../components/useSaveToast'
 import { colors } from '../../theme'
 
 const emptyHook = (): WebhookConfig => ({ url: '', enabled: true, events: ['all'] })
 
 export default function SettingsWebhooks() {
   const [hooks, setHooks] = useState<WebhookConfig[]>([])
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const { toast, showSaved } = useSaveToast()
 
   useEffect(() => { api.getWebhooks().then(h => setHooks(h.length ? h : [emptyHook()])).catch(() => {}) }, [])
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
     setError('')
-    setMessage('')
     try {
       const saved = await api.putWebhooks(hooks.filter(h => h.url.trim()))
       setHooks(saved.length ? saved : [emptyHook()])
-      setMessage('Webhooks saved')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     }
@@ -27,12 +27,12 @@ export default function SettingsWebhooks() {
 
   return (
     <>
+      {toast}
       <div style={{ marginBottom: 16 }}>
         <Link to="/settings/notifications" style={{ color: colors.textMuted, fontSize: 14, textDecoration: 'none' }}>
           ← Notifications
         </Link>
       </div>
-      {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error} role="alert">{error}</div>}
       <form onSubmit={handleSave} style={styles.card}>
         <h3 style={styles.title}>Webhook Notifications</h3>
@@ -65,6 +65,5 @@ const styles: Record<string, React.CSSProperties> = {
   desc: { color: colors.textMuted, fontSize: 15, margin: '0 0 20px' },
   row: { display: 'grid', gap: 10, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${colors.border}` },
   check: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 15 },
-  ok: { background: 'rgba(34,197,94,0.15)', color: colors.green, padding: 12, borderRadius: 8, marginBottom: 16 },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
 }

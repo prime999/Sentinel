@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { api, APIToken, APITokenCreated } from '../../api'
 import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import { useSaveToast } from '../../components/useSaveToast'
 import KebabMenu from '../../components/KebabMenu'
 import { colors } from '../../theme'
 
@@ -14,6 +15,7 @@ export default function SettingsTokens() {
   const [busy, setBusy] = useState(false)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('tokens', 5)
+  const { toast, showSaved } = useSaveToast()
 
   async function load() {
     setTokens(await api.listTokens())
@@ -29,6 +31,7 @@ export default function SettingsTokens() {
       const t = await api.createToken(name)
       setCreated(t)
       setName('')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Create failed')
@@ -42,6 +45,7 @@ export default function SettingsTokens() {
     try {
       await api.deleteToken(revokeId)
       setRevokeId(null)
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Revoke failed')
@@ -54,6 +58,7 @@ export default function SettingsTokens() {
 
   return (
     <>
+      {toast}
       {error && <div style={styles.error} role="alert">{error}</div>}
       {created && (
         <div style={styles.tokenBox}>

@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { api, Customer, TeamMember, UserRole } from '../../api'
 import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import { useSaveToast } from '../../components/useSaveToast'
 import KebabMenu from '../../components/KebabMenu'
 import ModalCloseButton from '../../components/ModalCloseButton'
 import PageHeader from '../../components/PageHeader'
@@ -24,7 +25,6 @@ export default function SettingsTeam() {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>('viewer')
   const [tenantId, setTenantId] = useState('')
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
@@ -37,6 +37,7 @@ export default function SettingsTeam() {
   const [showAdd, setShowAdd] = useState(false)
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
+  const { toast, showSaved } = useSaveToast()
 
   async function load() {
     try {
@@ -102,7 +103,6 @@ export default function SettingsTeam() {
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
     setFormError('')
-    setMessage('')
     setBusy(true)
     try {
       await api.createTeamMember({
@@ -118,7 +118,7 @@ export default function SettingsTeam() {
       setPassword('')
       setRole('viewer')
       setTenantId('')
-      setMessage('User added')
+      showSaved()
       await load()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to add user')
@@ -129,10 +129,9 @@ export default function SettingsTeam() {
 
   async function handleRoleChange(id: string, newRole: UserRole) {
     setError('')
-    setMessage('')
     try {
       await api.updateTeamMember(id, { role: newRole })
-      setMessage('User updated')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
@@ -141,10 +140,9 @@ export default function SettingsTeam() {
 
   async function handleTenantChange(id: string, newTenant: string) {
     setError('')
-    setMessage('')
     try {
       await api.updateTeamMember(id, { tenant_id: newTenant })
-      setMessage('User updated')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
@@ -153,10 +151,9 @@ export default function SettingsTeam() {
 
   async function handleUnlock(id: string) {
     setError('')
-    setMessage('')
     try {
       await api.unlockTeamMember(id)
-      setMessage('User unlocked')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unlock failed')
@@ -167,11 +164,10 @@ export default function SettingsTeam() {
     if (!deleteId) return
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       await api.deleteTeamMember(deleteId)
       setDeleteId(null)
-      setMessage('User removed')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
@@ -188,13 +184,12 @@ export default function SettingsTeam() {
     }
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       await api.resetTeamMemberPassword(resetId, resetPassword)
       setResetId(null)
       setResetPassword('')
       setResetPassword2('')
-      setMessage('Password reset')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Password reset failed')
@@ -220,7 +215,7 @@ export default function SettingsTeam() {
         }
       />
 
-      {message && <div style={styles.ok}>{message}</div>}
+      {toast}
       {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div style={styles.card}>
@@ -733,10 +728,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 10,
     padding: 24, width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto',
     boxShadow: 'var(--shadow)',
-  },
-  ok: {
-    background: colors.greenDim, color: colors.green, padding: 12,
-    borderRadius: 8, marginBottom: 16, border: `1px solid rgba(34,197,94,0.3)`,
   },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,

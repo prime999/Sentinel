@@ -694,4 +694,3 @@ func (s *Store) MonitorExists(id string) (bool, error) {
 	}
 	return m != nil, nil
 }
-

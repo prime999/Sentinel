@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, SlackConfig } from '../../api'
+import { useSaveToast } from '../../components/useSaveToast'
 import { useAuth } from '../../context/AuthContext'
 import { colors } from '../../theme'
 
@@ -14,9 +15,9 @@ export default function SettingsSlack() {
   const { isPlatformAdmin } = useAuth()
   const [cfg, setCfg] = useState<SlackConfig>(defaultCfg())
   const [eventsText, setEventsText] = useState('all')
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const { toast, showSaved } = useSaveToast()
 
   useEffect(() => {
     api.getSlack().then(c => {
@@ -29,7 +30,6 @@ export default function SettingsSlack() {
     e.preventDefault()
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       const events = eventsText.split(',').map(s => s.trim()).filter(Boolean)
       const saved = await api.putSlack({
@@ -38,7 +38,7 @@ export default function SettingsSlack() {
       })
       setCfg(saved)
       setEventsText((saved.events || ['all']).join(', '))
-      setMessage('Slack settings saved')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -49,10 +49,9 @@ export default function SettingsSlack() {
   async function handleTest() {
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       await api.testSlack()
-      setMessage('Test message sent to Slack')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Test failed')
     } finally {
@@ -62,10 +61,10 @@ export default function SettingsSlack() {
 
   return (
     <>
+      {toast}
       <div style={{ marginBottom: 16 }}>
         <Link to="/settings/notifications" style={styles.back}>← Notifications</Link>
       </div>
-      {message && <div style={styles.ok}>{message}</div>}
       {error && <div style={styles.error} role="alert">{error}</div>}
 
       <form onSubmit={handleSave} style={styles.card}>
@@ -131,10 +130,6 @@ const styles: Record<string, React.CSSProperties> = {
   title: { margin: '0 0 8px', fontSize: 17, fontWeight: 600 },
   desc: { color: colors.textMuted, fontSize: 15, margin: '0 0 20px', lineHeight: 1.45 },
   check: { display: 'flex', gap: 10, alignItems: 'center', fontSize: 15, color: colors.textMuted },
-  ok: {
-    background: colors.greenDim, color: colors.green, padding: 12,
-    borderRadius: 8, marginBottom: 16, border: `1px solid rgba(34,197,94,0.3)`,
-  },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,
     borderRadius: 8, marginBottom: 16, border: `1px solid rgba(239,68,68,0.3)`,

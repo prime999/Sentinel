@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { api, MaintenanceWindow, Monitor } from '../../api'
 import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import { useSaveToast } from '../../components/useSaveToast'
 import KebabMenu from '../../components/KebabMenu'
 import { colors } from '../../theme'
 
@@ -17,6 +18,7 @@ export default function SettingsMaintenance() {
   const [busy, setBusy] = useState(false)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('maintenance', 4)
+  const { toast, showSaved } = useSaveToast()
 
   async function load() {
     const [w, m] = await Promise.all([api.listMaintenance(), api.monitors()])
@@ -40,6 +42,7 @@ export default function SettingsMaintenance() {
       setMonitorId('')
       setStartsAt('')
       setEndsAt('')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Create failed')
@@ -53,6 +56,7 @@ export default function SettingsMaintenance() {
     try {
       await api.deleteMaintenance(deleteId)
       setDeleteId(null)
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
@@ -65,6 +69,7 @@ export default function SettingsMaintenance() {
 
   return (
     <>
+      {toast}
       {error && <div style={styles.error} role="alert">{error}</div>}
       <form onSubmit={handleCreate} style={styles.card}>
         <h3 style={styles.title}>Schedule Maintenance</h3>

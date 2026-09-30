@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { api, Customer } from '../../api'
 import { ColGroup, ResizableTh, useColumnResize } from '../../components/ColumnResize'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import { useSaveToast } from '../../components/useSaveToast'
 import KebabMenu from '../../components/KebabMenu'
 import PageHeader from '../../components/PageHeader'
 import { colors } from '../../theme'
@@ -14,13 +15,13 @@ export default function SettingsCustomers() {
   const [editName, setEditName] = useState('')
   const [editQuota, setEditQuota] = useState(1)
   const [editEmails, setEditEmails] = useState('')
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const tableRef = useRef<HTMLTableElement>(null)
   const { widths, startResize, autoFit } = useColumnResize('customers', 3)
+  const { toast, showSaved } = useSaveToast()
 
   async function load() {
     try {
@@ -41,12 +42,11 @@ export default function SettingsCustomers() {
   async function handleAdd(e: FormEvent) {
     e.preventDefault()
     setError('')
-    setMessage('')
     try {
       await api.createCustomer({ name, monitor_quota: quota })
       setName('')
       setQuota(1)
-      setMessage('Customer created')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create customer')
@@ -64,11 +64,10 @@ export default function SettingsCustomers() {
     e.preventDefault()
     if (!editing) return
     setError('')
-    setMessage('')
     try {
       await api.updateCustomer(editing.id, { name: editName, monitor_quota: editQuota, alert_emails: editEmails })
       setEditing(null)
-      setMessage('Customer updated')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed')
@@ -78,10 +77,9 @@ export default function SettingsCustomers() {
   async function handleTestEmails() {
     if (!editing) return
     setError('')
-    setMessage('')
     try {
       await api.testCustomerEmails(editing.id, editEmails)
-      setMessage('Test email sent')
+      showSaved()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Test failed'
       setError(/too many requests/i.test(msg) ? 'Too many requests — wait a minute and try again.' : msg)
@@ -92,11 +90,10 @@ export default function SettingsCustomers() {
     if (!deleteId) return
     setBusy(true)
     setError('')
-    setMessage('')
     try {
       await api.deleteCustomer(deleteId)
       setDeleteId(null)
-      setMessage('Customer deleted')
+      showSaved()
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
@@ -114,7 +111,7 @@ export default function SettingsCustomers() {
         subtitle="Group monitors by customer, set quotas, and default alert recipients. Alerts send after consecutive failures (default 2), not when you save an address."
       />
 
-      {message && <div style={styles.ok}>{message}</div>}
+      {toast}
       {error && <div style={styles.error} role="alert">{error}</div>}
 
       <div className="split-panels">
@@ -266,10 +263,6 @@ const styles: Record<string, React.CSSProperties> = {
   cardTitle: { margin: '0 0 20px', fontSize: 17, fontWeight: 600 },
   search: { maxWidth: 360, width: '100%', marginBottom: 16 },
   rowBtn: { fontSize: 13, padding: '6px 10px', minHeight: 32 },
-  ok: {
-    background: colors.greenDim, color: colors.green, padding: 12,
-    borderRadius: 8, marginBottom: 16, border: `1px solid rgba(34,197,94,0.3)`,
-  },
   error: {
     background: colors.redDim, color: colors.red, padding: 12,
     borderRadius: 8, marginBottom: 16, border: `1px solid rgba(239,68,68,0.3)`,

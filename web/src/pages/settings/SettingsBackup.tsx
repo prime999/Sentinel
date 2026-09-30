@@ -2,10 +2,10 @@ import { ChangeEvent, CSSProperties, useEffect, useRef, useState } from 'react'
 import {
   api,
   BackupSectionPreview,
-  PlatformBackupImportResult,
   PlatformBackupPreview,
 } from '../../api'
 import ModalCloseButton from '../../components/ModalCloseButton'
+import { useSaveToast } from '../../components/useSaveToast'
 import { useAuth } from '../../context/AuthContext'
 import { colors } from '../../theme'
 
@@ -48,16 +48,6 @@ function previewHasItems(preview: PlatformBackupPreview): boolean {
   return sections.some(s => (s?.total ?? 0) > 0) || preview.settings_included
 }
 
-function formatImportResult(result: PlatformBackupImportResult): string {
-  const line = (label: string, r: PlatformBackupImportResult['monitors']) =>
-    `${label}: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped`
-  return [
-    line('Customers', result.customers),
-    line('Users', result.users),
-    line('Monitors', result.monitors),
-  ].join(' · ')
-}
-
 export default function SettingsBackup() {
   const { isPlatformAdmin } = useAuth()
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
@@ -68,7 +58,7 @@ export default function SettingsBackup() {
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [importMode, setImportMode] = useState<ImportMode>('create_only')
   const [importBusy, setImportBusy] = useState(false)
-  const [message, setMessage] = useState('')
+  const { toast, showSaved } = useSaveToast()
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -99,10 +89,9 @@ export default function SettingsBackup() {
   async function handleExport() {
     setExportBusy(true)
     setError('')
-    setMessage('')
     try {
       await api.exportMonitorBackup(exportCustomer || undefined)
-      setMessage('Platform backup downloaded')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Export failed')
     } finally {
@@ -130,7 +119,6 @@ export default function SettingsBackup() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setMessage('')
     setError('')
     try {
       const parsed = JSON.parse(await file.text()) as Record<string, unknown>
@@ -150,10 +138,8 @@ export default function SettingsBackup() {
     setImportBusy(true)
     setError('')
     try {
-      const result = await api.importMonitorBackup({ ...importPayload, mode: importMode })
-      const summary = formatImportResult(result)
-      const settingsNote = result.settings_applied ? ' Settings applied.' : ''
-      setMessage(`Import finished. ${summary}.${settingsNote}`)
+      await api.importMonitorBackup({ ...importPayload, mode: importMode })
+      showSaved()
       setImportModalOpen(false)
       setImportPayload(null)
       setPreview(null)
@@ -193,7 +179,7 @@ export default function SettingsBackup() {
       </div>
 
       {error && <div style={styles.error}>{error}</div>}
-      {message && <div style={styles.success}>{message}</div>}
+      {toast}
 
       <section style={styles.section}>
         <h4 style={styles.sectionTitle}>Export</h4>
@@ -352,7 +338,7 @@ export default function SettingsBackup() {
 
 const styles: Record<string, CSSProperties> = {
   card: {
-    background: colors.surface,
+    background: colors.bgElevated,
     border: `1px solid ${colors.border}`,
     borderRadius: 12,
     padding: '24px 28px',
@@ -373,7 +359,6 @@ const styles: Record<string, CSSProperties> = {
   label: { fontWeight: 500, flexShrink: 0 },
   select: { width: 'auto', minWidth: 180, padding: '0 12px' },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
-  success: { background: colors.greenDim, color: colors.green, padding: 12, borderRadius: 8, marginBottom: 16 },
   warn: { background: colors.yellowDim, color: colors.text, padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 14 },
   backdrop: {
     position: 'fixed',

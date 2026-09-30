@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Monitor, StatusPageConfig } from '../../api'
+import { useSaveToast } from '../../components/useSaveToast'
 import { colors } from '../../theme'
 
 function normalizeConfig(c: Partial<StatusPageConfig> | null | undefined): StatusPageConfig {
@@ -15,8 +16,8 @@ export default function SettingsStatusPage() {
   const [cfg, setCfg] = useState<StatusPageConfig>({ enabled: false, title: 'System Status', monitor_ids: [] })
   const [monitors, setMonitors] = useState<Monitor[]>([])
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const { toast, showSaved } = useSaveToast()
 
   useEffect(() => {
     let cancelled = false
@@ -52,11 +53,10 @@ export default function SettingsStatusPage() {
   async function handleSave(e: FormEvent) {
     e.preventDefault()
     setError('')
-    setMessage('')
     try {
       const saved = await api.putStatusPageConfig(normalizeConfig(cfg))
       setCfg(normalizeConfig(saved))
-      setMessage('Status page settings saved')
+      showSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     }
@@ -68,7 +68,7 @@ export default function SettingsStatusPage() {
 
   return (
     <>
-      {message && <div style={styles.ok}>{message}</div>}
+      {toast}
       {error && <div style={styles.error} role="alert">{error}</div>}
       <form onSubmit={handleSave} style={styles.card}>
         <h3 style={styles.title}>Public Status Page</h3>
@@ -132,6 +132,5 @@ const styles: Record<string, React.CSSProperties> = {
   check: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 15 },
   list: { display: 'grid', gap: 8, maxHeight: 280, overflow: 'auto' },
   item: { display: 'flex', gap: 10, alignItems: 'center', fontSize: 15 },
-  ok: { background: 'rgba(34,197,94,0.15)', color: colors.green, padding: 12, borderRadius: 8, marginBottom: 16 },
   error: { background: colors.redDim, color: colors.red, padding: 12, borderRadius: 8, marginBottom: 16 },
 }

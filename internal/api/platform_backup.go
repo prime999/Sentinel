@@ -17,17 +17,17 @@ const (
 )
 
 type platformBackupFile struct {
-	Format               string                         `json:"format"`
-	Version              int                            `json:"version"`
-	ExportedAt           time.Time                      `json:"exported_at"`
-	ScopeTenantID        string                         `json:"scope_tenant_id,omitempty"`
-	Customers            []models.Customer              `json:"customers,omitempty"`
-	Users                []models.UserBackup            `json:"users,omitempty"`
-	Monitors             []models.Monitor               `json:"monitors"`
-	PerformanceTargets   []models.PerformanceTarget     `json:"performance_targets,omitempty"`
-	Hosts                []models.HostBackup            `json:"hosts,omitempty"`
-	MaintenanceWindows   []models.MaintenanceWindow     `json:"maintenance_windows,omitempty"`
-	Settings             *models.PlatformSettingsBackup `json:"settings,omitempty"`
+	Format             string                         `json:"format"`
+	Version            int                            `json:"version"`
+	ExportedAt         time.Time                      `json:"exported_at"`
+	ScopeTenantID      string                         `json:"scope_tenant_id,omitempty"`
+	Customers          []models.Customer              `json:"customers,omitempty"`
+	Users              []models.UserBackup            `json:"users,omitempty"`
+	Monitors           []models.Monitor               `json:"monitors"`
+	PerformanceTargets []models.PerformanceTarget     `json:"performance_targets,omitempty"`
+	Hosts              []models.HostBackup            `json:"hosts,omitempty"`
+	MaintenanceWindows []models.MaintenanceWindow     `json:"maintenance_windows,omitempty"`
+	Settings           *models.PlatformSettingsBackup `json:"settings,omitempty"`
 }
 
 type platformBackupImportBody struct {
