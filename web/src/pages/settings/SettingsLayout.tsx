@@ -8,7 +8,6 @@ const allTabs = [
   { path: '/settings/notifications', label: 'Notifications', platformOnly: false, adminOnly: true },
   { path: '/settings/maintenance', label: 'Maintenance', platformOnly: true },
   { path: '/settings/server', label: 'Server', platformOnly: true },
-  { path: '/settings/logs', label: 'Logs', platformOnly: true },
   { path: '/settings/status-page', label: 'Status Page', platformOnly: true },
   { path: '/settings/tokens', label: 'API Tokens', platformOnly: false },
   { path: '/settings/audit', label: 'Audit', platformOnly: true },

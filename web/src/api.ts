@@ -480,79 +480,6 @@ export interface HostStats {
   points: HostStatsPoint[]
 }
 
-export interface LogSource {
-  id: string
-  host_id: string
-  name: string
-  type: 'file' | 'journal'
-  path: string
-  tags?: string[]
-  enabled: boolean
-  min_level: string
-  include_patterns?: string[]
-  health: string
-  health_detail?: string
-  dropped_lines: number
-  created_at: string
-  updated_at: string
-}
-
-export interface LogAlertRule {
-  id: string
-  host_id: string
-  source_id?: string
-  name: string
-  pattern: string
-  threshold: number
-  window_seconds: number
-  severity: string
-  enabled: boolean
-  notify_email: boolean
-  notify_slack: boolean
-  notify_webhooks: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface LogEvent {
-  id: string
-  host_id: string
-  source_id: string
-  timestamp: string
-  level: string
-  message: string
-  fingerprint: string
-  metadata?: string
-  received_at: string
-}
-
-export interface LogVolumeBucket {
-  host_id: string
-  source_id: string
-  bucket_start: string
-  level: string
-  count: number
-}
-
-export interface LogSourceTemplate {
-  id: string
-  name: string
-  path: string
-  tags?: string[]
-  min_level: string
-  include_patterns?: string[]
-}
-
-export interface LogSettings {
-  retention_days: number
-  volume_retention_days: number
-  max_db_size_bytes: number
-  max_events_per_sec_host: number
-  max_events_per_sec_global: number
-  max_event_size_bytes: number
-  max_batch_events: number
-}
-
 export function isHostIncident(type?: string): boolean {
   return (type || '').startsWith('host_')
 }
@@ -894,45 +821,6 @@ export const api = {
     request<Host>(`/api/hosts/${id}/enroll`, { method: 'POST' }),
   hostStats: (id: string, win: StatsWindow | string = '24h') =>
     request<HostStats>(`/api/hosts/${id}/stats?${statsQueryParams(win)}`),
-  listLogSources: (hostId: string) =>
-    request<LogSource[]>(`/api/hosts/${hostId}/logs/sources`),
-  createLogSource: (hostId: string, data: Partial<LogSource>) =>
-    request<LogSource>(`/api/hosts/${hostId}/logs/sources`, { method: 'POST', body: JSON.stringify(data) }),
-  updateLogSource: (hostId: string, sid: string, data: Partial<LogSource>) =>
-    request<LogSource>(`/api/hosts/${hostId}/logs/sources/${sid}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteLogSource: (hostId: string, sid: string) =>
-    request(`/api/hosts/${hostId}/logs/sources/${sid}`, { method: 'DELETE' }),
-  listLogAlertRules: (hostId: string) =>
-    request<LogAlertRule[]>(`/api/hosts/${hostId}/logs/alert-rules`),
-  createLogAlertRule: (hostId: string, data: Partial<LogAlertRule>) =>
-    request<LogAlertRule>(`/api/hosts/${hostId}/logs/alert-rules`, { method: 'POST', body: JSON.stringify(data) }),
-  updateLogAlertRule: (hostId: string, rid: string, data: Partial<LogAlertRule>) =>
-    request<LogAlertRule>(`/api/hosts/${hostId}/logs/alert-rules/${rid}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteLogAlertRule: (hostId: string, rid: string) =>
-    request(`/api/hosts/${hostId}/logs/alert-rules/${rid}`, { method: 'DELETE' }),
-  queryLogEvents: (hostId: string, params: { source_id?: string; level?: string; q?: string; from?: string; to?: string; limit?: number } = {}) => {
-    const q = new URLSearchParams()
-    if (params.source_id) q.set('source_id', params.source_id)
-    if (params.level) q.set('level', params.level)
-    if (params.q) q.set('q', params.q)
-    if (params.from) q.set('from', params.from)
-    if (params.to) q.set('to', params.to)
-    if (params.limit) q.set('limit', String(params.limit))
-    const qs = q.toString()
-    return request<LogEvent[]>(`/api/hosts/${hostId}/logs/events${qs ? `?${qs}` : ''}`)
-  },
-  queryLogVolume: (hostId: string, params: { source_id?: string; from?: string; to?: string } = {}) => {
-    const q = new URLSearchParams()
-    if (params.source_id) q.set('source_id', params.source_id)
-    if (params.from) q.set('from', params.from)
-    if (params.to) q.set('to', params.to)
-    const qs = q.toString()
-    return request<LogVolumeBucket[]>(`/api/hosts/${hostId}/logs/volume${qs ? `?${qs}` : ''}`)
-  },
-  logSourceTemplates: () => request<LogSourceTemplate[]>('/api/logs/templates'),
-  getLogSettings: () => request<LogSettings>('/api/settings/logs'),
-  putLogSettings: (cfg: LogSettings) =>
-    request<LogSettings>('/api/settings/logs', { method: 'PUT', body: JSON.stringify(cfg) }),
   listCustomers: () => request<Customer[]>('/api/settings/customers'),
   createCustomer: (data: { name: string; monitor_quota?: number; alert_emails?: string }) =>
     request<Customer>('/api/settings/customers', { method: 'POST', body: JSON.stringify(data) }),

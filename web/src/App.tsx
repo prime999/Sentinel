@@ -22,7 +22,6 @@ import SettingsNotifications from './pages/settings/SettingsNotifications'
 import SettingsSlack from './pages/settings/SettingsSlack'
 import SettingsMaintenance from './pages/settings/SettingsMaintenance'
 import SettingsServer from './pages/settings/SettingsServer'
-import SettingsLogs from './pages/settings/SettingsLogs'
 import SettingsStatusPage from './pages/settings/SettingsStatusPage'
 import SettingsTokens from './pages/settings/SettingsTokens'
 import SettingsAudit from './pages/settings/SettingsAudit'
@@ -112,7 +111,6 @@ export default function App() {
             <Route path="webhooks" element={<Navigate to="/settings/notifications/webhooks" replace />} />
             <Route path="maintenance" element={<SettingsMaintenance />} />
             <Route path="server" element={<SettingsServer />} />
-            <Route path="logs" element={<PlatformAdminRoute><SettingsLogs /></PlatformAdminRoute>} />
             <Route path="status-page" element={<SettingsStatusPage />} />
             <Route path="tokens" element={<SettingsTokens />} />
             <Route path="audit" element={<SettingsAudit />} />

@@ -69,11 +69,6 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	logsClient := &http.Client{Timeout: 30 * time.Second}
-	follower := newLogFollower(cfg, logsClient)
-	follower.Start()
-	defer follower.Stop()
-
 	interval := time.Duration(collect.IntervalSeconds) * time.Second
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -91,7 +86,6 @@ func main() {
 			return
 		}
 		collect = models.SanitizeAgentConfig(next)
-		follower.UpdateConfig(collect)
 		nextInterval := time.Duration(collect.IntervalSeconds) * time.Second
 		if nextInterval != interval {
 			interval = nextInterval
@@ -100,7 +94,7 @@ func main() {
 	}
 
 	run()
-	if len(collect.Services) > 0 || len(collect.LogSources) > 0 {
+	if len(collect.Services) > 0 {
 		run()
 	}
 	for {

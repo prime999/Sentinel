@@ -4,14 +4,14 @@ import "time"
 
 // UserBackup includes password hash for disaster-recovery restore.
 type UserBackup struct {
-	ID           string   `json:"id"`
-	Username     string   `json:"username"`
-	Name         string   `json:"name"`
-	Email        string   `json:"email"`
-	PasswordHash string   `json:"password_hash"`
-	MFAEnabled   bool     `json:"mfa_enabled"`
-	Role         UserRole `json:"role"`
-	TenantID     string   `json:"tenant_id,omitempty"`
+	ID           string    `json:"id"`
+	Username     string    `json:"username"`
+	Name         string    `json:"name"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"password_hash"`
+	MFAEnabled   bool      `json:"mfa_enabled"`
+	Role         UserRole  `json:"role"`
+	TenantID     string    `json:"tenant_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -65,7 +65,6 @@ type PlatformSettingsBackup struct {
 	SMTP       *SMTPConfig          `json:"smtp,omitempty"`
 	Webhooks   []WebhookConfig      `json:"webhooks,omitempty"`
 	Server     *ServerSettings      `json:"server,omitempty"`
-	Logs       *LogSettings         `json:"logs,omitempty"`
 	StatusPage *StatusPageConfig    `json:"status_page,omitempty"`
 	Slack      []SlackSettingBackup `json:"slack,omitempty"`
 }

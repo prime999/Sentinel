@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/sentinel-monitoring/sentinel/internal/config"
-	"github.com/sentinel-monitoring/sentinel/internal/logpath"
 	"github.com/sentinel-monitoring/sentinel/internal/models"
 	"github.com/sentinel-monitoring/sentinel/internal/safehost"
 )
@@ -18,19 +17,17 @@ const (
 )
 
 type platformBackupFile struct {
-	Format               string                         `json:"format"`
-	Version              int                            `json:"version"`
-	ExportedAt           time.Time                      `json:"exported_at"`
-	ScopeTenantID        string                         `json:"scope_tenant_id,omitempty"`
-	Customers            []models.Customer              `json:"customers,omitempty"`
-	Users                []models.UserBackup            `json:"users,omitempty"`
-	Monitors             []models.Monitor               `json:"monitors"`
-	PerformanceTargets   []models.PerformanceTarget     `json:"performance_targets,omitempty"`
-	Hosts                []models.HostBackup            `json:"hosts,omitempty"`
-	LogSources           []models.LogSource             `json:"log_sources,omitempty"`
-	LogAlertRules        []models.LogAlertRule          `json:"log_alert_rules,omitempty"`
-	MaintenanceWindows   []models.MaintenanceWindow     `json:"maintenance_windows,omitempty"`
-	Settings             *models.PlatformSettingsBackup `json:"settings,omitempty"`
+	Format             string                         `json:"format"`
+	Version            int                            `json:"version"`
+	ExportedAt         time.Time                      `json:"exported_at"`
+	ScopeTenantID      string                         `json:"scope_tenant_id,omitempty"`
+	Customers          []models.Customer              `json:"customers,omitempty"`
+	Users              []models.UserBackup            `json:"users,omitempty"`
+	Monitors           []models.Monitor               `json:"monitors"`
+	PerformanceTargets []models.PerformanceTarget     `json:"performance_targets,omitempty"`
+	Hosts              []models.HostBackup            `json:"hosts,omitempty"`
+	MaintenanceWindows []models.MaintenanceWindow     `json:"maintenance_windows,omitempty"`
+	Settings           *models.PlatformSettingsBackup `json:"settings,omitempty"`
 }
 
 type platformBackupImportBody struct {
@@ -114,18 +111,6 @@ func (s *Server) buildPlatformExport(user *models.User, tenantScope string) (*pl
 	if err != nil {
 		return nil, err
 	}
-	hostIDs := make([]string, len(hosts))
-	for i, h := range hosts {
-		hostIDs[i] = h.ID
-	}
-	logSources, err := s.store.ListLogSourcesForHosts(hostIDs)
-	if err != nil {
-		return nil, err
-	}
-	logRules, err := s.store.ListLogAlertRulesForHosts(hostIDs)
-	if err != nil {
-		return nil, err
-	}
 	maint, err := s.store.ListMaintenanceWindowsForExport(tenantScope, monitorIDs)
 	if err != nil {
 		return nil, err
@@ -135,11 +120,6 @@ func (s *Server) buildPlatformExport(user *models.User, tenantScope string) (*pl
 	})
 	if err != nil {
 		return nil, err
-	}
-	if includePlatform {
-		if ls, err := s.store.GetLogSettings(); err == nil {
-			settings.Logs = &ls
-		}
 	}
 	var settingsPtr *models.PlatformSettingsBackup
 	if includePlatform || tenantScope != "" {
@@ -155,8 +135,6 @@ func (s *Server) buildPlatformExport(user *models.User, tenantScope string) (*pl
 		Monitors:           exportedMonitors,
 		PerformanceTargets: targets,
 		Hosts:              hosts,
-		LogSources:         logSources,
-		LogAlertRules:      logRules,
 		MaintenanceWindows: maint,
 		Settings:           settingsPtr,
 	}, nil
@@ -243,8 +221,6 @@ func (s *Server) importPlatformBackup(user *models.User, file platformBackupFile
 	importMonitorsPlatform(s, user, file.Monitors, mode, &result.Monitors)
 	importPerformanceTargets(s, user, file.PerformanceTargets, mode, &result.PerformanceTargets)
 	importHosts(s, user, file.Hosts, mode, &result.Hosts)
-	importLogSources(s, user, file.LogSources, mode)
-	importLogAlertRules(s, user, file.LogAlertRules, mode)
 	importMaintenance(s, user, file.MaintenanceWindows, mode, &result.MaintenanceWindows)
 
 	if file.Settings != nil && (isPlatformAdmin(user) || isCustomerAdmin(user)) {
@@ -557,63 +533,6 @@ func importHosts(s *Server, user *models.User, hosts []models.HostBackup, mode s
 			continue
 		}
 		result.Created++
-	}
-}
-
-func importLogSources(s *Server, user *models.User, sources []models.LogSource, mode string) {
-	for _, raw := range sources {
-		src := raw
-		if src.ID == "" || src.HostID == "" {
-			continue
-		}
-		h, err := s.store.GetHost(src.HostID)
-		if err != nil || h == nil || !tenantResourceAccessible(user, h.TenantID) {
-			continue
-		}
-		if src.Type == models.LogSourceJournal {
-			if !models.JournalUnitAllowed(src.Path) {
-				continue
-			}
-		} else if err := logpath.ValidatePath(src.Path); err != nil {
-			continue
-		}
-		existing, err := s.store.GetLogSource(src.ID)
-		if err != nil {
-			continue
-		}
-		if existing != nil {
-			if mode == "create_only" {
-				continue
-			}
-			_ = s.store.UpdateLogSource(&src)
-			continue
-		}
-		_ = s.store.CreateLogSource(&src)
-	}
-}
-
-func importLogAlertRules(s *Server, user *models.User, rules []models.LogAlertRule, mode string) {
-	for _, raw := range rules {
-		rule := raw
-		if rule.ID == "" || rule.HostID == "" {
-			continue
-		}
-		h, err := s.store.GetHost(rule.HostID)
-		if err != nil || h == nil || !tenantResourceAccessible(user, h.TenantID) {
-			continue
-		}
-		existing, err := s.store.GetLogAlertRule(rule.ID)
-		if err != nil {
-			continue
-		}
-		if existing != nil {
-			if mode == "create_only" {
-				continue
-			}
-			_ = s.store.UpdateLogAlertRule(&rule)
-			continue
-		}
-		_ = s.store.CreateLogAlertRule(&rule)
 	}
 }
 

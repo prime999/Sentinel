@@ -39,7 +39,23 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	removeLegacyLogsDB(path)
 	return s, nil
+}
+
+// removeLegacyLogsDB deletes the abandoned sidecar log-events database, if present.
+func removeLegacyLogsDB(mainPath string) {
+	dir := filepath.Dir(mainPath)
+	base := filepath.Base(mainPath)
+	var path string
+	if strings.HasSuffix(base, ".db") {
+		path = filepath.Join(dir, strings.TrimSuffix(base, ".db")+"-logs.db")
+	} else {
+		path = filepath.Join(dir, "sentinel-logs.db")
+	}
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		_ = os.Remove(p)
+	}
 }
 
 func (s *Store) Close() error {

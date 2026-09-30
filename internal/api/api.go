@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/sentinel-monitoring/sentinel/internal/alerter"
@@ -22,15 +21,12 @@ import (
 
 type Server struct {
 	store        *store.Store
-	logs         *store.LogsDB
 	alerter      *alerter.Alerter
 	sendMFACode  func(to, username, code string) error
 	defaultSMTP  models.SMTPConfig
 	dashboardURL string
 	mux          *http.ServeMux
 	limits       *rateLimiter
-	tailMu       sync.Mutex
-	tailLeases   map[string][]tailLeaseEntry
 }
 
 func New(s *store.Store, a *alerter.Alerter, cfg *config.Config) *Server {
@@ -45,7 +41,6 @@ func New(s *store.Store, a *alerter.Alerter, cfg *config.Config) *Server {
 		dashboardURL: cfg.Server.DashboardURL,
 		mux:          http.NewServeMux(),
 		limits:       newRateLimiter(),
-		tailLeases:   map[string][]tailLeaseEntry{},
 	}
 	srv.routes()
 	return srv
@@ -154,22 +149,6 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/hosts/agent/linux/{arch}/sha256", s.handleHostAgentSHA256)
 	s.mux.HandleFunc("POST /api/agent/enroll", s.handleAgentEnroll)
 	s.mux.HandleFunc("POST /api/agent/ingest", s.handleAgentIngest)
-	s.mux.HandleFunc("POST /api/agent/logs", s.handleAgentLogIngest)
-
-	s.mux.HandleFunc("GET /api/hosts/{id}/logs/sources", s.authRequired(s.handleListLogSources))
-	s.mux.HandleFunc("POST /api/hosts/{id}/logs/sources", s.adminRequired(s.handleCreateLogSource))
-	s.mux.HandleFunc("PUT /api/hosts/{id}/logs/sources/{sid}", s.adminRequired(s.handleUpdateLogSource))
-	s.mux.HandleFunc("DELETE /api/hosts/{id}/logs/sources/{sid}", s.adminRequired(s.handleDeleteLogSource))
-	s.mux.HandleFunc("GET /api/hosts/{id}/logs/events", s.authRequired(s.handleQueryLogEvents))
-	s.mux.HandleFunc("GET /api/hosts/{id}/logs/volume", s.authRequired(s.handleQueryLogVolume))
-	s.mux.HandleFunc("GET /api/hosts/{id}/logs/sources/{sid}/tail", s.authRequired(s.handleStartLogTail))
-	s.mux.HandleFunc("GET /api/hosts/{id}/logs/alert-rules", s.authRequired(s.handleListLogAlertRules))
-	s.mux.HandleFunc("POST /api/hosts/{id}/logs/alert-rules", s.adminRequired(s.handleCreateLogAlertRule))
-	s.mux.HandleFunc("PUT /api/hosts/{id}/logs/alert-rules/{rid}", s.adminRequired(s.handleUpdateLogAlertRule))
-	s.mux.HandleFunc("DELETE /api/hosts/{id}/logs/alert-rules/{rid}", s.adminRequired(s.handleDeleteLogAlertRule))
-	s.mux.HandleFunc("GET /api/logs/templates", s.authRequired(s.handleLogSourceTemplates))
-	s.mux.HandleFunc("GET /api/settings/logs", s.platformAdminRequired(s.handleGetLogSettings))
-	s.mux.HandleFunc("PUT /api/settings/logs", s.platformAdminRequired(s.handlePutLogSettings))
 
 	s.mux.HandleFunc("GET /api/public/status", s.handlePublicStatus)
 	s.mux.HandleFunc("GET /api/public/branding", s.handleGetGeneral)

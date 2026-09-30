@@ -177,26 +177,6 @@ Admin. Invalidates unused enroll tokens and issues a new install command.
 
 Chart points (`24h`, `7d`, `30d`): `cpu_percent`, `mem_percent`, `swap_percent`, `iowait_percent`, `disk_percent` (worst mount), `disks` (per mount), `load1`, `num_cpu`.
 
-### Host log collection
-
-Matched events and 1-minute volume buckets are stored in a separate `sentinel-logs.db` (WAL + `synchronous=NORMAL`). Sources, alert rules, and log caps live in the main DB. Paths must pass the log-only allowlist (`/var/log/**`, app `storage/logs` / `logs` under `/var/www` or `/srv`); denylist blocks `.env`, keys, `/etc/**`, and non-regular files. Agent and API both enforce the policy.
-
-| Method | Path | Who |
-|--------|------|-----|
-| GET/POST | `/api/hosts/{id}/logs/sources` | Any user / Admin |
-| PUT/DELETE | `/api/hosts/{id}/logs/sources/{sid}` | Admin |
-| GET | `/api/hosts/{id}/logs/events` | Any user (`q`, `level`, `source_id`, `from`, `to`) |
-| GET | `/api/hosts/{id}/logs/volume` | Any user |
-| GET | `/api/hosts/{id}/logs/sources/{sid}/tail` | Any user (SSE; grants a short agent live-tail lease) |
-| GET/POST | `/api/hosts/{id}/logs/alert-rules` | Any user / Admin |
-| PUT/DELETE | `/api/hosts/{id}/logs/alert-rules/{rid}` | Admin |
-| GET | `/api/logs/templates` | Any user |
-| GET/PUT | `/api/settings/logs` | Platform admin |
-
-### `POST /api/agent/logs`
-
-Agent Bearer ingest for batched `events`, `volumes`, and source `health`. Reply includes `HostAgentConfig` with `log_sources` and `tail_leases`.
-
 ### `GET /api/hosts/install.sh?token=`
 
 Public. Serves the installer for a valid unused enroll token. Prefer downloading and inspecting the script before `sudo sh`.
@@ -1105,21 +1085,11 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
 | DELETE | `/api/hosts/{id}` | Admin |
 | POST | `/api/hosts/{id}/enroll` | Admin |
 | GET | `/api/hosts/{id}/stats` | Any user |
-| GET/POST | `/api/hosts/{id}/logs/sources` | Any user / Admin |
-| PUT/DELETE | `/api/hosts/{id}/logs/sources/{sid}` | Admin |
-| GET | `/api/hosts/{id}/logs/events` | Any user |
-| GET | `/api/hosts/{id}/logs/volume` | Any user |
-| GET | `/api/hosts/{id}/logs/sources/{sid}/tail` | Any user |
-| GET/POST | `/api/hosts/{id}/logs/alert-rules` | Any user / Admin |
-| PUT/DELETE | `/api/hosts/{id}/logs/alert-rules/{rid}` | Admin |
-| GET | `/api/logs/templates` | Any user |
-| GET/PUT | `/api/settings/logs` | Platform admin |
 | GET | `/api/hosts/install.sh` | Public (enroll token) |
 | GET | `/api/hosts/agent/linux/{arch}` | Public (enroll token) |
 | GET | `/api/hosts/agent/linux/{arch}/sha256` | Public (enroll token) |
 | POST | `/api/agent/enroll` | Public (enroll token) |
 | POST | `/api/agent/ingest` | Agent ingest token |
-| POST | `/api/agent/logs` | Agent ingest token |
 | POST | `/api/auth/login` | Public |
 | POST | `/api/auth/logout` | Public |
 | POST | `/api/auth/mfa/verify` | Public |

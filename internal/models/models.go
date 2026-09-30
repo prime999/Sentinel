@@ -56,7 +56,6 @@ const (
 	IncidentHostRootLogin IncidentType = "host_root_login"
 	IncidentHostReboot    IncidentType = "host_reboot"
 	IncidentHostService   IncidentType = "host_service"
-	IncidentHostLog       IncidentType = "host_log"
 )
 
 type Customer struct {
