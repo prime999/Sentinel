@@ -182,19 +182,25 @@ export default function IncidentDetail() {
             </table>
           )}
           {incident.error_page.body_html ? (
-            <iframe
-              title="Captured error page"
-              sandbox=""
-              srcDoc={withBaseHref(incident.error_page.body_html, incident.error_page.page_url)}
-              style={{
-                width: '100%',
-                height: 420,
-                marginTop: 16,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 8,
-                background: '#fff',
-              }}
-            />
+            <>
+              <p style={{ margin: '12px 0 0', fontSize: 12, color: colors.textMuted, lineHeight: 1.45 }}>
+                Exact captured response (view only). Scripts run only inside this isolated preview so client-rendered pages can paint; they cannot access your Sentinel session.
+              </p>
+              <iframe
+                title="Captured error page"
+                sandbox="allow-scripts"
+                referrerPolicy="no-referrer"
+                srcDoc={withBaseHref(incident.error_page.body_html, incident.error_page.page_url)}
+                style={{
+                  width: '100%',
+                  height: 520,
+                  marginTop: 8,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 8,
+                  background: '#fff',
+                }}
+              />
+            </>
           ) : incident.error_page.excerpt ? (
             <pre style={{
               marginTop: 16,

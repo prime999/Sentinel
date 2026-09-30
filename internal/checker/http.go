@@ -190,10 +190,13 @@ func (c *Checker) probeHTTP(ctx context.Context, m *models.Monitor) *models.Chec
 	return result
 }
 
-// applyHTTPRequestHeaders sets the branded default User-Agent, then applies
-// optional monitor custom headers (which may override User-Agent).
+// applyHTTPRequestHeaders sets the branded default User-Agent and browser-like
+// Accept headers (so error pages match what a normal browser receives), then
+// applies optional monitor custom headers (which may override these).
 func applyHTTPRequestHeaders(req *http.Request, custom string) {
 	req.Header.Set("User-Agent", defaultHTTPUserAgent)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 	if custom == "" {
 		return
 	}
