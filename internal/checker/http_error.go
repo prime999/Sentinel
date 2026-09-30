@@ -9,7 +9,9 @@ import (
 )
 
 const (
-	errorPageBodyLimit    = 64 << 10
+	// Nuxt/Shopware error pages often embed a large __NUXT_DATA__ payload; 64KiB
+	// truncates mid-document and the sandboxed preview renders as a blank page.
+	errorPageBodyLimit    = 1 << 20
 	errorPageExcerptLimit = 240
 )
 

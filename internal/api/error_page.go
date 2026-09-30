@@ -11,7 +11,11 @@ import (
 	"github.com/sentinel-monitoring/sentinel/internal/models"
 )
 
-const errorPageCSP = "default-src 'none'; img-src *; style-src 'unsafe-inline' *; font-src *; base-uri 'self' https: http:"
+// Allow styles/images from the origin (via <base href>) and scripts so Nuxt /
+// Shopware client shells can hydrate from the embedded capture payload.
+// default-src stays locked down; the opaque preview iframe also omits
+// allow-same-origin so scripts cannot touch the Sentinel session.
+const errorPageCSP = "default-src 'none'; img-src * data: blob:; media-src * data: blob:; style-src 'unsafe-inline' *; font-src * data:; script-src 'unsafe-inline' 'unsafe-eval' https: http: blob:; connect-src https: http: ws: wss:; worker-src blob:; base-uri 'self' https: http:"
 
 func (s *Server) exposeErrorPageViewURL(item *models.IncidentListItem) {
 	if item == nil || item.ErrorPage == nil {

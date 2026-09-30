@@ -22,6 +22,12 @@ func TestApplyHTTPRequestHeadersDefaultUserAgent(t *testing.T) {
 	if got := req.Header.Get("User-Agent"); got != defaultHTTPUserAgent {
 		t.Fatalf("User-Agent=%q want %q", got, defaultHTTPUserAgent)
 	}
+	if got := req.Header.Get("Accept"); !strings.Contains(got, "text/html") {
+		t.Fatalf("Accept=%q want browser-like text/html", got)
+	}
+	if got := req.Header.Get("Accept-Language"); got == "" {
+		t.Fatal("Accept-Language should be set")
+	}
 }
 
 func TestApplyHTTPRequestHeadersCustomUserAgentOverrides(t *testing.T) {
