@@ -317,6 +317,30 @@ To change password, also send `"new_password": "Newpass12"`.
 
 ---
 
+## Sites
+
+Sites group HTTP/SSL/DNS/port monitors under a stable `site_id` (unchanged when names or URLs change).
+
+**List:** any user (tenant scoped). **Create/update/delete:** admin. Delete succeeds only when no monitors reference the site.
+
+### `GET /api/sites`
+
+Query: `customer` (platform admin, tenant UUID).
+
+### `POST /api/sites`
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"My Sofa Bed","primary_host":"mysofabed.de","tenant_id":""}' \
+  "$BASE/api/sites"
+```
+
+### `PUT /api/sites/{id}` — `DELETE /api/sites/{id}`
+
+Rename or update `primary_host`. Monitors reference the site via `site_id` on create/update.
+
+---
+
 ## Monitors
 
 **List/get:** any user. **Create/update/delete/pause:** admin.
@@ -1097,6 +1121,10 @@ curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" \
 | POST | `/api/auth/forgot-password` | Public |
 | POST | `/api/auth/reset-password` | Public |
 | GET, PUT | `/api/profile` | Any user |
+| GET | `/api/sites` | Any user |
+| POST | `/api/sites` | Admin |
+| PUT | `/api/sites/{id}` | Admin |
+| DELETE | `/api/sites/{id}` | Admin |
 | GET | `/api/monitors` | Any user |
 | POST | `/api/monitors` | Admin |
 | GET | `/api/monitors/{id}` | Any user |

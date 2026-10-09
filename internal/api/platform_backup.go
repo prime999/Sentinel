@@ -23,6 +23,7 @@ type platformBackupFile struct {
 	ScopeTenantID      string                         `json:"scope_tenant_id,omitempty"`
 	Customers          []models.Customer              `json:"customers,omitempty"`
 	Users              []models.UserBackup            `json:"users,omitempty"`
+	Sites                []models.Site                  `json:"sites,omitempty"`
 	Monitors           []models.Monitor               `json:"monitors"`
 	PerformanceTargets []models.PerformanceTarget     `json:"performance_targets,omitempty"`
 	Hosts              []models.HostBackup            `json:"hosts,omitempty"`
@@ -80,6 +81,10 @@ func (s *Server) buildPlatformExport(user *models.User, tenantScope string) (*pl
 	if err != nil {
 		return nil, err
 	}
+	sites, err := s.store.ListSitesForExport(tenantScope)
+	if err != nil {
+		return nil, err
+	}
 	monitors, err := s.store.ListMonitorsForExport(tenantScope)
 	if err != nil {
 		return nil, err
@@ -132,6 +137,7 @@ func (s *Server) buildPlatformExport(user *models.User, tenantScope string) (*pl
 		ScopeTenantID:      tenantScope,
 		Customers:          customers,
 		Users:              userBackups,
+		Sites:              sites,
 		Monitors:           exportedMonitors,
 		PerformanceTargets: targets,
 		Hosts:              hosts,
@@ -218,6 +224,7 @@ func (s *Server) importPlatformBackup(user *models.User, file platformBackupFile
 
 	importCustomers(s, user, file.Customers, mode, &result.Customers)
 	importUsers(s, user, file.Users, mode, &result.Users)
+	importSites(s, user, file.Sites, mode)
 	importMonitorsPlatform(s, user, file.Monitors, mode, &result.Monitors)
 	importPerformanceTargets(s, user, file.PerformanceTargets, mode, &result.PerformanceTargets)
 	importHosts(s, user, file.Hosts, mode, &result.Hosts)
@@ -533,6 +540,30 @@ func importHosts(s *Server, user *models.User, hosts []models.HostBackup, mode s
 			continue
 		}
 		result.Created++
+	}
+}
+
+func importSites(s *Server, user *models.User, sites []models.Site, mode string) {
+	for _, raw := range sites {
+		site := raw
+		if !tenantResourceAccessible(user, site.TenantID) {
+			continue
+		}
+		if strings.TrimSpace(site.ID) == "" || strings.TrimSpace(site.Name) == "" {
+			continue
+		}
+		existing, err := s.store.GetSite(site.ID)
+		if err != nil {
+			continue
+		}
+		if existing != nil {
+			if mode == "create_only" {
+				continue
+			}
+			_ = s.store.ReplaceSiteImport(&site)
+			continue
+		}
+		_ = s.store.InsertSiteImport(&site)
 	}
 }
 

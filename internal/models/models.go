@@ -98,6 +98,7 @@ type Monitor struct {
 	Tags                []string      `json:"tags"`
 	HeartbeatToken      string        `json:"heartbeat_token,omitempty"`
 	TenantID            string        `json:"tenant_id,omitempty"`
+	SiteID              string        `json:"site_id,omitempty"`
 	AlertAfterFailures  int           `json:"alert_after_failures"`
 	ConsecutiveFailures int           `json:"consecutive_failures"`
 	LastStatus          MonitorStatus `json:"last_status"`

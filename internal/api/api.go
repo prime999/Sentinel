@@ -60,6 +60,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/auth/forgot-password", s.handleForgotPassword)
 	s.mux.HandleFunc("POST /api/auth/reset-password", s.handleResetPassword)
 
+	s.mux.HandleFunc("GET /api/sites", s.authRequired(s.handleListSites))
+	s.mux.HandleFunc("POST /api/sites", s.adminRequired(s.handleCreateSite))
+	s.mux.HandleFunc("PUT /api/sites/{id}", s.adminRequired(s.handleUpdateSite))
+	s.mux.HandleFunc("DELETE /api/sites/{id}", s.adminRequired(s.handleDeleteSite))
+
 	s.mux.HandleFunc("GET /api/monitors", s.authRequired(s.handleListMonitors))
 	s.mux.HandleFunc("POST /api/monitors", s.adminRequired(s.handleCreateMonitor))
 	s.mux.HandleFunc("GET /api/monitors/{id}", s.authRequired(s.handleGetMonitor))
@@ -376,6 +381,15 @@ func (s *Server) handleCreateMonitor(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	m.SiteID = strings.TrimSpace(m.SiteID)
+	if err := s.validateMonitorSite(user, m.SiteID, m.TenantID); err != nil {
+		if err == errSiteNotFound || err == errSiteTenantMismatch {
+			jsonError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		jsonInternal(w, err)
+		return
+	}
 
 	if m.Type == models.MonitorHeartbeat {
 		token, err := randomToken(24)
@@ -479,6 +493,15 @@ func (s *Server) handleUpdateMonitor(w http.ResponseWriter, r *http.Request) {
 		existing.TenantID = user.TenantID
 	} else {
 		existing.TenantID = strings.TrimSpace(input.TenantID)
+	}
+	existing.SiteID = strings.TrimSpace(input.SiteID)
+	if err := s.validateMonitorSite(user, existing.SiteID, existing.TenantID); err != nil {
+		if err == errSiteNotFound || err == errSiteTenantMismatch {
+			jsonError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		jsonInternal(w, err)
+		return
 	}
 
 	if err := safehost.ValidateMonitorTarget(string(existing.Type), existing.URL, existing.Port); err != nil {

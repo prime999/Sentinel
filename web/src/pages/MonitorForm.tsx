@@ -101,6 +101,7 @@ export default function MonitorForm({
   const [tagsInput, setTagsInput] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [summary, setSummary] = useState<NotificationsSummary | null>(null)
+  const [siteId, setSiteId] = useState('')
 
   const canPerformance = /^https?:\/\//i.test(httpUrlFrom(target))
   const anyCheck = MONITOR_CHECKS.some(c => checks[c.key]) || checks.performance
@@ -145,7 +146,9 @@ export default function MonitorForm({
             if (m.type === 'heartbeat' && item.id === m.id) next.heartbeat = item
             continue
           }
-          if (!host || normalizeHost(item.url || '') !== host) continue
+          const sameSite = !!(m.site_id && item.site_id === m.site_id)
+          const sameHost = !!host && normalizeHost(item.url || '') === host
+          if (!sameSite && !sameHost) continue
           const t = (item.type || 'http') as MonitorType
           if (!next[t] || item.id === m.id) next[t] = item
         }
@@ -191,6 +194,12 @@ export default function MonitorForm({
           } catch { /* ignore */ }
         }
         setSiblings(next)
+        const siblingSiteIds = new Set(
+          Object.values(next).map(item => item.site_id?.trim()).filter((v): v is string => !!v),
+        )
+        if (m.site_id) setSiteId(m.site_id)
+        else if (siblingSiteIds.size === 1) setSiteId([...siblingSiteIds][0])
+        else setSiteId('')
         setPerfSibling(perf)
         setChecks({
           http: !!next.http?.enabled,
@@ -259,7 +268,7 @@ export default function MonitorForm({
     return payload
   }, [form, tagsInput, isPlatformAdmin])
 
-  function payloadForType(type: MonitorType, existing?: Monitor): Partial<Monitor> {
+  function payloadForType(type: MonitorType, existing?: Monitor, activeSiteId?: string): Partial<Monitor> {
     const host = normalizeHost(target)
     const httpUrl = httpUrlFrom(target)
     const base: Partial<Monitor> = {
@@ -267,6 +276,13 @@ export default function MonitorForm({
       ...sharedFields,
       type,
       enabled: true,
+    }
+    if (type === 'heartbeat') {
+      base.site_id = ''
+    } else if (activeSiteId) {
+      base.site_id = activeSiteId
+    } else if (existing?.site_id) {
+      base.site_id = existing.site_id
     }
     if (type === 'http') {
       return {
@@ -307,15 +323,15 @@ export default function MonitorForm({
     }
   }
 
-  async function saveType(type: MonitorType, enabled: boolean): Promise<string | undefined> {
+  async function saveType(type: MonitorType, enabled: boolean, activeSiteId?: string): Promise<string | undefined> {
     const existing = siblings[type]
     if (enabled) {
       if (existing) {
-        await api.updateMonitor(existing.id, payloadForType(type, existing))
+        await api.updateMonitor(existing.id, payloadForType(type, existing, activeSiteId))
         if (existing.enabled === false) await api.setMonitorEnabled(existing.id, true)
         return existing.id
       }
-      const created = await api.createMonitor(payloadForType(type))
+      const created = await api.createMonitor(payloadForType(type, undefined, activeSiteId))
       return created.id
     }
     if (existing?.enabled !== false && existing) {
@@ -373,10 +389,33 @@ export default function MonitorForm({
     const errors: string[] = []
     let firstId = id
     const types: MonitorType[] = ['http', 'ssl', 'dns', 'port', 'heartbeat']
+    const domainChecks = checks.http || checks.ssl || checks.dns || checks.port
     try {
+      let activeSiteId = siteId
+      if (needsTarget && domainChecks) {
+        const host = normalizeHost(target)
+        const siteName = (form.name || host).trim()
+        try {
+          if (!activeSiteId) {
+            const created = await api.createSite({
+              name: siteName || host,
+              primary_host: host,
+              tenant_id: form.tenant_id || '',
+            })
+            activeSiteId = created.id
+            setSiteId(created.id)
+          } else {
+            await api.updateSite(activeSiteId, { name: siteName || host, primary_host: host })
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to save site')
+          setSaving(false)
+          return
+        }
+      }
       for (const type of types) {
         try {
-          const savedId = await saveType(type, checks[type])
+          const savedId = await saveType(type, checks[type], domainChecks ? activeSiteId : undefined)
           if (!firstId && savedId) firstId = savedId
         } catch (err) {
           errors.push(`${labelFor(type)}: ${err instanceof Error ? err.message : 'failed'}`)
@@ -600,7 +639,7 @@ export default function MonitorForm({
           </>
         )}
 
-        <Field label="Name">
+        <Field label={needsTarget ? 'Site name' : 'Name'}>
           <input required value={form.name || ''} onChange={e => set('name', e.target.value)} className="input" />
         </Field>
         {isPlatformAdmin && (

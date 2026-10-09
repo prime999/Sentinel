@@ -108,7 +108,7 @@ func (s *Store) InsertMonitorImport(m *models.Monitor) error {
 	prepareMonitorImport(m)
 	_, err := s.db.Exec(`
 		INSERT INTO monitors (`+monitorColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		m.ID, string(m.Type), m.Name, m.URL, m.Port, nullString(m.Config), m.Method,
 		m.ExpectedStatus, m.ExpectedStatusMin, m.ExpectedStatusMax,
 		nullString(m.KeywordMustExist), nullString(m.KeywordMustNotExist),
@@ -117,7 +117,7 @@ func (s *Store) InsertMonitorImport(m *models.Monitor) error {
 		m.IntervalSeconds, m.TimeoutMs, m.SlowThresholdMs,
 		boolToInt(m.FollowRedirects), nullString(m.AlertEmails), boolToInt(m.Enabled),
 		boolToInt(m.NotifyEmail), boolToInt(m.NotifySlack), boolToInt(m.NotifyWebhooks), boolToInt(m.Invert),
-		encodeTags(m.Tags), nullString(m.HeartbeatToken), nullString(m.TenantID), m.AlertAfterFailures,
+		encodeTags(m.Tags), nullString(m.HeartbeatToken), nullString(m.TenantID), nullString(m.SiteID), m.AlertAfterFailures,
 		m.ConsecutiveFailures, string(m.LastStatus), nil,
 		formatTime(m.CreatedAt), formatTime(m.UpdatedAt),
 	)
@@ -132,7 +132,7 @@ func (s *Store) ReplaceMonitorImport(m *models.Monitor) error {
 			type=?, name=?, url=?, port=?, config=?, method=?, expected_status=?, expected_status_min=?, expected_status_max=?,
 			keyword_must_exist=?, keyword_must_not_exist=?, request_body=?, request_headers=?, http_username=?, http_password=?,
 			interval_seconds=?, timeout_ms=?, slow_threshold_ms=?, follow_redirects=?,
-			alert_emails=?, enabled=?, notify_email=?, notify_slack=?, notify_webhooks=?, invert=?, tags=?, heartbeat_token=?, tenant_id=?, alert_after_failures=?,
+			alert_emails=?, enabled=?, notify_email=?, notify_slack=?, notify_webhooks=?, invert=?, tags=?, heartbeat_token=?, tenant_id=?, site_id=?, alert_after_failures=?,
 			consecutive_failures=?, last_status=?, last_checked_at=?,
 			updated_at=?
 		WHERE id=?`,
@@ -144,7 +144,7 @@ func (s *Store) ReplaceMonitorImport(m *models.Monitor) error {
 		m.IntervalSeconds, m.TimeoutMs, m.SlowThresholdMs, boolToInt(m.FollowRedirects),
 		nullString(m.AlertEmails), boolToInt(m.Enabled),
 		boolToInt(m.NotifyEmail), boolToInt(m.NotifySlack), boolToInt(m.NotifyWebhooks), boolToInt(m.Invert),
-		encodeTags(m.Tags), nullString(m.HeartbeatToken), nullString(m.TenantID), m.AlertAfterFailures,
+		encodeTags(m.Tags), nullString(m.HeartbeatToken), nullString(m.TenantID), nullString(m.SiteID), m.AlertAfterFailures,
 		m.ConsecutiveFailures, string(m.LastStatus), nil,
 		formatTime(m.UpdatedAt), m.ID,
 	)
