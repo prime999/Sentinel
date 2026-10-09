@@ -1,28 +1,6 @@
-import { colors, radius } from '../theme'
+import CheckTypePill from './CheckTypePill'
 
-function labelFor(type?: string, url?: string): string {
-  if (!type || type === 'http') {
-    if (url?.startsWith('https://')) return 'HTTPS'
-    if (url?.startsWith('http://')) return 'HTTP'
-    return 'HTTP'
-  }
-  const labels: Record<string, string> = { port: 'PORT', ssl: 'SSL', dns: 'DNS', heartbeat: 'HEARTBEAT' }
-  return labels[type] || type.toUpperCase()
-}
-
+/** Alias kept for existing call sites — same Lucide type pills as the monitors list. */
 export default function TypeBadge({ type, url }: { type?: string; url?: string }) {
-  return (
-    <span style={{
-      background: colors.brandDim,
-      color: colors.brand,
-      padding: '3px 8px',
-      borderRadius: radius.sm,
-      fontSize: 13,
-      fontWeight: 600,
-      letterSpacing: '0.06em',
-      border: `1px solid color-mix(in srgb, ${colors.brand} 32%, transparent)`,
-    }}>
-      {labelFor(type, url)}
-    </span>
-  )
+  return <CheckTypePill type={type} url={url} />
 }

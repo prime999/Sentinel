@@ -1,3 +1,4 @@
+import { MoreVertical } from 'lucide-react'
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -77,11 +78,7 @@ export default function KebabMenu({
         aria-expanded={open}
         onClick={() => setOpen(v => !v)}
       >
-        <span className="kebab-dots" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </span>
+        <MoreVertical size={16} strokeWidth={2} aria-hidden />
       </button>
       {open && createPortal(
         <div

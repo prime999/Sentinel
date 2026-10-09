@@ -1,96 +1,51 @@
-import type { ReactNode } from 'react'
-import type { MonitorType } from '../api'
+import {
+  Activity,
+  Gauge,
+  Globe,
+  Layers3,
+  Monitor,
+  Network,
+  Shield,
+  type LucideIcon,
+} from 'lucide-react'
+import { colors } from '../theme'
 
-export type MonitorKind = 'site' | MonitorType | 'standalone'
+export type MonitorKind = 'site' | 'http' | 'ssl' | 'dns' | 'port' | 'heartbeat' | 'standalone' | 'performance'
 
-const sizeDefault = 18
-
-function SvgWrap({ children, size }: { children: ReactNode; size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      {children}
-    </svg>
-  )
-}
-
-export default function MonitorKindIcon({ kind, size = sizeDefault }: { kind: MonitorKind; size?: number }) {
-  switch (kind) {
-    case 'site':
-      return (
-        <SvgWrap size={size}>
-          <path
-            d="M12 3.5 18.5 7v10L12 20.5 5.5 17V7L12 3.5Z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M9.5 10.5h5v5h-5v-5Z"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinejoin="round"
-          />
-          <path d="M12 10.5V8M12 15.5V18" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        </SvgWrap>
-      )
-    case 'http':
-      return (
-        <SvgWrap size={size}>
-          <rect x="3.5" y="5" width="17" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M3.5 9h17" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M8 17.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        </SvgWrap>
-      )
-    case 'ssl':
-      return (
-        <SvgWrap size={size}>
-          <path
-            d="M12 3.5 16 5.5v4.2c0 3.1-1.7 5.9-4 7.3-2.3-1.4-4-4.2-4-7.3V5.5l4-2Z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-          <path d="M9.5 12.5 11 14l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </SvgWrap>
-      )
-    case 'port':
-      return (
-        <SvgWrap size={size}>
-          <path d="M6 8h12M6 12h12M6 16h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          <path d="M4 8v8M20 8v8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </SvgWrap>
-      )
-    case 'dns':
-      return (
-        <SvgWrap size={size}>
-          <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M4.5 12h15M12 4.5c2.5 2.8 2.5 12.2 0 15M12 4.5c-2.5 2.8-2.5 12.2 0 15" stroke="currentColor" strokeWidth="1.4" />
-        </SvgWrap>
-      )
-    case 'heartbeat':
-    case 'standalone':
-      return (
-        <SvgWrap size={size}>
-          <path
-            d="M4 12h2.5l2-4 3 8 2.5-5H20"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </SvgWrap>
-      )
-    default:
-      return (
-        <SvgWrap size={size}>
-          <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="1.6" />
-        </SvgWrap>
-      )
-  }
+/** Per-type colors from the Lucide icon sheet. */
+const kindMeta: Record<MonitorKind, { Icon: LucideIcon; color: string }> = {
+  site: { Icon: Layers3, color: colors.brand },
+  http: { Icon: Monitor, color: colors.blue },
+  ssl: { Icon: Shield, color: '#60A5FA' },
+  dns: { Icon: Globe, color: '#A78BFA' },
+  port: { Icon: Network, color: '#FB923C' },
+  heartbeat: { Icon: Activity, color: colors.green },
+  standalone: { Icon: Activity, color: colors.green },
+  performance: { Icon: Gauge, color: colors.red },
 }
 
 export function monitorKindFor(type?: string, standalone?: boolean): MonitorKind {
   if (standalone) return 'standalone'
   if (!type || type === 'http') return 'http'
-  return type as MonitorKind
+  if (type === 'performance' || type === 'perf') return 'performance'
+  if (type === 'ssl' || type === 'dns' || type === 'port' || type === 'heartbeat') return type
+  return 'http'
+}
+
+export function kindColor(kind: MonitorKind): string {
+  return kindMeta[kind].color
+}
+
+export default function MonitorKindIcon({
+  kind,
+  size = 18,
+  color,
+}: {
+  kind: MonitorKind
+  size?: number
+  color?: string
+}) {
+  const meta = kindMeta[kind] || kindMeta.http
+  const Icon = meta.Icon
+  return <Icon size={size} color={color || meta.color} strokeWidth={1.75} aria-hidden />
 }
