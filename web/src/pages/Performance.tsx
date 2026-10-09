@@ -79,7 +79,9 @@ export default function Performance() {
   const [deleting, setDeleting] = useState(false)
   const [togglingId, setTogglingId] = useState('')
   const tableRef = useRef<HTMLTableElement>(null)
-  const { widths, startResize, autoFit } = useColumnResize('performance', 7)
+  const { widths, startResize, autoFit } = useColumnResize('performance', 7, [
+    null, 128, 110, 100, 88, 104, 52,
+  ])
 
   useEffect(() => {
     if (!isPlatformAdmin) return

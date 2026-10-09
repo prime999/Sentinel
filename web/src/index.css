@@ -1911,6 +1911,10 @@ a:focus-visible,
   min-width: 640px;
 }
 
+.data-table--monitors {
+  min-width: 980px;
+}
+
 .monitor-group-by {
   display: flex;
   align-items: center;
