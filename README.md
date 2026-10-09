@@ -1,6 +1,6 @@
 # Sentinel — Self-Hosted Website Monitoring
 
-Sentinel is a lightweight, self-hosted monitoring tool for Linux servers. Monitor websites, ports, SSL certificates, and DNS records from a single dashboard with SMTP email alerts.
+Sentinel is a lightweight, self-hosted monitoring tool for Linux servers. Monitor websites, ports, SSL certificates, DNS, and host metrics from a single dashboard with SMTP email alerts.
 
 ## Features
 
@@ -22,6 +22,12 @@ Sentinel is a lightweight, self-hosted monitoring tool for Linux servers. Monito
 ### DNS Monitoring
 - Track A, AAAA, MX, TXT, NS, and CNAME records
 - Alert when records change (e.g. A record changed from x.x.x.x to y.y.y.y)
+
+### Host Monitoring
+- Lightweight Linux agent pushes CPU, memory, swap, disk, load, and I/O metrics outbound (no inbound ports on the host)
+- systemd service health and security signals (failed auth, root logins, reboot required)
+- Threshold alerts with warning/critical levels and consecutive-breach delay
+- Host list and detail views with history charts
 
 ### Dashboard
 - Monitor list with live status, type badges, and response times
@@ -140,8 +146,9 @@ Single `sentinel` binary runs everything:
 
 1. **Scheduler** — interval-based checks with worker pool
 2. **Probers** — HTTP, port, SSL, and DNS checkers
-3. **Alert engine** — SMTP notifications on state changes
-4. **REST API + Dashboard** — embedded React UI
+3. **Host agents** — outbound metric push from Linux servers
+4. **Alert engine** — SMTP notifications on state changes
+5. **REST API + Dashboard** — embedded React UI
 
 
 ## License

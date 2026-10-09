@@ -101,7 +101,10 @@ export default function Monitors() {
   const [deleting, setDeleting] = useState(false)
   const [togglingId, setTogglingId] = useState('')
   const tableRef = useRef<HTMLTableElement>(null)
-  const { widths, startResize, autoFit } = useColumnResize('monitors', 7)
+  // Site/Monitor is fluid (null); other cols stay compact under table-layout:fixed.
+  const { widths, startResize, autoFit } = useColumnResize('monitors', 7, [
+    null, 118, 128, 152, 88, 96, 52,
+  ])
 
   async function load() {
     try {
@@ -393,7 +396,7 @@ export default function Monitors() {
             </div>
           ) : (
             <Panel padded={false} className="data-table-wrap">
-              <table ref={tableRef} className="data-table">
+              <table ref={tableRef} className="data-table data-table--monitors">
                 <ColGroup widths={widths} />
                 <thead>
                   <tr>

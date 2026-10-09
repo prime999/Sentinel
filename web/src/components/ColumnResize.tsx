@@ -6,7 +6,7 @@ const MAX_FIT = 720
 export type SortDir = 'asc' | 'desc'
 
 function storageKey(id: string) {
-  return `sentinel.colw.${id}`
+  return `sentinel.colw.v2.${id}`
 }
 
 export function compareValues(a: unknown, b: unknown): number {
@@ -56,16 +56,33 @@ export function useTableSort<T>(
   return { sorted, header }
 }
 
-export function useColumnResize(tableId: string, columnCount: number) {
+function resolveWidths(
+  columnCount: number,
+  defaults?: (number | null)[],
+  stored?: unknown,
+): (number | null)[] {
+  const fallback = () => {
+    if (defaults && defaults.length === columnCount) return [...defaults]
+    return Array(columnCount).fill(null) as (number | null)[]
+  }
+  if (!Array.isArray(stored) || stored.length !== columnCount) return fallback()
+  const parsed = stored.map(v => (typeof v === 'number' && v > 0 ? v : null))
+  // All-null means "never customized" — apply table defaults so primary columns stay readable.
+  if (parsed.every(v => v == null)) return fallback()
+  return parsed
+}
+
+export function useColumnResize(
+  tableId: string,
+  columnCount: number,
+  defaults?: (number | null)[],
+) {
   const [widths, setWidths] = useState<(number | null)[]>(() => {
     try {
       const raw = localStorage.getItem(storageKey(tableId))
-      if (!raw) return Array(columnCount).fill(null)
-      const parsed = JSON.parse(raw) as unknown
-      if (!Array.isArray(parsed) || parsed.length !== columnCount) return Array(columnCount).fill(null)
-      return parsed.map(v => (typeof v === 'number' && v > 0 ? v : null))
+      return resolveWidths(columnCount, defaults, raw ? JSON.parse(raw) : null)
     } catch {
-      return Array(columnCount).fill(null)
+      return resolveWidths(columnCount, defaults)
     }
   })
 
