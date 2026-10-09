@@ -1968,15 +1968,15 @@ a:focus-visible,
 
 .monitor-site-icon-wrap {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--green);
-  background: color-mix(in srgb, var(--green) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--green) 42%, transparent);
-  clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 36%, transparent);
+  border-radius: 8px;
 }
 
 .monitor-kind-icon-wrap {
@@ -1986,7 +1986,6 @@ a:focus-visible,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--muted);
   background: var(--elevated);
   border: 1px solid var(--border);
   border-radius: 8px;

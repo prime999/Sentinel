@@ -13,6 +13,7 @@ import MonitorForm from './MonitorForm'
 import SegmentedTabs from '../components/SegmentedTabs'
 import Sparkline from '../components/Sparkline'
 import StatusBadge, { badgeStatusFor, isPaused } from '../components/StatusBadge'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import CheckTypePill from '../components/CheckTypePill'
 import MonitorKindIcon, { monitorKindFor } from '../components/MonitorKindIcon'
 import { useAuth } from '../context/AuthContext'
@@ -438,10 +439,12 @@ export default function Monitors() {
                                 aria-label={expanded ? 'Collapse site' : 'Expand site'}
                                 onClick={() => toggleSiteExpand(site.id)}
                               >
-                                {expanded ? '▾' : '▸'}
+                                {expanded
+                                  ? <ChevronDown size={16} strokeWidth={2} />
+                                  : <ChevronRight size={16} strokeWidth={2} />}
                               </button>
                               <span className="monitor-site-icon-wrap" aria-hidden>
-                                <MonitorKindIcon kind="site" size={16} />
+                                <MonitorKindIcon kind="site" size={18} />
                               </span>
                               <div className="monitor-name-text">
                                 <span style={styles.monitorName}>{site.name}</span>

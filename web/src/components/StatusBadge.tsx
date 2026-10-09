@@ -1,3 +1,12 @@
+import {
+  AlertTriangle,
+  CircleCheck,
+  CircleHelp,
+  CirclePause,
+  CircleX,
+  Clock,
+  type LucideIcon,
+} from 'lucide-react'
 import { colors, radius } from '../theme'
 
 const labels: Record<string, string> = {
@@ -12,16 +21,16 @@ const labels: Record<string, string> = {
   paused: 'Paused',
 }
 
-const statusStyles: Record<string, { bg: string; text: string; dot: string }> = {
-  up: { bg: colors.greenDim, text: colors.green, dot: colors.green },
-  down: { bg: colors.redDim, text: colors.red, dot: colors.red },
-  degraded: { bg: colors.yellowDim, text: colors.yellow, dot: colors.yellow },
-  critical: { bg: colors.redDim, text: colors.red, dot: colors.red },
-  paused: { bg: 'rgba(156,163,175,0.12)', text: colors.textMuted, dot: colors.textMuted },
-  pending: { bg: 'rgba(156,163,175,0.12)', text: colors.textMuted, dot: colors.textMuted },
-  online: { bg: colors.greenDim, text: colors.green, dot: colors.green },
-  offline: { bg: colors.redDim, text: colors.red, dot: colors.red },
-  unknown: { bg: 'rgba(156,163,175,0.12)', text: colors.textMuted, dot: colors.textMuted },
+const statusMeta: Record<string, { bg: string; text: string; Icon: LucideIcon }> = {
+  up: { bg: colors.greenDim, text: colors.green, Icon: CircleCheck },
+  down: { bg: colors.redDim, text: colors.red, Icon: CircleX },
+  degraded: { bg: colors.yellowDim, text: colors.yellow, Icon: AlertTriangle },
+  critical: { bg: colors.redDim, text: colors.red, Icon: CircleX },
+  paused: { bg: 'rgba(156,163,175,0.12)', text: colors.textMuted, Icon: CirclePause },
+  pending: { bg: colors.blueDim, text: colors.blue, Icon: Clock },
+  online: { bg: colors.greenDim, text: colors.green, Icon: CircleCheck },
+  offline: { bg: colors.redDim, text: colors.red, Icon: CircleX },
+  unknown: { bg: 'rgba(156,163,175,0.12)', text: colors.textMuted, Icon: CircleHelp },
 }
 
 export function isPaused(target: { enabled?: boolean }): boolean {
@@ -36,7 +45,8 @@ export function badgeStatusFor(monitorType: string | undefined, status: string, 
 }
 
 export default function StatusBadge({ status }: { status: string }) {
-  const c = statusStyles[status] || statusStyles.unknown
+  const c = statusMeta[status] || statusMeta.unknown
+  const Icon = c.Icon
   return (
     <span style={{
       display: 'inline-flex',
@@ -50,7 +60,7 @@ export default function StatusBadge({ status }: { status: string }) {
       fontWeight: 600,
       letterSpacing: '0.02em',
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: 1, background: c.dot }} />
+      <Icon size={14} color={c.text} strokeWidth={2} aria-hidden />
       {labels[status] || status}
     </span>
   )
