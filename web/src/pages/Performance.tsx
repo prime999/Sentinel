@@ -8,6 +8,7 @@ import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../compone
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import ConfirmDialog from '../components/ConfirmDialog'
 import KebabMenu from '../components/KebabMenu'
+import MonitorKindIcon from '../components/MonitorKindIcon'
 import PerformanceForm from './PerformanceForm'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
@@ -307,10 +308,15 @@ export default function Performance() {
                     return (
                       <tr key={t.id} className={health === 'failed' ? 'row-down' : health === 'warning' || health === 'critical' ? 'row-warn' : undefined}>
                         <td>
-                          <Link to={`/performance/${t.id}`} style={styles.targetLink}>
-                            <span style={styles.targetName}>{t.name}</span>
-                            <span style={styles.targetUrl}>{t.url}</span>
-                          </Link>
+                          <div className="monitor-name-cell">
+                            <span className="monitor-kind-icon-wrap" aria-hidden>
+                              <MonitorKindIcon kind="performance" size={16} color={colors.blue} />
+                            </span>
+                            <Link to={`/performance/${t.id}`} style={styles.targetLink}>
+                              <span style={styles.targetName}>{t.name}</span>
+                              <span style={styles.targetUrl}>{t.url}</span>
+                            </Link>
+                          </div>
                         </td>
                         <td>
                           <span style={{
