@@ -21,7 +21,7 @@ const kindMeta: Record<MonitorKind, { Icon: LucideIcon; color: string }> = {
   port: { Icon: Network, color: '#FB923C' },
   heartbeat: { Icon: Activity, color: colors.green },
   standalone: { Icon: Activity, color: colors.green },
-  performance: { Icon: Gauge, color: colors.red },
+  performance: { Icon: Gauge, color: colors.blue },
 }
 
 export function monitorKindFor(type?: string, standalone?: boolean): MonitorKind {
