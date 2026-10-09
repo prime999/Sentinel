@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, Incident, Monitor } from '../api'
-import { ColGroup, ResizableTh, useColumnResize, useTableSort } from '../components/ColumnResize'
+import { api, Incident, Monitor, Site } from '../api'
+import { ColGroup, ResizableTh, useColumnResize } from '../components/ColumnResize'
 import ConfirmDialog from '../components/ConfirmDialog'
 import CustomerFilter, { matchesCustomerFilter } from '../components/CustomerFilter'
 import DashboardRail from '../components/DashboardRail'
@@ -16,6 +16,31 @@ import StatusBadge, { badgeStatusFor, isPaused } from '../components/StatusBadge
 import TypeBadge from '../components/TypeBadge'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
+import {
+  aggregateSiteStatus,
+  checkBadgeLabel,
+  childCheckLabel,
+  groupMonitorsBySite,
+  healthyCheckCounts,
+  primarySiteMonitor,
+} from '../utils/monitorSiteGroups'
+
+const SITE_EXPAND_KEY = 'sentinel-site-expand'
+
+function loadExpandedSites(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(SITE_EXPAND_KEY)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw) as string[]
+    return new Set(Array.isArray(parsed) ? parsed : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveExpandedSites(set: Set<string>) {
+  sessionStorage.setItem(SITE_EXPAND_KEY, JSON.stringify([...set]))
+}
 
 type StatusTab = 'all' | 'up' | 'degraded' | 'down' | 'paused'
 
@@ -60,6 +85,8 @@ function monitorTarget(m: Monitor): string {
 export default function Monitors() {
   const { user, isAdmin, isPlatformAdmin } = useAuth()
   const [monitors, setMonitors] = useState<Monitor[]>([])
+  const [sites, setSites] = useState<Site[]>([])
+  const [expandedSites, setExpandedSites] = useState<Set<string>>(loadExpandedSites)
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [statsMap, setStatsMap] = useState<Record<string, RowStats>>({})
   const [tagFilter, setTagFilter] = useState('')
@@ -77,11 +104,13 @@ export default function Monitors() {
 
   async function load() {
     try {
-      const [mons, incs] = await Promise.all([
+      const [mons, incs, siteList] = await Promise.all([
         api.monitors({ tag: tagFilter || undefined }),
         api.incidents({ limit: 50, offset: 0 }),
+        api.listSites(),
       ])
       setMonitors(mons)
+      setSites(siteList)
       setIncidents(incs.items)
       setError('')
     } catch (err) {
@@ -120,16 +149,37 @@ export default function Monitors() {
     return searched.filter(m => !isPaused(m) && m.last_status === statusTab)
   }, [searched, statusTab])
 
-  const sortValue = useCallback((m: Monitor, key: string) => {
-    if (key === 'name') return m.name
-    if (key === 'type') return m.type
-    if (key === 'status') return isPaused(m) ? 'paused' : m.last_status
-    if (key === 'response') return m.latest_response_time_ms ?? null
-    if (key === 'uptime') return statsMap[m.id]?.uptime_pct ?? null
-    if (key === 'checked') return m.last_checked_at || ''
-    return null
-  }, [statsMap])
-  const { sorted, header } = useTableSort(filtered, sortValue)
+  const sitesScoped = useMemo(
+    () => sites.filter(s => matchesCustomerFilter(s.tenant_id, selectedCustomers)),
+    [sites, selectedCustomers],
+  )
+
+  const { groups: siteGroups, standalone: standaloneMonitors } = useMemo(
+    () => groupMonitorsBySite(filtered, sitesScoped),
+    [filtered, sitesScoped],
+  )
+
+  function toggleSiteExpand(siteId: string) {
+    setExpandedSites(prev => {
+      const next = new Set(prev)
+      if (next.has(siteId)) next.delete(siteId)
+      else next.add(siteId)
+      saveExpandedSites(next)
+      return next
+    })
+  }
+
+  useEffect(() => {
+    if (!q) return
+    setExpandedSites(prev => {
+      const next = new Set(prev)
+      for (const g of siteGroups) {
+        if (g.monitors.length > 0) next.add(g.site.id)
+      }
+      saveExpandedSites(next)
+      return next
+    })
+  }, [q, siteGroups])
 
   async function confirmDelete() {
     if (!deleteMonitor) return
@@ -143,6 +193,21 @@ export default function Monitors() {
       setError(err instanceof Error ? err.message : 'Delete failed')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function renameSite(site: Site) {
+    const next = window.prompt('Site name', site.name)
+    if (next == null) return
+    const name = next.trim()
+    if (!name || name === site.name) return
+    setError('')
+    try {
+      await api.updateSite(site.id, { name, primary_host: site.primary_host })
+      setSites(prev => prev.map(s => s.id === site.id ? { ...s, name } : s))
+      setMonitors(prev => prev.map(m => m.site_id === site.id ? { ...m, name } : m))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not rename site')
     }
   }
 
@@ -325,107 +390,133 @@ export default function Monitors() {
                 <ColGroup widths={widths} />
                 <thead>
                   <tr>
-                    <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('name')}>Monitor</ResizableTh>
-                    <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('type')}>Type</ResizableTh>
-                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('status')}>Status</ResizableTh>
-                    <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('response')}>Response Time</ResizableTh>
-                    <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('uptime')}>Uptime (30d)</ResizableTh>
-                    <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef} {...header('checked')}>Last Checked</ResizableTh>
+                    <ResizableTh index={0} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Site / Monitor</ResizableTh>
+                    <ResizableTh index={1} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Checks</ResizableTh>
+                    <ResizableTh index={2} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Status</ResizableTh>
+                    <ResizableTh index={3} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Response Time</ResizableTh>
+                    <ResizableTh index={4} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Uptime (30d)</ResizableTh>
+                    <ResizableTh index={5} style={styles.th} startResize={startResize} autoFit={autoFit} tableRef={tableRef}>Last Checked</ResizableTh>
                     <ResizableTh index={6} className="col-actions" resize={false} startResize={startResize} autoFit={autoFit} tableRef={tableRef} />
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map(m => {
-                    const pausedRow = isPaused(m)
-                    const st = statsMap[m.id]
-                    const ms = m.latest_response_time_ms
-                    const sparkColor = pausedRow
+                  {siteGroups.map(({ site, monitors: children }) => {
+                    const expanded = expandedSites.has(site.id)
+                    const agg = aggregateSiteStatus(children)
+                    const counts = healthyCheckCounts(children)
+                    const primary = primarySiteMonitor(children)
+                    const primaryPaused = primary ? isPaused(primary) : true
+                    const st = primary ? statsMap[primary.id] : undefined
+                    const ms = primary?.latest_response_time_ms
+                    const sparkColor = primaryPaused
                       ? colors.textMuted
-                      : m.last_status === 'down'
+                      : agg === 'down'
                         ? colors.red
-                        : m.last_status === 'degraded'
+                        : agg === 'degraded'
                           ? colors.yellow
                           : colors.green
+                    const types = [...new Set(children.map(c => c.type))]
+                    const visibleTypes = types.slice(0, 3)
+                    const overflow = types.length - visibleTypes.length
                     return (
-                      <tr
-                        key={m.id}
-                        className={pausedRow ? undefined : m.last_status === 'down' ? 'row-down' : m.last_status === 'degraded' ? 'row-warn' : undefined}
-                      >
-                        <td>
-                          <Link to={`/monitors/${m.id}`} style={styles.monitorLink}>
-                            <span style={styles.monitorName}>{m.name}</span>
-                            <span style={styles.monitorUrl}>{monitorTarget(m)}</span>
-                          </Link>
-                        </td>
-                        <td>
-                          <TypeBadge type={m.type} url={m.url} />
-                        </td>
-                        <td>
-                          <StatusBadge status={badgeStatusFor(m.type, m.last_status, m.enabled)} />
-                        </td>
-                        <td>
-                          <div style={styles.responseCell}>
-                            <span className="num" style={{ fontWeight: 600 }}>
-                              {typeof ms === 'number' ? `${ms}ms` : '—'}
-                            </span>
-                            {st?.points && st.points.length > 1 && (
-                              <Sparkline values={st.points} color={sparkColor} />
-                            )}
-                          </div>
-                        </td>
-                        <td className="num">
-                          {st ? `${st.uptime_pct.toFixed(2)}%` : '—'}
-                        </td>
-                        <td className="num" style={{ color: colors.textMuted }}>
-                          {pausedRow ? 'Paused' : m.last_checked_at ? timeAgo(m.last_checked_at) : 'Waiting'}
-                        </td>
-                        <td className="col-actions">
-                          <KebabMenu>
-                            {close => (
-                              <>
-                                <Link to={`/monitors/${m.id}`} onClick={close}>
-                                  View
-                                </Link>
-                                {isAdmin && (
+                      <Fragment key={site.id}>
+                        <tr
+                          className={agg === 'down' ? 'row-down' : agg === 'degraded' ? 'row-warn' : undefined}
+                        >
+                          <td>
+                            <div style={styles.siteCell}>
+                              <button
+                                type="button"
+                                className="btn"
+                                style={styles.expandBtn}
+                                aria-expanded={expanded}
+                                aria-label={expanded ? 'Collapse site' : 'Expand site'}
+                                onClick={() => toggleSiteExpand(site.id)}
+                              >
+                                {expanded ? '▾' : '▸'}
+                              </button>
+                              <div style={styles.siteTitleBlock}>
+                                <span style={styles.monitorName}>{site.name}</span>
+                                <span style={styles.monitorUrl}>{site.primary_host || monitorTarget(primary || children[0])}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={styles.checkBadges}>
+                              {visibleTypes.map(t => (
+                                <span key={t} style={styles.checkBadge}>{checkBadgeLabel(t)}</span>
+                              ))}
+                              {overflow > 0 && <span style={styles.checkBadgeMuted}>+{overflow}</span>}
+                            </div>
+                          </td>
+                          <td>
+                            <StatusBadge status={badgeStatusFor('http', agg, agg !== 'paused')} />
+                            <div style={styles.checkCount}>{counts.up} / {counts.total} checks</div>
+                          </td>
+                          <td>
+                            <div style={styles.responseCell}>
+                              <span className="num" style={{ fontWeight: 600 }}>
+                                {typeof ms === 'number' ? `${ms}ms` : '—'}
+                              </span>
+                              {st?.points && st.points.length > 1 && (
+                                <Sparkline values={st.points} color={sparkColor} />
+                              )}
+                            </div>
+                          </td>
+                          <td className="num">{st ? `${st.uptime_pct.toFixed(2)}%` : '—'}</td>
+                          <td className="num" style={{ color: colors.textMuted }}>
+                            {primary && !primaryPaused && primary.last_checked_at ? timeAgo(primary.last_checked_at) : primaryPaused ? 'Paused' : 'Waiting'}
+                          </td>
+                          <td className="col-actions">
+                            {isAdmin && (
+                              <KebabMenu>
+                                {close => (
                                   <>
-                                    <button
-                                      type="button"
-                                      disabled={togglingId === m.id}
-                                      onClick={() => {
-                                        close()
-                                        togglePause(m)
-                                      }}
-                                    >
-                                      {pausedRow ? 'Resume' : 'Pause'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        close()
-                                        setMonitorForm(m.id)
-                                      }}
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="kebab-danger"
-                                      onClick={() => {
-                                        close()
-                                        setDeleteMonitor(m)
-                                      }}
-                                    >
-                                      Delete
+                                    {children[0] && (
+                                      <button type="button" onClick={() => { close(); setMonitorForm(children[0].id) }}>
+                                        Edit checks
+                                      </button>
+                                    )}
+                                    <button type="button" onClick={() => { close(); renameSite(site) }}>
+                                      Rename site
                                     </button>
                                   </>
                                 )}
-                              </>
+                              </KebabMenu>
                             )}
-                          </KebabMenu>
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
+                        {expanded && children.map(m => (
+                          <MonitorTableRow
+                            key={m.id}
+                            m={m}
+                            statsMap={statsMap}
+                            indent
+                            label={childCheckLabel(m)}
+                            isAdmin={!!isAdmin}
+                            togglingId={togglingId}
+                            onTogglePause={togglePause}
+                            onEdit={() => setMonitorForm(m.id)}
+                            onDelete={() => setDeleteMonitor(m)}
+                          />
+                        ))}
+                      </Fragment>
                     )
                   })}
+                  {standaloneMonitors.map(m => (
+                    <MonitorTableRow
+                      key={m.id}
+                      m={m}
+                      statsMap={statsMap}
+                      standalone={m.type === 'heartbeat'}
+                      label={m.name}
+                      isAdmin={!!isAdmin}
+                      togglingId={togglingId}
+                      onTogglePause={togglePause}
+                      onEdit={() => setMonitorForm(m.id)}
+                      onDelete={() => setDeleteMonitor(m)}
+                    />
+                  ))}
                 </tbody>
               </table>
             </Panel>
@@ -446,6 +537,95 @@ export default function Monitors() {
         />
       )}
     </div>
+  )
+}
+
+function MonitorTableRow({
+  m,
+  statsMap,
+  indent,
+  standalone,
+  label,
+  isAdmin,
+  togglingId,
+  onTogglePause,
+  onEdit,
+  onDelete,
+}: {
+  m: Monitor
+  statsMap: Record<string, RowStats>
+  indent?: boolean
+  standalone?: boolean
+  label: string
+  isAdmin: boolean
+  togglingId: string
+  onTogglePause: (m: Monitor) => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const pausedRow = isPaused(m)
+  const st = statsMap[m.id]
+  const ms = m.latest_response_time_ms
+  const sparkColor = pausedRow
+    ? colors.textMuted
+    : m.last_status === 'down'
+      ? colors.red
+      : m.last_status === 'degraded'
+        ? colors.yellow
+        : colors.green
+  return (
+    <tr
+      className={pausedRow ? undefined : m.last_status === 'down' ? 'row-down' : m.last_status === 'degraded' ? 'row-warn' : undefined}
+    >
+      <td>
+        <div style={{ ...styles.siteCell, paddingLeft: indent ? 28 : 0 }}>
+          {indent && <span style={styles.treeLine} aria-hidden />}
+          <Link to={`/monitors/${m.id}`} style={styles.monitorLink}>
+            <span style={styles.monitorName}>
+              {label}
+              {standalone && <span style={styles.standaloneBadge}>Standalone</span>}
+            </span>
+            <span style={styles.monitorUrl}>{monitorTarget(m)}</span>
+          </Link>
+        </div>
+      </td>
+      <td><TypeBadge type={m.type} url={m.url} /></td>
+      <td>
+        <StatusBadge status={badgeStatusFor(m.type, m.last_status, m.enabled)} />
+      </td>
+      <td>
+        <div style={styles.responseCell}>
+          <span className="num" style={{ fontWeight: 600 }}>
+            {typeof ms === 'number' ? `${ms}ms` : '—'}
+          </span>
+          {st?.points && st.points.length > 1 && (
+            <Sparkline values={st.points} color={sparkColor} />
+          )}
+        </div>
+      </td>
+      <td className="num">{st ? `${st.uptime_pct.toFixed(2)}%` : '—'}</td>
+      <td className="num" style={{ color: colors.textMuted }}>
+        {pausedRow ? 'Paused' : m.last_checked_at ? timeAgo(m.last_checked_at) : 'Waiting'}
+      </td>
+      <td className="col-actions">
+        <KebabMenu>
+          {close => (
+            <>
+              <Link to={`/monitors/${m.id}`} onClick={close}>View</Link>
+              {isAdmin && (
+                <>
+                  <button type="button" disabled={togglingId === m.id} onClick={() => { close(); onTogglePause(m) }}>
+                    {pausedRow ? 'Resume' : 'Pause'}
+                  </button>
+                  <button type="button" onClick={() => { close(); onEdit() }}>Edit</button>
+                  <button type="button" className="kebab-danger" onClick={() => { close(); onDelete() }}>Delete</button>
+                </>
+              )}
+            </>
+          )}
+        </KebabMenu>
+      </td>
+    </tr>
   )
 }
 
@@ -471,5 +651,67 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
+  },
+  siteCell: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
+    minWidth: 0,
+  },
+  expandBtn: {
+    minWidth: 28,
+    minHeight: 28,
+    padding: 0,
+    fontSize: 14,
+    lineHeight: 1,
+  },
+  siteTitleBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    minWidth: 0,
+  },
+  checkBadges: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  checkBadge: {
+    fontSize: 11,
+    fontWeight: 600,
+    padding: '2px 8px',
+    borderRadius: 6,
+    border: `1px solid color-mix(in srgb, ${colors.brand} 35%, transparent)`,
+    color: colors.text,
+  },
+  checkBadgeMuted: {
+    fontSize: 11,
+    fontWeight: 600,
+    padding: '2px 8px',
+    borderRadius: 6,
+    background: colors.bgElevated,
+    color: colors.textMuted,
+  },
+  checkCount: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+  treeLine: {
+    width: 2,
+    alignSelf: 'stretch',
+    marginRight: 8,
+    background: colors.border,
+    borderRadius: 1,
+  },
+  standaloneBadge: {
+    marginLeft: 8,
+    fontSize: 10,
+    fontWeight: 600,
+    padding: '2px 6px',
+    borderRadius: 4,
+    background: 'color-mix(in srgb, var(--color-brand, #3b82f6) 18%, transparent)',
+    color: colors.brand,
+    verticalAlign: 'middle',
   },
 }

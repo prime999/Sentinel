@@ -31,11 +31,21 @@ export interface Monitor {
   tags?: string[]
   heartbeat_token?: string
   tenant_id?: string
+  site_id?: string
   alert_after_failures?: number
   consecutive_failures?: number
   last_status: 'up' | 'down' | 'degraded' | 'unknown'
   last_checked_at?: string
   latest_response_time_ms?: number
+}
+
+export interface Site {
+  id: string
+  name: string
+  tenant_id?: string
+  primary_host: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface CheckResult {
@@ -714,6 +724,17 @@ export const api = {
   getProfile: () => request<Profile>('/api/profile'),
   updateProfile: (data: UpdateProfileRequest) =>
     request<Profile>('/api/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  listSites: (opts?: { customer?: string }) => {
+    const params = new URLSearchParams()
+    if (opts?.customer) params.set('customer', opts.customer)
+    const q = params.toString()
+    return request<Site[]>(q ? `/api/sites?${q}` : '/api/sites')
+  },
+  createSite: (data: Partial<Site>) =>
+    request<Site>('/api/sites', { method: 'POST', body: JSON.stringify(data) }),
+  updateSite: (id: string, data: Partial<Site>) =>
+    request<Site>(`/api/sites/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSite: (id: string) => request(`/api/sites/${id}`, { method: 'DELETE' }),
   monitors: (opts?: { tag?: string; customer?: string }) => {
     const params = new URLSearchParams()
     if (opts?.tag) params.set('tag', opts.tag)
