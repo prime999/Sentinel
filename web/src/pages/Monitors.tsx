@@ -13,12 +13,12 @@ import MonitorForm from './MonitorForm'
 import SegmentedTabs from '../components/SegmentedTabs'
 import Sparkline from '../components/Sparkline'
 import StatusBadge, { badgeStatusFor, isPaused } from '../components/StatusBadge'
-import TypeBadge from '../components/TypeBadge'
+import CheckTypePill from '../components/CheckTypePill'
+import MonitorKindIcon, { monitorKindFor } from '../components/MonitorKindIcon'
 import { useAuth } from '../context/AuthContext'
 import { colors } from '../theme'
 import {
   aggregateSiteStatus,
-  checkBadgeLabel,
   childCheckLabel,
   groupMonitorsBySite,
   healthyCheckCounts,
@@ -338,6 +338,12 @@ export default function Monitors() {
                 onChange={id => setStatusTab(id as StatusTab)}
                 tabs={statusTabs}
               />
+              <div className="monitor-group-by">
+                <span className="monitor-group-by-label">Group by:</span>
+                <select className="input monitor-group-by-select" value="site" aria-label="Group monitors by">
+                  <option value="site">Site</option>
+                </select>
+              </div>
             </div>
           )}
 
@@ -424,18 +430,20 @@ export default function Monitors() {
                           className={agg === 'down' ? 'row-down' : agg === 'degraded' ? 'row-warn' : undefined}
                         >
                           <td>
-                            <div style={styles.siteCell}>
+                            <div className="monitor-name-cell">
                               <button
                                 type="button"
-                                className="btn"
-                                style={styles.expandBtn}
+                                className="monitor-tree-chevron"
                                 aria-expanded={expanded}
                                 aria-label={expanded ? 'Collapse site' : 'Expand site'}
                                 onClick={() => toggleSiteExpand(site.id)}
                               >
                                 {expanded ? '▾' : '▸'}
                               </button>
-                              <div style={styles.siteTitleBlock}>
+                              <span className="monitor-site-icon-wrap" aria-hidden>
+                                <MonitorKindIcon kind="site" size={16} />
+                              </span>
+                              <div className="monitor-name-text">
                                 <span style={styles.monitorName}>{site.name}</span>
                                 <span style={styles.monitorUrl}>{site.primary_host || monitorTarget(primary || children[0])}</span>
                               </div>
@@ -443,9 +451,12 @@ export default function Monitors() {
                           </td>
                           <td>
                             <div style={styles.checkBadges}>
-                              {visibleTypes.map(t => (
-                                <span key={t} style={styles.checkBadge}>{checkBadgeLabel(t)}</span>
-                              ))}
+                              {visibleTypes.map(t => {
+                                const sample = children.find(c => c.type === t)
+                                return (
+                                  <CheckTypePill key={t} type={t} url={sample?.url} />
+                                )
+                              })}
                               {overflow > 0 && <span style={styles.checkBadgeMuted}>+{overflow}</span>}
                             </div>
                           </td>
@@ -486,12 +497,13 @@ export default function Monitors() {
                             )}
                           </td>
                         </tr>
-                        {expanded && children.map(m => (
+                        {expanded && children.map((m, childIdx) => (
                           <MonitorTableRow
                             key={m.id}
                             m={m}
                             statsMap={statsMap}
                             indent
+                            isLast={childIdx === children.length - 1}
                             label={childCheckLabel(m)}
                             isAdmin={!!isAdmin}
                             togglingId={togglingId}
@@ -508,7 +520,7 @@ export default function Monitors() {
                       key={m.id}
                       m={m}
                       statsMap={statsMap}
-                      standalone={m.type === 'heartbeat'}
+                      standalone
                       label={m.name}
                       isAdmin={!!isAdmin}
                       togglingId={togglingId}
@@ -544,6 +556,7 @@ function MonitorTableRow({
   m,
   statsMap,
   indent,
+  isLast,
   standalone,
   label,
   isAdmin,
@@ -555,6 +568,7 @@ function MonitorTableRow({
   m: Monitor
   statsMap: Record<string, RowStats>
   indent?: boolean
+  isLast?: boolean
   standalone?: boolean
   label: string
   isAdmin: boolean
@@ -578,18 +592,30 @@ function MonitorTableRow({
       className={pausedRow ? undefined : m.last_status === 'down' ? 'row-down' : m.last_status === 'degraded' ? 'row-warn' : undefined}
     >
       <td>
-        <div style={{ ...styles.siteCell, paddingLeft: indent ? 28 : 0 }}>
-          {indent && <span style={styles.treeLine} aria-hidden />}
+        <div className={`monitor-name-cell${indent ? ' monitor-name-cell--child' : ''}`}>
+          {indent && (
+            <div className={`monitor-tree-gutter${isLast ? ' is-last' : ''}`} aria-hidden />
+          )}
+          {!indent && (
+            <span className="monitor-kind-icon-wrap" aria-hidden>
+              <MonitorKindIcon kind={monitorKindFor(m.type, standalone)} size={16} />
+            </span>
+          )}
+          {indent && (
+            <span className="monitor-kind-icon-wrap" aria-hidden>
+              <MonitorKindIcon kind={monitorKindFor(m.type)} size={16} />
+            </span>
+          )}
           <Link to={`/monitors/${m.id}`} style={styles.monitorLink}>
             <span style={styles.monitorName}>
               {label}
-              {standalone && <span style={styles.standaloneBadge}>Standalone</span>}
+              {standalone && <span className="monitor-standalone-badge">Standalone</span>}
             </span>
             <span style={styles.monitorUrl}>{monitorTarget(m)}</span>
           </Link>
         </div>
       </td>
-      <td><TypeBadge type={m.type} url={m.url} /></td>
+      <td><CheckTypePill type={m.type} url={m.url} /></td>
       <td>
         <StatusBadge status={badgeStatusFor(m.type, m.last_status, m.enabled)} />
       </td>
@@ -652,37 +678,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 10,
   },
-  siteCell: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 8,
-    minWidth: 0,
-  },
-  expandBtn: {
-    minWidth: 28,
-    minHeight: 28,
-    padding: 0,
-    fontSize: 14,
-    lineHeight: 1,
-  },
-  siteTitleBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-    minWidth: 0,
-  },
   checkBadges: {
     display: 'flex',
     flexWrap: 'wrap',
     gap: 6,
-  },
-  checkBadge: {
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 6,
-    border: `1px solid color-mix(in srgb, ${colors.brand} 35%, transparent)`,
-    color: colors.text,
+    alignItems: 'center',
   },
   checkBadgeMuted: {
     fontSize: 11,
@@ -696,22 +696,5 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     color: colors.textMuted,
     marginTop: 4,
-  },
-  treeLine: {
-    width: 2,
-    alignSelf: 'stretch',
-    marginRight: 8,
-    background: colors.border,
-    borderRadius: 1,
-  },
-  standaloneBadge: {
-    marginLeft: 8,
-    fontSize: 10,
-    fontWeight: 600,
-    padding: '2px 6px',
-    borderRadius: 4,
-    background: 'color-mix(in srgb, var(--color-brand, #3b82f6) 18%, transparent)',
-    color: colors.brand,
-    verticalAlign: 'middle',
   },
 }
